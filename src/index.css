@@ -46,6 +46,26 @@
   }
 }
 
+/* Login: la linea central de las carreteras avanza y la tarjeta entra con un leve ascenso */
+@keyframes road-flow {
+  to { stroke-dashoffset: -48; }
+}
+@keyframes login-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+.road-flow { animation: road-flow 2.4s linear infinite; }
+.road-flow-rev { animation: road-flow 3.2s linear infinite reverse; }
+.login-rise { animation: login-rise 0.5s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .road-flow,
+  .road-flow-rev,
+  .login-rise {
+    animation: none;
+  }
+}
+
 /* Evita el zoom automatico de iOS al enfocar un campo en pantallas pequenas */
 @media (max-width: 639px) {
   input:not([type='checkbox']):not([type='radio']):not([type='file']),
