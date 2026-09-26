@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { AppProvider, useApp } from '@/store/AppContext';
 import { AuthProvider, useAuth } from '@/store/AuthContext';
 import { LoginScreen } from '@/components/auth/LoginScreen';
-import { Sidebar } from '@/components/layout/Sidebar';
+import { Sidebar, type SidebarMode } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { ActivosModule } from '@/components/modules/ActivosModule';
 import { InventarioModule } from '@/components/modules/InventarioModule';
@@ -10,6 +10,7 @@ import { OrdenesModule } from '@/components/modules/OrdenesModule';
 import { CombustibleModule } from '@/components/modules/CombustibleModule';
 import { ReportesModule } from '@/components/modules/ReportesModule';
 import { NotificacionesModule } from '@/components/modules/NotificacionesModule';
+import { RequisasModule } from '@/components/modules/RequisasModule';
 import { AdminModule } from '@/components/modules/AdminModule';
 import { modulePermissions } from '@/lib/permissions';
 import { Lock } from 'lucide-react';
@@ -40,19 +41,25 @@ function ModuleRouter() {
     case 'combustible': return <CombustibleModule />;
     case 'reportes': return <ReportesModule />;
     case 'notificaciones': return <NotificacionesModule />;
+    case 'requisas': return <RequisasModule />;
     case 'administracion': return <AdminModule />;
     default: return <ActivosModule />;
   }
 }
 
 function AppLayout() {
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuMode, setMenuMode] = useState<SidebarMode>('hidden');
+  const mini = menuMode === 'mini';
 
   return (
     <div className="flex min-h-screen bg-stone-100">
-      <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
-      <div className="flex-1 flex flex-col min-w-0">
-        <Header onMenuClick={() => setMenuOpen(true)} />
+      <Sidebar mode={menuMode} onModeChange={setMenuMode} />
+      {/* la franja de iconos (3.5rem) empuja el contenido en movil para no taparlo */}
+      <div className={`flex-1 flex flex-col min-w-0 transition-[padding] duration-200 motion-reduce:transition-none ${mini ? 'pl-14 lg:pl-0' : ''}`}>
+        <Header
+          menuLabel={mini ? 'Ocultar menu' : 'Abrir menu'}
+          onMenuClick={() => setMenuMode(m => (m === 'mini' ? 'hidden' : 'full'))}
+        />
         <main className="flex-1 overflow-y-auto">
           <ModuleRouter />
         </main>

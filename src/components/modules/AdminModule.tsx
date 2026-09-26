@@ -265,7 +265,7 @@ function PermissionsTab() {
             {permissionGroups.map(group => (
               <Fragment key={group.title}>
                 <tr className="bg-stone-50">
-                  <td colSpan={4} className="font-heading text-xs font-bold text-stone-600 uppercase tracking-wide">
+                  <td colSpan={roleOrder.length + 1} className="font-heading text-xs font-bold text-stone-600 uppercase tracking-wide">
                     {group.title}
                   </td>
                 </tr>

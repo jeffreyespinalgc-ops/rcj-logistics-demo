@@ -230,8 +230,8 @@ export function OrdenesModule() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+    <div className="p-4 sm:p-6 flex flex-col gap-4">
+      <div className="hidden sm:grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         <StatCard label="Total OTs" value={stats.total} icon={<ClipboardList size={28} />} />
         <StatCard label="Por Aprobar" value={stats.porAprobar} icon={<AlertCircle size={28} />} />
         <StatCard label="En Ejecucion" value={stats.enEjecucion} icon={<Play size={28} />} />
@@ -462,7 +462,6 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
 }) {
   const { hasPermission } = useApp();
   const blocked = blockingReason(ot);
-  const pending = pendingFindings(ot);
   const isAssigned = ot.assignedTo === currentUser;
   const isCreator = ot.createdBy === currentUser;
   const canSeeAllOTs = hasPermission('ot.ver.todas');
@@ -549,15 +548,6 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
           </div>
         )}
 
-        {pending.length > 0 && (
-          <div className="px-5 py-3 bg-orange-50 border-b border-orange-100 flex items-center gap-2">
-            <Flag size={16} className="text-orange-600 flex-shrink-0" />
-            <p className="text-sm text-orange-800">
-              {pending.length} hallazgo{pending.length !== 1 ? 's' : ''} pendiente{pending.length !== 1 ? 's' : ''} de aprobacion del Jefe de Taller.
-            </p>
-          </div>
-        )}
-
         {ot.status === 'finalizada' && (
           <div className="px-5 py-3 bg-blue-50 border-b border-blue-100 flex items-center gap-2">
             <PenTool size={16} className="text-blue-600 flex-shrink-0" />
@@ -608,9 +598,7 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
 
         {!showActionBar && ot.status !== 'cerrada' && (
           <div className="px-5 py-3 border-t border-stone-200 text-xs text-stone-500">
-            {!isAssigned && ot.assignedTo && (ot.status === 'aprobada' || ot.status === 'en_ejecucion') && (
-              <span> ({ot.assignedTo})</span>
-            )}
+
           </div>
         )}
       </div>

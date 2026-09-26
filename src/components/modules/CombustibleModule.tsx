@@ -49,11 +49,11 @@ const fuelLoadSortGetters = {
 };
 
 export function CombustibleModule() {
-  const { fuelLoads, assets, addFuelLoad, currentRole } = useApp();
+  const { fuelLoads, assets, addFuelLoad, hasPermission } = useApp();
   const [showModal, setShowModal] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
 
-  const canRegister = currentRole !== 'administrador';
+  const canRegister = hasPermission('combustible.registrar');
 
   const totalLiters = fuelLoads.reduce((sum, f) => sum + f.liters, 0);
   const totalCost = fuelLoads.reduce((sum, f) => sum + f.cost, 0);
@@ -97,8 +97,8 @@ export function CombustibleModule() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+    <div className="p-4 sm:p-6 flex flex-col gap-4">
+      <div className="hidden sm:grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         <StatCard label="Cargas Registradas" value={fuelLoads.length} icon={<Fuel size={28} />} />
         <StatCard label="Total Litros" value={totalLiters.toLocaleString() + ' L'} icon={<TrendingUp size={28} />} />
         <StatCard label="Costo Total" value={formatCLP(totalCost)} icon={<DollarSign size={28} />} />

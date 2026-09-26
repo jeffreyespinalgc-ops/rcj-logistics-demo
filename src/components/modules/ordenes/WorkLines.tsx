@@ -18,26 +18,35 @@ import {
   Square,
   Camera,
   X,
-  Clock,
   AlertTriangle,
   Flag,
   CheckCircle,
   XCircle,
   Upload,
+  PenTool,
 } from 'lucide-react';
 import {
-  formatCLP,
+  isRequisitionComplete,
+  isRequisitionRequester,
+  missingSteps,
+  requiresRequisition,
+  requisitionStepLabels,
+  signatureFor,
+  signaturesOf,
+} from '@/lib/requisition';
+import { RequisitionProgress } from './RequisitionProgress';
+import { RequisitionPdfButton } from './RequisitionPdfButton';
+import {
   formatDateTime,
   findingStatusLabels,
   findingStatusVariants,
   lineStatusLabels,
   lineStatusVariants,
-  linePartsCost,
 } from './otMeta';
 
 /**
  * canAdd: puede crear lineas nuevas.
- * canEdit: puede editar o eliminar lineas ya creadas (actividades, observaciones, aviso de repuesto).
+ * canEdit: puede editar o eliminar lineas ya creadas (tecnico, actividades, observaciones, repuestos sin firmar).
  * canExecute: puede ejecutarlas (responsable, estado, horas, actividades completadas, evidencias, repuestos).
  */
 export function WorkLinesSection({ ot, canAdd, canEdit, canExecute }: {
@@ -124,16 +133,27 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
   canExecute: boolean;
   onOpenPhoto: (p: OTLinePhoto) => void;
 }) {
-  const { updateOTLine, deleteOTLine, startLine, finishLine, reviewFinding, hasPermission } = useApp();
+  const { updateOTLine, deleteOTLine, startLine, finishLine, reviewFinding, signRequisition, hasPermission, currentUser } = useApp();
   const [editingWork, setEditingWork] = useState(false);
-  // el hallazgo lo revisa el Jefe de Taller, nunca quien lo registro
+  const [signError, setSignError] = useState<string | null>(null);
+  // los hallazgos que ya estaban registrados los sigue revisando el Jefe de Taller
   const canReviewFinding = hasPermission('ot.lineas.aprobarHallazgo') && line.isFinding && line.findingStatus === 'pendiente';
   // lineas anteriores a las actividades no traen el campo
   const activities = line.activities ?? [];
+  // requisa de repuestos: firma primero el tecnico de la linea (solicitante); la linea inicia con todas las firmas
+  const needsRequisition = requiresRequisition(line);
+  const requesterSigned = Boolean(signatureFor(line, 'solicitante'));
+  const canRequest = hasPermission('requisa.solicitar')
+    && isRequisitionRequester(line, ot.assignedTo, currentUser)
+    && ot.status !== 'finalizada' && ot.status !== 'cerrada';
+  const requisitionDone = isRequisitionComplete(line);
+  const hasSignatures = signaturesOf(line).length > 0;
+  const pendingSignatures = missingSteps(line).map(step => requisitionStepLabels[step]);
+  const hasPhotos = line.photosBefore.length + line.photosAfter.length > 0;
+  const showActions = (canExecute || (needsRequisition && canRequest)) && (!line.startedAt || !line.finishedAt);
 
   return (
     <div className={`border rounded-md transition-colors ${expanded ? 'border-orange-300 bg-orange-50/20' : 'border-stone-200 bg-white hover:border-stone-300'}`}>
-      {/* Vista contraida: Cambio de llanta */}
       <button
         onClick={onToggle}
         className="w-full flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2.5 text-left"
@@ -145,67 +165,83 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
       </button>
 
       {expanded && (
-        <div className="px-3 pb-3 pt-1 border-t border-stone-200/70 space-y-4">
-          {/* Hallazgo pendiente: una vez aprobado o rechazado deja de mostrarse aqui */}
-          {line.isFinding && line.findingStatus === 'pendiente' && (
-            <div className="flex flex-wrap items-center gap-2 p-2 rounded-md border mt-3 bg-orange-50 border-orange-100">
+        <div className="px-3 pb-3 pt-3 border-t border-stone-200/70 space-y-4">
+          {canReviewFinding && (
+            <div className="flex flex-wrap items-center gap-2 p-2 rounded-md border bg-orange-50 border-orange-100">
               <Flag size={14} className="text-orange-600" />
               <Badge variant={findingStatusVariants[line.findingStatus]}>{findingStatusLabels[line.findingStatus]}</Badge>
-              {canReviewFinding ? (
-                <span className="ml-auto flex items-center gap-2">
-                  <Button size="sm" variant="primary" onClick={() => reviewFinding(ot.id, line.id, true)}>
-                    <CheckCircle size={12} /> Aprobar hallazgo
-                  </Button>
-                  <Button size="sm" variant="danger" onClick={() => reviewFinding(ot.id, line.id, false)}>
-                    <XCircle size={12} /> Rechazar
-                  </Button>
-                </span>
-              ) : (
-                <span className="ml-auto text-xs text-stone-500">Lo revisa el Jefe de Taller</span>
-              )}
+              <span className="ml-auto flex items-center gap-2">
+                <Button size="sm" variant="primary" onClick={() => reviewFinding(ot.id, line.id, true)}>
+                  <CheckCircle size={12} /> Aprobar hallazgo
+                </Button>
+                <Button size="sm" variant="danger" onClick={() => reviewFinding(ot.id, line.id, false)}>
+                  <XCircle size={12} /> Rechazar
+                </Button>
+              </span>
             </div>
           )}
 
-          {/* Ejecucion */}
-          <div>
-            <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Ejecucion</p>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Tecnico responsable">
-                {canEdit ? (
-                  <TextInput value={line.technician} onChange={e => updateOTLine(ot.id, line.id, { technician: e.target.value })} />
-                ) : (
-                  <p className="text-sm text-stone-800 py-2">{line.technician || '--'}</p>
-                )}
-              </Field>
-              {/* el estado solo cambia con Iniciar y Finalizar */}
-              <Field label="Estado">
-                <div className="py-1.5"><Badge variant={lineStatusVariants[line.status]}>{lineStatusLabels[line.status]}</Badge></div>
-              </Field>
-            </div>
-
-            <div className="flex items-center gap-4 mt-2 flex-wrap">
-              <span className="flex items-center gap-1.5 text-xs text-stone-500">
-                <Clock size={12} /> Inicio: <strong className="text-stone-700 font-medium">{formatDateTime(line.startedAt)}</strong>
-              </span>
-              <span className="flex items-center gap-1.5 text-xs text-stone-500">
-                <Clock size={12} /> Fin: <strong className="text-stone-700 font-medium">{formatDateTime(line.finishedAt)}</strong>
-              </span>
-              {canExecute && (!line.startedAt || !line.finishedAt) && (
-                <span className="flex items-center gap-2 ml-auto">
-                  {!line.startedAt && (
-                    <Button size="sm" variant="secondary" onClick={() => startLine(ot.id, line.id)}>
-                      <Play size={12} /> Iniciar
-                    </Button>
-                  )}
-                  {line.startedAt && !line.finishedAt && (
-                    <Button size="sm" variant="primary" onClick={() => finishLine(ot.id, line.id)}>
-                      <Square size={12} /> Finalizar
-                    </Button>
-                  )}
+          {/* Responsable, estado y acciones en una sola fila */}
+          <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+            <Field label="Tecnico" className="min-w-[10rem] flex-1 sm:w-56 sm:flex-none">
+              {canEdit ? (
+                <TextInput value={line.technician} onChange={e => updateOTLine(ot.id, line.id, { technician: e.target.value })} />
+              ) : (
+                <p className="text-sm text-stone-800 py-2">{line.technician || '--'}</p>
+              )}
+            </Field>
+            <div className="flex flex-wrap items-center gap-2 pb-2">
+              <Badge variant={lineStatusVariants[line.status]}>{lineStatusLabels[line.status]}</Badge>
+              {line.startedAt && (
+                <span className="text-xs text-stone-500">
+                  Inicio {formatDateTime(line.startedAt)}{line.finishedAt ? ` · Fin ${formatDateTime(line.finishedAt)}` : ''}
                 </span>
               )}
             </div>
+            {showActions && (
+              <span className="ml-auto flex items-center gap-2">
+                {/* solo el tecnico de la linea firma la solicitud; quien supervisa no la firma por el */}
+                {!line.startedAt && needsRequisition && !requesterSigned && canRequest && (
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    className="min-h-[44px] sm:min-h-0"
+                    onClick={() => setSignError(signRequisition(ot.id, line.id, 'solicitante'))}
+                  >
+                    <PenTool size={12} /> Firmar
+                  </Button>
+                )}
+                {/* tras firmar, Iniciar queda deshabilitado hasta reunir las demas firmas */}
+                {!line.startedAt && needsRequisition && requesterSigned && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="min-h-[44px] sm:min-h-0"
+                    disabled={!requisitionDone || !canExecute}
+                    title={
+                      !requisitionDone
+                        ? `Faltan firmas: ${pendingSignatures.join(', ')}`
+                        : !canExecute ? 'La OT debe estar aprobada y asignada al tecnico para iniciar la linea.' : undefined
+                    }
+                    onClick={() => startLine(ot.id, line.id)}
+                  >
+                    <Play size={12} /> Iniciar
+                  </Button>
+                )}
+                {!line.startedAt && !needsRequisition && canExecute && (
+                  <Button size="sm" variant="secondary" className="min-h-[44px] sm:min-h-0" onClick={() => startLine(ot.id, line.id)}>
+                    <Play size={12} /> Iniciar
+                  </Button>
+                )}
+                {line.startedAt && !line.finishedAt && canExecute && (
+                  <Button size="sm" variant="primary" className="min-h-[44px] sm:min-h-0" onClick={() => finishLine(ot.id, line.id)}>
+                    <Square size={12} /> Finalizar
+                  </Button>
+                )}
+              </span>
+            )}
           </div>
+          {signError && <p role="alert" className="text-xs text-red-700">{signError}</p>}
 
           {/* Actividades del plan: solo las edita quien puede editar lineas */}
           {(activities.length > 0 || canEdit) && (
@@ -228,51 +264,38 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
             </div>
           )}
 
-          {/* Aviso de planificacion: no bloquea la ejecucion ni el cierre */}
-          {(canEdit || line.needsPart) && (
+          {line.parts.length > 0 && <LineParts ot={ot} line={line} canRemove={canEdit && !hasSignatures} />}
+
+          {/* Evidencias: solo si hay fotos o quien ejecuta puede agregarlas */}
+          {(hasPhotos || canExecute) && (
             <div className="border-t border-stone-200/70 pt-3">
-              <RequirementFlag
-                label="Requiere repuesto"
-                checked={Boolean(line.needsPart)}
-                status={line.parts.length > 0 ? 'Registrado' : 'Pendiente'}
-                canEdit={canEdit}
-                onChange={v => updateOTLine(ot.id, line.id, { needsPart: v })}
-              />
+              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Evidencias</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <EvidenceGroup ot={ot} line={line} group="before" title="Antes" canEdit={canExecute} onOpenPhoto={onOpenPhoto} />
+                <EvidenceGroup ot={ot} line={line} group="after" title="Despues" canEdit={canExecute} onOpenPhoto={onOpenPhoto} />
+              </div>
             </div>
           )}
 
-          {/* Evidencias */}
-          <div className="border-t border-stone-200/70 pt-3">
-            <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Evidencias fotograficas</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <EvidenceGroup ot={ot} line={line} group="before" title="Antes" canEdit={canExecute} onOpenPhoto={onOpenPhoto} />
-              <EvidenceGroup ot={ot} line={line} group="after" title="Despues" canEdit={canExecute} onOpenPhoto={onOpenPhoto} />
+          {(canEdit || line.notes) && (
+            <div className="border-t border-stone-200/70 pt-3">
+              <Field label="Observaciones">
+                {canEdit ? (
+                  <TextArea
+                    rows={2}
+                    value={line.notes}
+                    onChange={e => updateOTLine(ot.id, line.id, { notes: e.target.value })}
+                    placeholder="Recomendaciones o pendientes de esta linea..."
+                  />
+                ) : (
+                  <p className="text-sm text-stone-700 whitespace-pre-wrap">{line.notes}</p>
+                )}
+              </Field>
             </div>
-          </div>
-
-          {/* Repuestos */}
-          <div className="border-t border-stone-200/70 pt-3">
-            <PartsEditor ot={ot} line={line} canEdit={canEdit} />
-          </div>
-
-          {/* Observaciones */}
-          <div className="border-t border-stone-200/70 pt-3">
-            <Field label="Observaciones">
-              {canEdit ? (
-                <TextArea
-                  rows={2}
-                  value={line.notes}
-                  onChange={e => updateOTLine(ot.id, line.id, { notes: e.target.value })}
-                  placeholder="Hallazgos, recomendaciones o pendientes de esta linea..."
-                />
-              ) : (
-                <p className="text-sm text-stone-700 whitespace-pre-wrap py-1">{line.notes || 'Sin observaciones'}</p>
-              )}
-            </Field>
-          </div>
+          )}
 
           {canEdit && (
-            <div className="flex justify-end border-t border-stone-200/70 pt-3">
+            <div className="flex justify-end">
               <Button size="sm" variant="ghost" onClick={() => deleteOTLine(ot.id, line.id)}>
                 <Trash2 size={12} /> Eliminar linea
               </Button>
@@ -295,29 +318,42 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
   );
 }
 
-function RequirementFlag({ label, checked, status, canEdit, onChange }: {
-  label: string;
-  checked: boolean;
-  status: string;
-  canEdit: boolean;
-  onChange: (value: boolean) => void;
-}) {
+/** Repuestos de la linea junto con el avance de su requisa; quien edita lineas puede quitarlos mientras no haya firmas */
+function LineParts({ ot, line, canRemove }: { ot: WorkOrder; line: OTLine; canRemove: boolean }) {
+  const { removeLinePart } = useApp();
+
   return (
-    <label className={`flex items-center gap-2 text-sm ${canEdit ? 'cursor-pointer' : ''}`}>
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={!canEdit}
-        onChange={e => onChange(e.target.checked)}
-        className="rounded border-stone-300 text-orange-500 focus:ring-orange-300"
-      />
-      <span className="text-stone-700">{label}</span>
-      {checked && (
-        <span className={`text-xs font-medium ${status === 'Pendiente' ? 'text-orange-600' : 'text-green-600'}`}>
-          · {status}
-        </span>
+    <div className="border-t border-stone-200/70 pt-3 space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Repuestos</p>
+        <RequisitionPdfButton ot={ot} line={line} />
+      </div>
+      <ul className="space-y-1">
+        {line.parts.map(p => (
+          <li key={p.partId} className="flex items-center gap-2 text-sm text-stone-700">
+            <span className="w-10 flex-shrink-0 text-right font-medium">{p.quantity} x</span>
+            <span className="min-w-0 flex-1 truncate">{p.partDescription}</span>
+            <span className="flex-shrink-0 text-xs text-stone-400">{p.partCode}</span>
+            {canRemove && (
+              <button
+                onClick={() => removeLinePart(ot.id, line.id, p.partId)}
+                className="text-stone-400 hover:text-red-600 transition-colors flex-shrink-0"
+                title="Quitar repuesto"
+                aria-label={`Quitar ${p.partDescription}`}
+              >
+                <Trash2 size={12} />
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {requiresRequisition(line) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {line.requisition && <span className="text-xs font-semibold text-blue-700">{line.requisition.code}</span>}
+          <RequisitionProgress line={line} />
+        </div>
       )}
-    </label>
+    </div>
   );
 }
 
@@ -402,15 +438,6 @@ function EvidenceGroup({ ot, line, group, title, canEdit, onOpenPhoto }: {
 
         {canEdit && (
           <>
-            <button
-              onClick={() => fileRef.current?.click()}
-              disabled={busy}
-              className="w-16 h-16 rounded-md border border-dashed border-stone-300 text-stone-400 flex flex-col items-center justify-center gap-0.5 hover:border-orange-400 hover:text-orange-500 transition-colors disabled:opacity-50"
-              title="Agregar fotografias"
-            >
-              <Plus size={16} />
-              <span className="text-[10px]">{busy ? '...' : 'Foto'}</span>
-            </button>
             <input
               ref={cameraRef}
               type="file"
@@ -430,46 +457,10 @@ function EvidenceGroup({ ot, line, group, title, canEdit, onOpenPhoto }: {
           </>
         )}
 
-        {photos.length === 0 && !canEdit && (
-          <p className="text-xs text-stone-400">Sin evidencias</p>
+        {photos.length === 0 && (
+          <p className="text-xs text-stone-400">Sin fotos</p>
         )}
       </div>
-    </div>
-  );
-}
-
-/** Repuestos de la linea: se eligen al crearla; despues solo se listan (quien edita lineas puede devolverlos) */
-function PartsEditor({ ot, line, canEdit }: { ot: WorkOrder; line: OTLine; canEdit: boolean }) {
-  const { removeLinePart } = useApp();
-
-  return (
-    <div>
-      <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Repuestos a utilizar</p>
-
-      {line.parts.length === 0 ? (
-        <p className="text-xs text-stone-400">Sin repuestos registrados</p>
-      ) : (
-        <div className="space-y-1">
-          {line.parts.map(p => (
-            <div key={p.partId} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs bg-white border border-stone-200 rounded px-2 py-1.5">
-              <span className="font-semibold text-blue-700 w-20 flex-shrink-0">{p.partCode}</span>
-              <span className="text-stone-700 flex-1 min-w-[6rem] truncate">{p.partDescription}</span>
-              <span className="text-stone-500 flex-shrink-0">x{p.quantity}</span>
-              <span className="text-stone-700 font-medium w-24 text-right flex-shrink-0 ml-auto">{formatCLP(p.quantity * p.unitCost)}</span>
-              {canEdit && (
-                <button
-                  onClick={() => removeLinePart(ot.id, line.id, p.partId)}
-                  className="text-stone-400 hover:text-red-600 transition-colors flex-shrink-0"
-                  title="Devolver al inventario"
-                >
-                  <Trash2 size={12} />
-                </button>
-              )}
-            </div>
-          ))}
-
-        </div>
-      )}
     </div>
   );
 }
@@ -672,7 +663,7 @@ function AddLineModal({ open, onClose, onAdd, defaultTechnician }: {
             rows={3}
             value={form.notes}
             onChange={e => setForm({ ...form, notes: e.target.value })}
-            placeholder="Hallazgos, recomendaciones o pendientes..."
+            placeholder="Recomendaciones o pendientes..."
           />
         </Field>
 
@@ -724,23 +715,6 @@ function AddLineModal({ open, onClose, onAdd, defaultTechnician }: {
             </div>
           )}
         </div>
-
-        <label className="flex items-start gap-2 p-3 bg-orange-50 rounded-md border border-orange-100 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={form.isFinding}
-            onChange={e => setForm({ ...form, isFinding: e.target.checked })}
-            className="mt-0.5 rounded border-stone-300 text-orange-500 focus:ring-orange-300"
-          />
-          <span>
-            <span className="text-xs font-semibold text-orange-800 flex items-center gap-1.5">
-              <Flag size={12} /> Registrar como linea de hallazgo
-            </span>
-            <span className="text-xs text-orange-700 block mt-0.5">
-              Quedara pendiente de aprobacion del Jefe de Taller. La OT no se puede cerrar con hallazgos sin revisar.
-            </span>
-          </span>
-        </label>
 
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={handleClose}>Cancelar</Button>

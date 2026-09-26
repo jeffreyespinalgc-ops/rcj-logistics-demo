@@ -15,14 +15,18 @@ export type Permission =
   | 'modulo.combustible'
   | 'modulo.reportes'
   | 'modulo.notificaciones'
+  | 'modulo.requisas'
   | 'modulo.administracion'
   // Administracion
   | 'usuarios.gestionar'
   | 'catalogos.editar'
   | 'permisos.configurar'
   // Activos
+  | 'activos.crear'
   | 'activos.sap.vincular'
   | 'activos.fotos.gestionar'
+  // Combustible
+  | 'combustible.registrar'
   // Ordenes de trabajo
   | 'ot.ver.todas'
   | 'ot.crear'
@@ -39,6 +43,10 @@ export type Permission =
   // Inventario
   | 'repuestos.consumir'
   | 'inventario.catalogo.editar'
+  // Requisas de repuestos: firman en orden el tecnico (solicita), el Jefe de Taller (autoriza) y Control de Inventario (despacha)
+  | 'requisa.solicitar'
+  | 'requisa.autorizar'
+  | 'requisa.despachar'
   // Reportes
   | 'reportes.ver';
 
@@ -51,10 +59,13 @@ export const permissionLabels: Record<Permission, string> = {
   'modulo.combustible': 'Ver modulo Combustible',
   'modulo.reportes': 'Ver modulo Reportes TCO',
   'modulo.notificaciones': 'Ver modulo Notificaciones',
+  'modulo.requisas': 'Ver modulo Requisas de Repuestos',
   'modulo.administracion': 'Ver modulo Administracion',
   'usuarios.gestionar': 'Gestionar usuarios y roles',
   'catalogos.editar': 'Editar tipos de mantenimiento y catalogos',
   'permisos.configurar': 'Configurar permisos por rol',
+  'activos.crear': 'Crear fichas locales de activos',
+  'combustible.registrar': 'Registrar cargas de combustible',
   'activos.sap.vincular': 'Vincular / sincronizar activos con SAP',
   'activos.fotos.gestionar': 'Subir y eliminar fotografias de activos',
   'ot.ver.todas': 'Ver todas las OTs (sin este permiso solo ve las asignadas)',
@@ -71,6 +82,9 @@ export const permissionLabels: Record<Permission, string> = {
   'ot.lineas.aprobarHallazgo': 'Aprobar o rechazar lineas de hallazgo',
   'repuestos.consumir': 'Consumir repuestos en lineas de OT',
   'inventario.catalogo.editar': 'Editar catalogo de repuestos',
+  'requisa.solicitar': 'Firmar requisas como tecnico solicitante',
+  'requisa.autorizar': 'Firmar requisas como Jefe de Taller (autoriza)',
+  'requisa.despachar': 'Firmar requisas como Control de Inventario (despacha)',
   'reportes.ver': 'Ver reportes TCO completos',
 };
 
@@ -80,7 +94,7 @@ export const permissionGroups: { title: string; permissions: Permission[] }[] = 
     title: 'Modulos',
     permissions: [
       'modulo.activos', 'modulo.inventario', 'modulo.ordenes',
-      'modulo.combustible', 'modulo.reportes', 'modulo.notificaciones', 'modulo.administracion',
+      'modulo.combustible', 'modulo.reportes', 'modulo.notificaciones', 'modulo.requisas', 'modulo.administracion',
     ],
   },
   {
@@ -89,7 +103,11 @@ export const permissionGroups: { title: string; permissions: Permission[] }[] = 
   },
   {
     title: 'Activos',
-    permissions: ['activos.sap.vincular', 'activos.fotos.gestionar'],
+    permissions: ['activos.crear', 'activos.sap.vincular', 'activos.fotos.gestionar'],
+  },
+  {
+    title: 'Combustible',
+    permissions: ['combustible.registrar'],
   },
   {
     title: 'Ordenes de Trabajo',
@@ -98,6 +116,10 @@ export const permissionGroups: { title: string; permissions: Permission[] }[] = 
       'ot.asignar', 'ot.cerrar', 'ot.finalizar',
       'ot.lineas.agregar', 'ot.lineas.editar', 'ot.lineas.estado', 'ot.lineas.aprobarHallazgo', 'repuestos.consumir',
     ],
+  },
+  {
+    title: 'Requisas de Repuestos',
+    permissions: ['requisa.solicitar', 'requisa.autorizar', 'requisa.despachar'],
   },
   {
     title: 'Reportes',
@@ -114,29 +136,38 @@ export const permissionGroups: { title: string; permissions: Permission[] }[] = 
  * repuestos; no toca catalogos ni SAP.
  * Tecnico: ve las OTs que creo o le asignaron y crea lineas en ellas; una vez creadas no las edita
  * ni elimina, solo las ejecuta (estado, horas, actividades, evidencias, repuestos) en las asignadas a el.
+ * Control de Inventario: solo consulta activos, inventario, OTs, combustible y notificaciones; firma
+ * (despacha) las requisas de repuestos. Las requisas se firman en orden: tecnico, Jefe de Taller y despues Control.
  */
 export const defaultPermissions: PermissionMatrix = {
   administrador: [
     'modulo.activos', 'modulo.inventario', 'modulo.ordenes', 'modulo.combustible',
-    'modulo.reportes', 'modulo.notificaciones', 'modulo.administracion',
+    'modulo.reportes', 'modulo.notificaciones', 'modulo.requisas', 'modulo.administracion',
     'usuarios.gestionar', 'catalogos.editar', 'permisos.configurar',
-    'activos.sap.vincular', 'activos.fotos.gestionar',
+    'activos.crear', 'activos.sap.vincular', 'activos.fotos.gestionar',
     'ot.ver.todas', 'ot.lineas.editar', 'inventario.catalogo.editar', 'reportes.ver',
   ],
   jefe_taller: [
     'modulo.activos', 'modulo.inventario', 'modulo.ordenes', 'modulo.combustible',
-    'modulo.reportes', 'modulo.notificaciones',
-    'activos.fotos.gestionar',
+    'modulo.reportes', 'modulo.notificaciones', 'modulo.requisas', 'requisa.autorizar',
+    'activos.crear', 'activos.fotos.gestionar', 'combustible.registrar',
     'ot.ver.todas', 'ot.crear', 'ot.aprobar', 'ot.rechazar', 'ot.emergencia.aprobarRetro',
     'ot.asignar', 'ot.cerrar', 'ot.lineas.aprobarHallazgo',
     'ot.finalizar', 'ot.lineas.agregar', 'ot.lineas.editar', 'ot.lineas.estado', 'repuestos.consumir',
     'reportes.ver',
   ],
+  control_inventario: [
+    'modulo.activos', 'modulo.inventario', 'modulo.ordenes', 'modulo.combustible',
+    'modulo.notificaciones', 'modulo.requisas',
+    'ot.ver.todas', 'requisa.despachar',
+  ],
   tecnico: [
     'modulo.ordenes', 'modulo.notificaciones',
     'ot.crear', 'ot.finalizar', 'ot.lineas.agregar', 'ot.lineas.estado', 'repuestos.consumir',
+    'requisa.solicitar',
   ],
 };
+
 
 /** Permiso de modulo asociado a cada entrada de navegacion */
 export const modulePermissions: Record<ModuleKey, Permission> = {
@@ -146,6 +177,7 @@ export const modulePermissions: Record<ModuleKey, Permission> = {
   combustible: 'modulo.combustible',
   reportes: 'modulo.reportes',
   notificaciones: 'modulo.notificaciones',
+  requisas: 'modulo.requisas',
   administracion: 'modulo.administracion',
 };
 

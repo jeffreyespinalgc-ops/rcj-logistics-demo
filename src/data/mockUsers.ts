@@ -11,11 +11,13 @@ export const initialUsers: AppUser[] = [
   { id: 'u4', username: 'crojas', password: 'tecnico123', name: 'C. Rojas', role: 'tecnico', active: true },
   { id: 'u5', username: 'rfuentes', password: 'tecnico123', name: 'R. Fuentes', role: 'tecnico', active: true },
   { id: 'u6', username: 'lvega', password: 'tecnico123', name: 'L. Vega', role: 'tecnico', active: true },
+  { id: 'u7', username: 'inventario', password: 'inventario123', name: 'P. Silva', role: 'control_inventario', active: true },
 ];
 
 /** Credencial sugerida en la pantalla de login para cada rol */
 export const demoCredentials: Record<UserRole, { username: string; password: string }> = {
   administrador: { username: 'admin', password: 'admin123' },
   jefe_taller: { username: 'jefe', password: 'jefe123' },
+  control_inventario: { username: 'inventario', password: 'inventario123' },
   tecnico: { username: 'tecnico', password: 'tecnico123' },
 };

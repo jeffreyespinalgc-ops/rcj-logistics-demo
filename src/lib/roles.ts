@@ -3,6 +3,7 @@ import type { UserRole } from '@/types';
 export const roleLabels: Record<UserRole, string> = {
   administrador: 'Administrador',
   jefe_taller: 'Jefe de Taller',
+  control_inventario: 'Control de Inventario',
   tecnico: 'Tecnico / Mecanico',
 };
 
@@ -10,10 +11,11 @@ export const roleLabels: Record<UserRole, string> = {
 export const roleShortLabels: Record<UserRole, string> = {
   administrador: 'Admin',
   jefe_taller: 'Jefe Taller',
+  control_inventario: 'Control Inv.',
   tecnico: 'Tecnico',
 };
 
-export const roleOrder: UserRole[] = ['administrador', 'jefe_taller', 'tecnico'];
+export const roleOrder: UserRole[] = ['administrador', 'jefe_taller', 'control_inventario', 'tecnico'];
 
 /** Iniciales para el avatar del sidebar */
 export function initialsOf(name: string): string {

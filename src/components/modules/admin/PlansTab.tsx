@@ -165,10 +165,6 @@ export function PlansTab() {
         ))}
       </div>
       <div className="p-4" ref={containerRef}>
-        <p className="text-xs text-stone-400 mb-3">
-          Agrega niveles segun lo necesites (ej. Tipo de Vehiculo → Intervalo de Horas → Tareas). Arrastra un elemento por el asa para
-          reordenarlo: sueltalo en el borde de otro para ubicarlo antes o despues, o en el centro para volverlo su hijo.
-        </p>
         <MaintenanceNodeList key={workType} parentId={null} nodes={maintenancePlans[workType] ?? []} depth={0} />
       </div>
 

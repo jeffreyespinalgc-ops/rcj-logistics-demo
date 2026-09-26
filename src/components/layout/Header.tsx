@@ -7,12 +7,13 @@ const moduleTitles: Record<ModuleKey, { title: string; subtitle: string }> = {
   inventario: { title: 'Repuestos e Inventario', subtitle: '' },
   ordenes: { title: 'Ordenes de Trabajo', subtitle: '' },
   combustible: { title: 'Combustible', subtitle: '' },
-  reportes: { title: 'Reportes / TCO', subtitle: '' },
+  reportes: { title: 'Reportes TCO', subtitle: '' },
   notificaciones: { title: 'Notificaciones', subtitle: '' },
+  requisas: { title: 'Requisas de Repuestos', subtitle: '' },
   administracion: { title: 'Administracion', subtitle: '' },
 };
 
-export function Header({ onMenuClick }: { onMenuClick: () => void }) {
+export function Header({ onMenuClick, menuLabel = 'Abrir menu' }: { onMenuClick: () => void; menuLabel?: string }) {
   const { activeModule, setActiveModule, notifications } = useApp();
   const { title, subtitle } = moduleTitles[activeModule];
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -22,7 +23,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
       <div className="flex items-center gap-3 min-w-0">
         <button
           onClick={onMenuClick}
-          aria-label="Abrir menu"
+          aria-label={menuLabel}
           className="lg:hidden -ml-2 p-2 text-stone-600 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors flex-shrink-0"
         >
           <Menu size={22} />

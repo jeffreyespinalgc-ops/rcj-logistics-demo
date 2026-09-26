@@ -70,8 +70,8 @@ export function InventarioModule() {
   const totalValue = parts.reduce((sum, p) => sum + p.currentStock * p.unitCost, 0);
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+    <div className="p-4 sm:p-6 flex flex-col gap-4">
+      <div className="hidden sm:grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         <StatCard label="Total Repuestos" value={parts.length} icon={<Package size={28} />} />
         <StatCard label="Alertas Bajo Stock" value={lowStockParts.length} icon={<AlertTriangle size={28} />} subtitle="Requieren reabastecimiento" />
         <StatCard label="Valor Inventario" value={formatCLP(totalValue)} icon={<Package size={28} />} />

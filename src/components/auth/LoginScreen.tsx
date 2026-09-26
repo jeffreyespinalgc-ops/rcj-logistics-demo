@@ -6,12 +6,13 @@ import { roleLabels, roleOrder } from '@/lib/roles';
 import { demoCredentials } from '@/data/mockUsers';
 import type { UserRole } from '@/types';
 import logo from '@/assets/images/RCJ-Logistics-Full-Color.png';
-import { ShieldCheck, ClipboardCheck, Wrench, LogIn, AlertCircle, Eye, EyeOff, User, Lock } from 'lucide-react';
+import { ShieldCheck, ClipboardCheck, PackageCheck, Wrench, LogIn, AlertCircle, Eye, EyeOff, User, Lock } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 const roleIcons: Record<UserRole, LucideIcon> = {
   administrador: ShieldCheck,
   jefe_taller: ClipboardCheck,
+  control_inventario: PackageCheck,
   tecnico: Wrench,
 };
 
@@ -121,13 +122,12 @@ export function LoginScreen() {
             <div className="flex flex-col items-center text-center">
               <img src={logo} alt="RCJ Logistics" className="h-14 w-auto object-contain" />
               <h1 className="font-heading mt-5 text-xl font-bold text-stone-800">Bienvenido</h1>
-              <p className="mt-1 text-xs text-stone-500">Sistema de Gestion de Taller</p>
             </div>
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div>
                 <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-stone-600">Ingresar como</p>
-                <div className="grid grid-cols-3 gap-1 rounded-xl bg-stone-100 p-1">
+                <div className="grid grid-cols-2 gap-1 rounded-xl bg-stone-100 p-1 sm:grid-cols-4">
                   {roleOrder.map(r => {
                     const Icon = roleIcons[r];
                     const active = role === r;
@@ -214,9 +214,6 @@ export function LoginScreen() {
           </div>
         </div>
 
-        <p className="mt-5 text-center text-xs text-blue-200/70">
-          RCJ Logistics · Gestion de Activos, Mantenimiento y Taller
-        </p>
       </div>
     </div>
   );

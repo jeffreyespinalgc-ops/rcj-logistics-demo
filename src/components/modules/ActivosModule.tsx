@@ -66,6 +66,7 @@ const assetSortGetters = {
 export function ActivosModule() {
   const { assets, assetHistory, addAsset, syncAssetsFromSAP, syncingAssets, lastAssetSync, hasPermission } = useApp();
   const canSync = hasPermission('activos.sap.vincular');
+  const canCreateAsset = hasPermission('activos.crear');
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -114,8 +115,8 @@ export function ActivosModule() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+    <div className="p-4 sm:p-6 flex flex-col gap-4">
+      <div className="hidden sm:grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         <StatCard label="Total Activos" value={stats.total} icon={<Truck size={28} />} />
         <StatCard label="Operativos" value={stats.operativos} icon={<Truck size={28} />} />
         <StatCard label="En Mantenimiento" value={stats.mantenimiento} icon={<Wrench size={28} />} />
@@ -128,9 +129,11 @@ export function ActivosModule() {
             <h3 className="font-heading text-base font-bold text-stone-800">Listado de Activos</h3>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setShowCreateModal(true)}>
-              <Plus size={16} /> Crear Ficha Local
-            </Button>
+            {canCreateAsset && (
+              <Button variant="outline" onClick={() => setShowCreateModal(true)}>
+                <Plus size={16} /> Crear Ficha Local
+              </Button>
+            )}
             {canSync ? (
               <Button onClick={() => syncAssetsFromSAP()} disabled={syncingAssets}>
                 <RefreshCw size={16} className={syncingAssets ? 'animate-spin' : ''} />

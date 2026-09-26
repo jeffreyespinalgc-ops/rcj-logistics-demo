@@ -19,6 +19,8 @@ import type {
   UserRole,
   MaintenancePlans,
   MaintenanceTreeNode,
+  RequisitionSignature,
+  RequisitionStep,
 } from '@/types';
 import {
   initialAssets,
@@ -33,6 +35,16 @@ import {
 } from '@/data/mockData';
 import { loadJSON, saveJSON } from '@/lib/localStore';
 import { defaultPermissions, isLocked, modulePermissions, type Permission, type PermissionMatrix } from '@/lib/permissions';
+import {
+  dropInvalidRequesterRequisitions,
+  firstMissingBefore,
+  isRequisitionComplete,
+  isRequisitionRequester,
+  requiresRequisition,
+  requisitionStepLabels,
+  requisitionSteps,
+  signatureFor,
+} from '@/lib/requisition';
 import { useAuth } from '@/store/AuthContext';
 
 export type PhotoGroup = 'before' | 'after';
@@ -107,6 +119,11 @@ interface AppState {
   addLinePhoto: (otId: string, lineId: string, group: PhotoGroup, photo: Omit<OTLinePhoto, 'id' | 'addedAt'>) => void;
   removeLinePhoto: (otId: string, lineId: string, group: PhotoGroup, photoId: string) => void;
   removeLinePart: (otId: string, lineId: string, partId: string) => void;
+  /**
+   * Firma un paso de la requisa de repuestos de la linea. Con la ultima firma se descuentan los repuestos
+   * del inventario. Devuelve el motivo si no se pudo firmar, o null.
+   */
+  signRequisition: (otId: string, lineId: string, step: RequisitionStep) => string | null;
   /** Aprobacion / rechazo de una linea marcada como hallazgo (Jefe de Taller) */
   reviewFinding: (otId: string, lineId: string, approved: boolean) => void;
 
@@ -217,6 +234,37 @@ function resolvedLineStatus(status: OTLineStatus): OTLineStatus {
   return status === 'en_ejecucion' || status === 'pendiente' ? 'completado' : status;
 }
 
+/** Llaves de localStorage. Subir la version de una llave descarta lo guardado de ese dominio. */
+const storageKeys = {
+  assets: 'rcj_v1_assets',
+  assetHistory: 'rcj_v1_asset_history',
+  parts: 'rcj_v1_parts',
+  movements: 'rcj_v1_movements',
+  workOrders: 'rcj_v1_work_orders',
+  fuelLoads: 'rcj_v1_fuel_loads',
+  notifications: 'rcj_v1_notifications',
+  workTypes: 'rcj_v1_work_types',
+  maintenancePlans: 'rcj_v1_maintenance_plans',
+  permissions: 'rcj_v6_permissions',
+  requisitionRepair: 'rcj_requisition_repair_v1',
+} as const;
+
+/** Permiso que habilita firmar cada paso de la requisa */
+const stepPermissions: Record<RequisitionStep, Permission> = {
+  solicitante: 'requisa.solicitar',
+  autoriza: 'requisa.autorizar',
+  despacha: 'requisa.despachar',
+};
+
+/** Siguiente numero de requisa: REQ-<anio>-0001, consecutivo entre todas las lineas */
+function nextRequisitionCode(orders: WorkOrder[]): string {
+  const max = orders.flatMap(o => o.lines).reduce((acc, l) => {
+    const n = Number(l.requisition?.code.split('-').pop());
+    return Number.isFinite(n) ? Math.max(acc, n) : acc;
+  }, 0);
+  return `REQ-${today().slice(0, 4)}-${String(max + 1).padStart(4, '0')}`;
+}
+
 /** Horas trabajadas entre dos marcas de tiempo, redondeadas a cuartos de hora */
 function hoursBetween(startedAt: string, finishedAt: string): number {
   const diff = new Date(finishedAt).getTime() - new Date(startedAt).getTime();
@@ -227,17 +275,21 @@ function hoursBetween(startedAt: string, finishedAt: string): number {
 export function AppProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
   const [requestedModule, setActiveModule] = useState<ModuleKey>('activos');
-  const [assets, setAssets] = useState<Asset[]>(() => loadJSON('rcj_v1_assets', initialAssets));
-  const [assetHistory, setAssetHistory] = useState<AssetHistoryEntry[]>(() => loadJSON('rcj_v1_asset_history', initialAssetHistory));
-  const [parts, setParts] = useState<Part[]>(() => loadJSON('rcj_v1_parts', initialParts));
-  const [movements, setMovements] = useState<InventoryMovement[]>(() => loadJSON('rcj_v1_movements', initialMovements));
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>(() => loadJSON('rcj_v1_work_orders', initialWorkOrders));
-  const [fuelLoads, setFuelLoads] = useState<FuelLoad[]>(() => loadJSON('rcj_v1_fuel_loads', initialFuelLoads));
-  const [notifications, setNotifications] = useState<AppNotification[]>(() => loadJSON('rcj_v1_notifications', initialNotifications));
-  const [workTypes, setWorkTypes] = useState<CatalogItem[]>(() => loadJSON('rcj_v1_work_types', initialWorkTypes));
-  const [maintenancePlans, setMaintenancePlans] = useState<MaintenancePlans>(() => loadJSON('rcj_v1_maintenance_plans', initialMaintenancePlans));
+  const [assets, setAssets] = useState<Asset[]>(() => loadJSON(storageKeys.assets, initialAssets));
+  const [assetHistory, setAssetHistory] = useState<AssetHistoryEntry[]>(() => loadJSON(storageKeys.assetHistory, initialAssetHistory));
+  const [parts, setParts] = useState<Part[]>(() => loadJSON(storageKeys.parts, initialParts));
+  const [movements, setMovements] = useState<InventoryMovement[]>(() => loadJSON(storageKeys.movements, initialMovements));
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>(() => {
+    const stored = loadJSON<WorkOrder[]>(storageKeys.workOrders, initialWorkOrders);
+    // una sola vez: reinicia las requisas firmadas como solicitante por quien no es tecnico (regla anterior)
+    return loadJSON<boolean>(storageKeys.requisitionRepair, false) ? stored : dropInvalidRequesterRequisitions(stored);
+  });
+  const [fuelLoads, setFuelLoads] = useState<FuelLoad[]>(() => loadJSON(storageKeys.fuelLoads, initialFuelLoads));
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => loadJSON(storageKeys.notifications, initialNotifications));
+  const [workTypes, setWorkTypes] = useState<CatalogItem[]>(() => loadJSON(storageKeys.workTypes, initialWorkTypes));
+  const [maintenancePlans, setMaintenancePlans] = useState<MaintenancePlans>(() => loadJSON(storageKeys.maintenancePlans, initialMaintenancePlans));
   // v4: se sube la version de la llave cada vez que cambian los permisos por defecto, para que apliquen
-  const [permissions, setPermissions] = useState<PermissionMatrix>(() => loadJSON('rcj_v4_permissions', defaultPermissions));
+  const [permissions, setPermissions] = useState<PermissionMatrix>(() => loadJSON(storageKeys.permissions, defaultPermissions));
   const [syncingAssets, setSyncingAssets] = useState(false);
   const [lastAssetSync, setLastAssetSync] = useState<string | null>(null);
   const [storageWarning, setStorageWarning] = useState<string | null>(null);
@@ -275,25 +327,55 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Activos y OTs llevan fotos embebidas (dataUrl), asi que son los que mas facil
   // agotan la cuota del navegador; el resto son registros de texto livianos.
   useEffect(() => {
-    if (!saveJSON('rcj_v1_assets', assets)) {
+    if (!saveJSON(storageKeys.assets, assets)) {
       setStorageWarning('No se pudieron guardar los activos localmente (almacenamiento lleno). Los cambios se mantienen solo en esta sesion.');
     }
   }, [assets]);
 
   useEffect(() => {
-    if (!saveJSON('rcj_v1_work_orders', workOrders)) {
+    if (!saveJSON(storageKeys.workOrders, workOrders)) {
       setStorageWarning('No se pudieron guardar las ordenes de trabajo localmente (almacenamiento lleno). Los cambios se mantienen solo en esta sesion.');
     }
   }, [workOrders]);
 
-  useEffect(() => { saveJSON('rcj_v1_asset_history', assetHistory); }, [assetHistory]);
-  useEffect(() => { saveJSON('rcj_v1_parts', parts); }, [parts]);
-  useEffect(() => { saveJSON('rcj_v1_movements', movements); }, [movements]);
-  useEffect(() => { saveJSON('rcj_v1_fuel_loads', fuelLoads); }, [fuelLoads]);
-  useEffect(() => { saveJSON('rcj_v1_notifications', notifications); }, [notifications]);
-  useEffect(() => { saveJSON('rcj_v1_work_types', workTypes); }, [workTypes]);
-  useEffect(() => { saveJSON('rcj_v1_maintenance_plans', maintenancePlans); }, [maintenancePlans]);
-  useEffect(() => { saveJSON('rcj_v4_permissions', permissions); }, [permissions]);
+  useEffect(() => { saveJSON(storageKeys.assetHistory, assetHistory); }, [assetHistory]);
+  useEffect(() => { saveJSON(storageKeys.parts, parts); }, [parts]);
+  useEffect(() => { saveJSON(storageKeys.movements, movements); }, [movements]);
+  useEffect(() => { saveJSON(storageKeys.fuelLoads, fuelLoads); }, [fuelLoads]);
+  useEffect(() => { saveJSON(storageKeys.notifications, notifications); }, [notifications]);
+  useEffect(() => { saveJSON(storageKeys.workTypes, workTypes); }, [workTypes]);
+  useEffect(() => { saveJSON(storageKeys.maintenancePlans, maintenancePlans); }, [maintenancePlans]);
+  useEffect(() => { saveJSON(storageKeys.permissions, permissions); }, [permissions]);
+  useEffect(() => { saveJSON(storageKeys.requisitionRepair, true); }, []);
+
+  // Sincronizacion entre pestanas: cuando otra pestana guarda un dominio, esta lo recarga sin necesitar F5.
+  // Guardar el mismo valor no dispara el evento, asi que no hay rebote entre pestanas.
+  useEffect(() => {
+    const apply: Record<string, (value: unknown) => void> = {
+      [storageKeys.assets]: v => setAssets(v as Asset[]),
+      [storageKeys.assetHistory]: v => setAssetHistory(v as AssetHistoryEntry[]),
+      [storageKeys.parts]: v => setParts(v as Part[]),
+      [storageKeys.movements]: v => setMovements(v as InventoryMovement[]),
+      [storageKeys.workOrders]: v => setWorkOrders(v as WorkOrder[]),
+      [storageKeys.fuelLoads]: v => setFuelLoads(v as FuelLoad[]),
+      [storageKeys.notifications]: v => setNotifications(v as AppNotification[]),
+      [storageKeys.workTypes]: v => setWorkTypes(v as CatalogItem[]),
+      [storageKeys.maintenancePlans]: v => setMaintenancePlans(v as MaintenancePlans),
+      [storageKeys.permissions]: v => setPermissions(v as PermissionMatrix),
+    };
+    const onStorage = (e: StorageEvent) => {
+      if (e.storageArea !== window.localStorage || !e.key || e.newValue === null) return;
+      const set = apply[e.key];
+      if (!set) return;
+      try {
+        set(JSON.parse(e.newValue));
+      } catch {
+        // valor ilegible: se conserva el estado actual
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   const pushNotification = useCallback((n: Omit<AppNotification, 'id' | 'read'>) => {
     setNotifications(prev => [{ ...n, id: genId(), read: false }, ...prev]);
@@ -529,6 +611,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       photosBefore: linePhotos.map(p => ({ ...p, id: genId(), addedAt: now() })),
       photosAfter: [],
       parts: lineParts,
+      // los repuestos elegidos son una solicitud: el stock se descuenta al reunirse todas las firmas de la requisa
+      requisition: null,
       // el hallazgo nace pendiente: lo aprueba el Jefe de Taller, nunca quien lo registra
       findingStatus: line.isFinding ? 'pendiente' : 'no_aplica',
     };
@@ -536,29 +620,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const ot = workOrders.find(o => o.id === otId);
     if (!ot) return;
-
-    // los repuestos elegidos al crear la linea se consumen igual que desde el detalle de la linea
-    lineParts.forEach(p => {
-      adjustStock(p.partId, -p.quantity);
-      pushMovement({
-        partId: p.partId,
-        partCode: p.partCode,
-        partDescription: p.partDescription,
-        type: 'salida',
-        quantity: p.quantity,
-        reason: `Consumo en linea de trabajo - ${line.work}`,
-        reference: ot.code,
-        user: currentUser,
-        date: today(),
-      });
-      pushAssetHistory({
-        assetId: ot.assetId,
-        date: today(),
-        type: 'movimiento',
-        description: `Salida de repuesto - ${p.partDescription} x${p.quantity}`,
-        reference: ot.code,
-      });
-    });
 
     if (line.notes) {
       pushNotification({
@@ -570,7 +631,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         priority: 'media',
       });
     }
-  }, [workOrders, pushNotification, adjustStock, pushMovement, pushAssetHistory, currentUser]);
+  }, [workOrders, pushNotification]);
 
   const updateOTLine = useCallback((otId: string, lineId: string, patch: Partial<OTLine>) => {
     // la aprobacion del hallazgo solo se cambia via reviewFinding (Jefe de Taller)
@@ -585,8 +646,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWorkOrders(prev => prev.map(o =>
       o.id === otId ? { ...o, lines: o.lines.filter(l => l.id !== lineId) } : o
     ));
-    // devolver al inventario los repuestos que la linea tenia consumidos
-    if (ot && line) {
+    // devolver al inventario los repuestos solo si la requisa ya se firmo por completo y los descontó
+    if (ot && line && line.requisition?.releasedAt) {
       line.parts.forEach(p => {
         adjustStock(p.partId, p.quantity);
         pushMovement({
@@ -605,6 +666,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [workOrders, adjustStock, pushMovement, currentUser]);
 
   const startLine = useCallback((otId: string, lineId: string) => {
+    // una linea con requisa no inicia hasta reunir todas las firmas
+    const target = workOrders.find(o => o.id === otId)?.lines.find(l => l.id === lineId);
+    if (target && requiresRequisition(target) && !isRequisitionComplete(target)) return;
     patchLine(otId, lineId, line => ({
       ...line,
       startedAt: line.startedAt ?? now(),
@@ -648,26 +712,82 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [patchLine]);
 
   const removeLinePart = useCallback((otId: string, lineId: string, partId: string) => {
+    const line = workOrders.find(o => o.id === otId)?.lines.find(l => l.id === lineId);
+    // una solicitud ya firmada no se modifica; sin firmas el repuesto aun no salio del inventario
+    if (!line || (line.requisition?.signatures.length ?? 0) > 0) return;
+    patchLine(otId, lineId, l => ({ ...l, parts: l.parts.filter(p => p.partId !== partId) }));
+  }, [workOrders, patchLine]);
+
+  const signRequisition = useCallback<AppState['signRequisition']>((otId, lineId, step) => {
     const ot = workOrders.find(o => o.id === otId);
     const line = ot?.lines.find(l => l.id === lineId);
-    const part = line?.parts.find(p => p.partId === partId);
-    if (!part) return;
-    patchLine(otId, lineId, l => ({ ...l, parts: l.parts.filter(p => p.partId !== partId) }));
-    adjustStock(partId, part.quantity);
-    if (ot) {
-      pushMovement({
-        partId: part.partId,
-        partCode: part.partCode,
-        partDescription: part.partDescription,
-        type: 'entrada',
-        quantity: part.quantity,
-        reason: `Reverso de consumo - ${line?.work ?? 'OT'}`,
-        reference: ot.code,
-        user: currentUser,
+    if (!ot || !line) return 'No se encontro la linea de la OT.';
+    if (!requiresRequisition(line)) return 'Esta linea no tiene repuestos por solicitar.';
+    if (signatureFor(line, step)) return 'Esta firma ya esta registrada.';
+    if (!hasPermission(stepPermissions[step])) return 'Tu rol no puede firmar este paso de la requisa.';
+    if (step === 'solicitante' && !isRequisitionRequester(line, ot.assignedTo, currentUser)) {
+      return 'Solo el tecnico de la linea puede firmar la solicitud.';
+    }
+    const previous = firstMissingBefore(line, step);
+    if (previous) return `Falta la firma de ${requisitionStepLabels[previous]} antes de firmar este paso.`;
+
+    // quien despacha, o quien reune la ultima firma, confirma que hay stock para entregar
+    const completes = requisitionSteps.filter(s => s !== step).every(s => signatureFor(line, s));
+    if (step === 'despacha' || completes) {
+      const short = line.parts.find(p => (parts.find(x => x.id === p.partId)?.currentStock ?? 0) < p.quantity);
+      if (short) return `Stock insuficiente de ${short.partDescription}.`;
+    }
+
+    const stamp = now();
+    const code = line.requisition?.code ?? nextRequisitionCode(workOrders);
+    const signature: RequisitionSignature = { step, role: currentRole, name: currentUser, at: stamp };
+    const signatures = [...(line.requisition?.signatures ?? []), signature];
+    patchLine(otId, lineId, l => ({ ...l, requisition: { code, signatures, releasedAt: completes ? stamp : null } }));
+
+    if (step === 'solicitante') {
+      pushNotification({
+        type: 'aprobacion',
+        title: `Requisa ${code} pendiente de firma`,
+        description: `${ot.code} - ${line.work} - solicitada por ${currentUser}`,
         date: today(),
+        reference: code,
+        priority: 'media',
       });
     }
-  }, [workOrders, patchLine, adjustStock, pushMovement, currentUser]);
+
+    if (completes) {
+      line.parts.forEach(p => {
+        adjustStock(p.partId, -p.quantity);
+        pushMovement({
+          partId: p.partId,
+          partCode: p.partCode,
+          partDescription: p.partDescription,
+          type: 'salida',
+          quantity: p.quantity,
+          reason: `Requisa ${code} - ${line.work}`,
+          reference: ot.code,
+          user: currentUser,
+          date: today(),
+        });
+        pushAssetHistory({
+          assetId: ot.assetId,
+          date: today(),
+          type: 'movimiento',
+          description: `Salida de repuesto - ${p.partDescription} x${p.quantity}`,
+          reference: ot.code,
+        });
+      });
+      pushNotification({
+        type: 'firma',
+        title: `Requisa ${code} firmada por todas las partes`,
+        description: `${ot.code} - ${line.work} - lista para iniciar`,
+        date: today(),
+        reference: code,
+        priority: 'alta',
+      });
+    }
+    return null;
+  }, [workOrders, parts, patchLine, adjustStock, pushMovement, pushAssetHistory, pushNotification, hasPermission, currentRole, currentUser]);
 
   const reviewFinding = useCallback((otId: string, lineId: string, approved: boolean) => {
     patchLine(otId, lineId, line => ({ ...line, findingStatus: approved ? 'aprobada' : 'rechazada' }));
@@ -764,7 +884,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     workOrders, addWorkOrder, updateWorkOrderStatus, submitForApproval, approveWorkOrder,
     rejectWorkOrder, approveEmergencyRetro, assignWorkOrder, startExecution, finalizeWorkOrder, closeWorkOrder,
     addOTLine, updateOTLine, deleteOTLine, startLine, finishLine,
-    addLinePhoto, removeLinePhoto, removeLinePart, reviewFinding,
+    addLinePhoto, removeLinePhoto, removeLinePart, signRequisition, reviewFinding,
     storageWarning, dismissStorageWarning,
     fuelLoads, addFuelLoad,
     notifications, markNotificationRead, markAllNotificationsRead, addNotification: pushNotification,
@@ -777,7 +897,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateWorkOrderStatus, submitForApproval,
     approveWorkOrder, rejectWorkOrder, approveEmergencyRetro, assignWorkOrder, startExecution,
     finalizeWorkOrder, closeWorkOrder, addOTLine, updateOTLine, deleteOTLine, startLine, finishLine,
-    addLinePhoto, removeLinePhoto, removeLinePart, reviewFinding, storageWarning,
+    addLinePhoto, removeLinePhoto, removeLinePart, signRequisition, reviewFinding, storageWarning,
     dismissStorageWarning, fuelLoads, addFuelLoad, notifications, markNotificationRead,
     markAllNotificationsRead, pushNotification, workTypes, addWorkType, updateWorkType, removeWorkType,
     maintenancePlans, addMaintenanceNode, renameMaintenanceNode, removeMaintenanceNode, moveMaintenanceNode,

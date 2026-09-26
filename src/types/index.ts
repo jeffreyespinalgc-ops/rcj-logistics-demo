@@ -88,7 +88,25 @@ export type OTWorkType = string;
 export type OTPriority = 'baja' | 'media' | 'alta' | 'critica';
 
 /** Roles del sistema */
-export type UserRole = 'administrador' | 'jefe_taller' | 'tecnico';
+export type UserRole = 'administrador' | 'jefe_taller' | 'control_inventario' | 'tecnico';
+
+/** Paso de firma de la requisa de repuestos: quien ejecuta la linea solicita, el Jefe de Taller autoriza y Control de Inventario despacha */
+export type RequisitionStep = 'solicitante' | 'autoriza' | 'despacha';
+
+export interface RequisitionSignature {
+  step: RequisitionStep;
+  role: UserRole;
+  name: string;
+  at: string;
+}
+
+/** Requisa de los repuestos de una linea: se crea con la firma del solicitante */
+export interface LineRequisition {
+  code: string;
+  signatures: RequisitionSignature[];
+  /** Cuando se reunieron todas las firmas y se descontaron los repuestos del inventario */
+  releasedAt: string | null;
+}
 
 /** Estado de aprobacion de una linea marcada como hallazgo */
 export type FindingStatus = 'no_aplica' | 'pendiente' | 'aprobada' | 'rechazada';
@@ -141,6 +159,8 @@ export interface OTLine {
   notes: string;
   /** Aviso de planificacion: no bloquea el cierre ni la ejecucion de la linea */
   needsPart: boolean;
+  /** Requisa de los repuestos; ausente en lineas anteriores a este flujo */
+  requisition?: LineRequisition | null;
   isFinding: boolean;
   findingStatus: FindingStatus;
   createdAt: string;
@@ -258,4 +278,5 @@ export type ModuleKey =
   | 'combustible'
   | 'reportes'
   | 'notificaciones'
+  | 'requisas'
   | 'administracion';
