@@ -4,7 +4,12 @@ type BadgeVariant = 'blue' | 'orange' | 'green' | 'red' | 'gray' | 'yellow' | 'p
 
 // ===== Flujo de la OT =====
 
+// "rechazada" queda fuera de otFlow a proposito: es una salida terminal del flujo normal, no un paso mas
+// (si estuviera en otFlow, la linea de tiempo de TODAS las OTs mostraria un paso "Rechazada" como pendiente).
 export const otFlow: OTStatus[] = ['creada', 'pendiente_aprobacion', 'aprobada', 'en_ejecucion', 'finalizada', 'cerrada'];
+
+/** Para selects/filtros que si deben poder elegir "Rechazada" ademas de los pasos del flujo normal */
+export const allOTStatuses: OTStatus[] = [...otFlow, 'rechazada'];
 
 export const statusLabels: Record<OTStatus, string> = {
   creada: 'Creada',
@@ -13,6 +18,7 @@ export const statusLabels: Record<OTStatus, string> = {
   en_ejecucion: 'En ejecucion',
   finalizada: 'Finalizada',
   cerrada: 'Cerrada',
+  rechazada: 'Rechazada',
 };
 
 /** Etiqueta corta para tablas y cards */
@@ -23,6 +29,7 @@ export const statusShortLabels: Record<OTStatus, string> = {
   en_ejecucion: 'En ejecucion',
   finalizada: 'Finalizada',
   cerrada: 'Cerrada',
+  rechazada: 'Rechazada',
 };
 
 export const statusVariants: Record<OTStatus, BadgeVariant> = {
@@ -32,9 +39,10 @@ export const statusVariants: Record<OTStatus, BadgeVariant> = {
   en_ejecucion: 'yellow',
   finalizada: 'purple',
   cerrada: 'green',
+  rechazada: 'red',
 };
 
-/** Rol que debe actuar en cada etapa del flujo */
+/** Rol que debe actuar en cada etapa del flujo. No se usa para "rechazada" (fuera de otFlow), pero el tipo lo exige. */
 export const statusOwners: Record<OTStatus, UserRole> = {
   creada: 'jefe_taller',
   pendiente_aprobacion: 'jefe_taller',
@@ -42,6 +50,7 @@ export const statusOwners: Record<OTStatus, UserRole> = {
   en_ejecucion: 'tecnico',
   finalizada: 'jefe_taller',
   cerrada: 'jefe_taller',
+  rechazada: 'jefe_taller',
 };
 
 export const statusOwnerLabels: Record<OTStatus, string> = {
@@ -51,6 +60,7 @@ export const statusOwnerLabels: Record<OTStatus, string> = {
   en_ejecucion: 'Tecnico asignado',
   finalizada: 'Jefe de Taller',
   cerrada: 'Jefe de Taller',
+  rechazada: 'Jefe de Taller',
 };
 
 // ===== Prioridad =====

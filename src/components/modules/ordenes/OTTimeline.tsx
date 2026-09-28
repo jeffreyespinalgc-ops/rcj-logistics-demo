@@ -7,7 +7,9 @@ import { formatDateTime, otFlow, statusLabels, statusOwnerLabels } from './otMet
  * Creada -> Pendiente de aprobacion -> Aprobada -> En ejecucion -> Finalizada -> Cerrada
  */
 export function OTTimeline({ ot }: { ot: WorkOrder }) {
-  const currentIndex = otFlow.indexOf(ot.status);
+  // "rechazada" no forma parte de otFlow: se muestra el flujo detenido en "Pendiente de aprobacion",
+  // que es la etapa desde la que se rechaza (el banner rojo de abajo explica el motivo)
+  const currentIndex = ot.status === 'rechazada' ? otFlow.indexOf('pendiente_aprobacion') : otFlow.indexOf(ot.status);
 
   return (
     <div className="flex items-start overflow-x-auto pb-1">

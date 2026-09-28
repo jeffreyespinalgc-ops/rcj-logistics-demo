@@ -10,7 +10,6 @@ import { OrdenesModule } from '@/components/modules/OrdenesModule';
 import { CombustibleModule } from '@/components/modules/CombustibleModule';
 import { ReportesModule } from '@/components/modules/ReportesModule';
 import { NotificacionesModule } from '@/components/modules/NotificacionesModule';
-import { RequisasModule } from '@/components/modules/RequisasModule';
 import { AdminModule } from '@/components/modules/AdminModule';
 import { modulePermissions } from '@/lib/permissions';
 import { Lock } from 'lucide-react';
@@ -41,7 +40,8 @@ function ModuleRouter() {
     case 'combustible': return <CombustibleModule />;
     case 'reportes': return <ReportesModule />;
     case 'notificaciones': return <NotificacionesModule />;
-    case 'requisas': return <RequisasModule />;
+    // "requisas" ya no es un modulo con su propia pantalla: su tabla vive dentro de "Repuestos e Inventario"
+    case 'requisas': return <InventarioModule />;
     case 'administracion': return <AdminModule />;
     default: return <ActivosModule />;
   }

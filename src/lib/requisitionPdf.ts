@@ -1,7 +1,7 @@
 import type { jsPDF } from 'jspdf';
 import type { OTLine, WorkOrder } from '@/types';
 import { isRequisitionComplete, signatureFor, signaturesOf } from '@/lib/requisition';
-import logoUrl from '@/assets/images/RCJ-Logistics-Full-Color.png';
+import { formatDate, formatDateTime, loadPdfLogo, INK, NAVY, type BuiltPdf, type PdfLogo } from '@/lib/pdfShared';
 
 export interface RequisitionPdfData {
   code: string;
@@ -14,18 +14,7 @@ export interface RequisitionPdfData {
   signers: { label: string; name: string; at: string }[];
 }
 
-export interface PdfLogo {
-  dataUrl: string;
-  /** alto / ancho */
-  ratio: number;
-}
-
 const ROWS_PER_PAGE = 10;
-const NAVY: [number, number, number] = [16, 32, 95];
-const INK: [number, number, number] = [30, 30, 30];
-
-const formatDate = (iso: string) => new Date(iso).toLocaleDateString('es-HN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-const formatDateTime = (iso: string) => `${formatDate(iso)} ${new Date(iso).toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit' })}`;
 
 /** Datos del formato a partir de la linea; null mientras la requisa no tenga las tres firmas */
 export function buildRequisitionPdfData(ot: WorkOrder, line: OTLine): RequisitionPdfData | null {
@@ -57,24 +46,6 @@ export function buildRequisitionPdfData(ot: WorkOrder, line: OTLine): Requisitio
       signer('solicitante', 'Técnico'),
     ],
   };
-}
-
-/** Logo reducido: el original pesa mucho mas de lo que necesita un encabezado de 40 mm */
-export async function loadPdfLogo(): Promise<PdfLogo | null> {
-  try {
-    const img = new Image();
-    img.src = logoUrl;
-    await img.decode();
-    const width = 500;
-    const height = Math.round((width * img.naturalHeight) / img.naturalWidth);
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    canvas.getContext('2d')?.drawImage(img, 0, 0, width, height);
-    return { dataUrl: canvas.toDataURL('image/png'), ratio: height / width };
-  } catch {
-    return null;
-  }
 }
 
 /** Dibuja el formato "Requisicion de materiales" (hoja carta horizontal), una hoja por cada 10 repuestos */
@@ -236,13 +207,13 @@ function drawPage(
   doc.rect(X, Y, W, bottom - Y);
 }
 
-/** Genera y descarga el PDF de la requisa firmada por las tres partes */
-export async function downloadRequisitionPdf(ot: WorkOrder, line: OTLine): Promise<void> {
+/** Arma el PDF de la requisa firmada por las tres partes; null si aun faltan firmas */
+export async function buildRequisitionPdf(ot: WorkOrder, line: OTLine): Promise<BuiltPdf | null> {
   const data = buildRequisitionPdfData(ot, line);
-  if (!data) return;
-  // jsPDF se carga solo al exportar para no engordar la carga inicial de la app
+  if (!data) return null;
+  // jsPDF se carga solo al abrir el documento para no engordar la carga inicial de la app
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
   drawRequisition(doc, data, await loadPdfLogo());
-  doc.save(`Requisicion-${data.code}.pdf`);
+  return { doc, filename: `Requisicion-${data.code}.pdf` };
 }

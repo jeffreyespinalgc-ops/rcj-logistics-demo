@@ -18,7 +18,7 @@ import {
   type RequisitionStatus,
 } from '@/lib/requisition';
 import { RequisitionProgress } from './ordenes/RequisitionProgress';
-import { RequisitionPdfButton } from './ordenes/RequisitionPdfButton';
+import { RequisitionDocumentButton, RequisitionDocumentView } from './ordenes/RequisitionDocument';
 import { formatDateTime } from './ordenes/otMeta';
 
 type StatusFilter = 'todas' | 'por_firmar' | RequisitionStatus;
@@ -53,7 +53,12 @@ interface Row {
   activityAt: string;
 }
 
-export function RequisasModule() {
+/**
+ * Tabla de requisas: vive como pestana dentro de "Repuestos e Inventario" (ya no es un modulo aparte).
+ * Sin filtro aplicado por defecto: arranca en "Todas" para que nadie tenga que quitar un filtro para ver
+ * lo que hay.
+ */
+export function RequisasTable() {
   const { workOrders, hasPermission, currentUser, setActiveModule } = useApp();
   const canAutorizar = hasPermission('requisa.autorizar');
   const canDespachar = hasPermission('requisa.despachar');
@@ -62,7 +67,7 @@ export function RequisasModule() {
   const canOpenOrders = hasPermission('modulo.ordenes');
 
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<StatusFilter>(canSign ? 'por_firmar' : 'todas');
+  const [filter, setFilter] = useState<StatusFilter>('todas');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<{ otId: string; lineId: string } | null>(null);
@@ -125,9 +130,8 @@ export function RequisasModule() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1280px] p-4 sm:p-6">
-      <div className="bg-white rounded-lg shadow-card border border-stone-200">
-        <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-stone-200 bg-stone-50/50">
+    <>
+      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-stone-200 bg-stone-50/50">
           <div className="relative flex-1 min-w-[220px]">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
             <input
@@ -278,12 +282,11 @@ export function RequisasModule() {
             </Button>
           </div>
         </div>
-      </div>
 
       {selected && (
         <RequisitionModal otId={selected.otId} lineId={selected.lineId} onClose={() => setSelected(null)} />
       )}
-    </div>
+    </>
   );
 }
 
@@ -291,6 +294,7 @@ export function RequisasModule() {
 function RequisitionModal({ otId, lineId, onClose }: { otId: string; lineId: string; onClose: () => void }) {
   const { workOrders, parts, hasPermission, signRequisition } = useApp();
   const [error, setError] = useState<string | null>(null);
+  const [showDocument, setShowDocument] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -328,6 +332,15 @@ function RequisitionModal({ otId, lineId, onClose }: { otId: string; lineId: str
       : status === 'sin_solicitar'
         ? 'Esperando que el tecnico firme la solicitud desde la linea de la OT.'
         : `Faltan firmas, en este orden: ${missing.join(' > ')}.`;
+
+  // el documento reemplaza el detalle dentro del mismo modal: no se apila un segundo modal
+  if (showDocument) {
+    return (
+      <Modal open onClose={onClose} title={`Documento ${line.requisition?.code ?? ''}`} size="xl">
+        <RequisitionDocumentView ot={ot} line={line} onBack={() => setShowDocument(false)} backLabel="Volver al detalle" />
+      </Modal>
+    );
+  }
 
   return (
     <Modal open onClose={onClose} title={line.requisition?.code ?? 'Solicitud de repuestos'} size="lg">
@@ -405,7 +418,7 @@ function RequisitionModal({ otId, lineId, onClose }: { otId: string; lineId: str
 
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-stone-100 pt-4">
           {step && <span className="mr-auto text-xs text-stone-500">Firmaras como {requisitionStepLabels[step]}</span>}
-          <RequisitionPdfButton ot={ot} line={line} />
+          <RequisitionDocumentButton ot={ot} line={line} onView={() => setShowDocument(true)} />
           <Button variant="outline" className="min-h-[44px]" onClick={onClose}>{step ? 'Cancelar' : 'Cerrar'}</Button>
           {step && (
             <Button className="min-h-[44px]" disabled={blockedByStock} onClick={handleSign}>

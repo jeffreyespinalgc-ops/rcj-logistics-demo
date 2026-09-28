@@ -3,6 +3,7 @@ import { useAuth } from '@/store/AuthContext';
 import type { ModuleKey } from '@/types';
 import { modulePermissions } from '@/lib/permissions';
 import { initialsOf, roleLabels } from '@/lib/roles';
+import { pendingRequisitionCount } from '@/lib/requisition';
 import logo from '@/assets/images/RCJ-Logistics-Blanco.png';
 import {
   Truck,
@@ -13,7 +14,6 @@ import {
   Bell,
   ChevronsLeft,
   ChevronsRight,
-  FileSignature,
   Settings,
   LogOut,
 } from 'lucide-react';
@@ -35,7 +35,6 @@ const navItems: NavItem[] = [
   { key: 'activos', label: 'Vehiculos', icon: Truck },
   { key: 'inventario', label: 'Repuestos e Inventario', icon: Package },
   { key: 'ordenes', label: 'Ordenes de Trabajo', icon: ClipboardList },
-  { key: 'requisas', label: 'Requisas de Repuestos', icon: FileSignature },
   { key: 'combustible', label: 'Combustible', icon: Fuel },
   { key: 'reportes', label: 'Reportes TCO', icon: BarChart3 },
   { key: 'notificaciones', label: 'Notificaciones', icon: Bell },
@@ -43,7 +42,7 @@ const navItems: NavItem[] = [
 ];
 
 export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChange: (mode: SidebarMode) => void }) {
-  const { activeModule, setActiveModule, notifications, hasPermission, currentRole } = useApp();
+  const { activeModule, setActiveModule, notifications, hasPermission, currentRole, workOrders, currentUser } = useApp();
   const { session, logout } = useAuth();
   const unreadCount = notifications.filter(n => !n.read).length;
   const mini = mode === 'mini';
@@ -52,6 +51,17 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
 
   // cada rol solo ve los modulos que su permiso habilita
   const visibleItems = navItems.filter(item => hasPermission(modulePermissions[item.key]));
+
+  // requisas sin firmas completas: quien puede verlas (pestana dentro de Repuestos e Inventario) recibe un
+  // aviso en el menu, igual que las notificaciones sin leer
+  const canSeeAllOT = hasPermission('ot.ver.todas');
+  const pendingRequisitions = hasPermission('modulo.requisas')
+    ? pendingRequisitionCount(workOrders, { canSeeAll: canSeeAllOT, currentUser })
+    : 0;
+  const badgeCounts: Partial<Record<ModuleKey, number>> = {
+    notificaciones: unreadCount,
+    inventario: pendingRequisitions,
+  };
 
   return (
     <>
@@ -99,7 +109,8 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
           {visibleItems.map(item => {
             const Icon = item.icon;
             const active = activeModule === item.key;
-            const showBadge = item.key === 'notificaciones' && unreadCount > 0;
+            const badgeCount = badgeCounts[item.key] ?? 0;
+            const showBadge = badgeCount > 0;
             return (
               <button
                 key={item.key}
@@ -122,12 +133,12 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
                 <span className={`text-left flex-1 ${hideText}`}>{item.label}</span>
                 {showBadge && (
                   <span className={`bg-orange-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center ${hideText}`}>
-                    {unreadCount}
+                    {badgeCount}
                   </span>
                 )}
                 {showBadge && mini && (
                   <span className="absolute right-1 top-1 min-w-[16px] rounded-full bg-orange-500 px-1 text-center text-[10px] font-bold leading-4 text-white lg:hidden">
-                    {unreadCount}
+                    {badgeCount}
                   </span>
                 )}
               </button>

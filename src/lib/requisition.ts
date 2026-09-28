@@ -37,6 +37,20 @@ export function dropInvalidRequesterRequisitions(orders: WorkOrder[]): WorkOrder
 /** Toda linea que requiere repuesto y ya tiene repuestos elegidos genera una requisa */
 export const requiresRequisition = (line: OTLine): boolean => line.needsPart && line.parts.length > 0;
 
+/**
+ * Cuantas requisas siguen sin las 3 firmas completas (se usa para el badge del menu y de la pestana
+ * "Requisas de Repuestos"). Respeta el mismo alcance que la tabla: todas las OTs si se ve todo, si no
+ * solo las asignadas al usuario.
+ */
+export function pendingRequisitionCount(orders: WorkOrder[], opts: { canSeeAll: boolean; currentUser: string }): number {
+  return orders
+    .filter(ot => opts.canSeeAll || ot.assignedTo === opts.currentUser)
+    .flatMap(ot => ot.lines)
+    .filter(requiresRequisition)
+    .filter(line => requisitionStatus(line) !== 'completa')
+    .length;
+}
+
 export const signaturesOf = (line: OTLine): RequisitionSignature[] => line.requisition?.signatures ?? [];
 
 export const signatureFor = (line: OTLine, step: RequisitionStep): RequisitionSignature | undefined =>

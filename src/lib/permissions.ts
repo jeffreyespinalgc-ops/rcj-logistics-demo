@@ -40,6 +40,7 @@ export type Permission =
   | 'ot.lineas.editar'
   | 'ot.lineas.estado'
   | 'ot.lineas.aprobarHallazgo'
+  | 'ot.inventario.firmar'
   // Inventario
   | 'repuestos.consumir'
   | 'inventario.catalogo.editar'
@@ -47,6 +48,7 @@ export type Permission =
   | 'requisa.solicitar'
   | 'requisa.autorizar'
   | 'requisa.despachar'
+  | 'requisa.descargar'
   // Reportes
   | 'reportes.ver';
 
@@ -59,7 +61,7 @@ export const permissionLabels: Record<Permission, string> = {
   'modulo.combustible': 'Ver modulo Combustible',
   'modulo.reportes': 'Ver modulo Reportes TCO',
   'modulo.notificaciones': 'Ver modulo Notificaciones',
-  'modulo.requisas': 'Ver modulo Requisas de Repuestos',
+  'modulo.requisas': 'Ver Requisas de Repuestos (pestana en Repuestos e Inventario)',
   'modulo.administracion': 'Ver modulo Administracion',
   'usuarios.gestionar': 'Gestionar usuarios y roles',
   'catalogos.editar': 'Editar tipos de mantenimiento y catalogos',
@@ -80,11 +82,13 @@ export const permissionLabels: Record<Permission, string> = {
   'ot.lineas.editar': 'Editar o eliminar lineas de trabajo y sus actividades',
   'ot.lineas.estado': 'Ejecutar lineas: iniciar y finalizar, evidencias',
   'ot.lineas.aprobarHallazgo': 'Aprobar o rechazar lineas de hallazgo',
+  'ot.inventario.firmar': 'Firmar el documento de la OT como Control de Inventario',
   'repuestos.consumir': 'Consumir repuestos en lineas de OT',
   'inventario.catalogo.editar': 'Editar catalogo de repuestos',
   'requisa.solicitar': 'Firmar requisas como tecnico solicitante',
   'requisa.autorizar': 'Firmar requisas como Jefe de Taller (autoriza)',
   'requisa.despachar': 'Firmar requisas como Control de Inventario (despacha)',
+  'requisa.descargar': 'Descargar el PDF de la requisa firmada (ver el documento no requiere permiso)',
   'reportes.ver': 'Ver reportes TCO completos',
 };
 
@@ -113,13 +117,13 @@ export const permissionGroups: { title: string; permissions: Permission[] }[] = 
     title: 'Ordenes de Trabajo',
     permissions: [
       'ot.ver.todas', 'ot.crear', 'ot.aprobar', 'ot.rechazar', 'ot.emergencia.aprobarRetro',
-      'ot.asignar', 'ot.cerrar', 'ot.finalizar',
+      'ot.asignar', 'ot.cerrar', 'ot.finalizar', 'ot.inventario.firmar',
       'ot.lineas.agregar', 'ot.lineas.editar', 'ot.lineas.estado', 'ot.lineas.aprobarHallazgo', 'repuestos.consumir',
     ],
   },
   {
     title: 'Requisas de Repuestos',
-    permissions: ['requisa.solicitar', 'requisa.autorizar', 'requisa.despachar'],
+    permissions: ['requisa.solicitar', 'requisa.autorizar', 'requisa.despachar', 'requisa.descargar'],
   },
   {
     title: 'Reportes',
@@ -138,18 +142,22 @@ export const permissionGroups: { title: string; permissions: Permission[] }[] = 
  * ni elimina, solo las ejecuta (estado, horas, actividades, evidencias, repuestos) en las asignadas a el.
  * Control de Inventario: solo consulta activos, inventario, OTs, combustible y notificaciones; firma
  * (despacha) las requisas de repuestos. Las requisas se firman en orden: tecnico, Jefe de Taller y despues Control.
+ * Ver el documento de una requisa (o de la OT) lo puede hacer cualquiera que la vea; descargar el PDF requiere
+ * 'requisa.descargar' (Administrador, Jefe de Taller y Control de Inventario; el tecnico solo lo ve).
+ * El documento de la OT lo firma Control de Inventario con 'ot.inventario.firmar' una vez finalizada, en
+ * cualquier orden respecto a "Firmar y cerrar OT" del Jefe de Taller (ninguna bloquea a la otra).
  */
 export const defaultPermissions: PermissionMatrix = {
   administrador: [
     'modulo.activos', 'modulo.inventario', 'modulo.ordenes', 'modulo.combustible',
-    'modulo.reportes', 'modulo.notificaciones', 'modulo.requisas', 'modulo.administracion',
+    'modulo.reportes', 'modulo.notificaciones', 'modulo.requisas', 'requisa.descargar', 'modulo.administracion',
     'usuarios.gestionar', 'catalogos.editar', 'permisos.configurar',
     'activos.crear', 'activos.sap.vincular', 'activos.fotos.gestionar',
     'ot.ver.todas', 'ot.lineas.editar', 'inventario.catalogo.editar', 'reportes.ver',
   ],
   jefe_taller: [
     'modulo.activos', 'modulo.inventario', 'modulo.ordenes', 'modulo.combustible',
-    'modulo.reportes', 'modulo.notificaciones', 'modulo.requisas', 'requisa.autorizar',
+    'modulo.reportes', 'modulo.notificaciones', 'modulo.requisas', 'requisa.autorizar', 'requisa.descargar',
     'activos.crear', 'activos.fotos.gestionar', 'combustible.registrar',
     'ot.ver.todas', 'ot.crear', 'ot.aprobar', 'ot.rechazar', 'ot.emergencia.aprobarRetro',
     'ot.asignar', 'ot.cerrar', 'ot.lineas.aprobarHallazgo',
@@ -159,7 +167,7 @@ export const defaultPermissions: PermissionMatrix = {
   control_inventario: [
     'modulo.activos', 'modulo.inventario', 'modulo.ordenes', 'modulo.combustible',
     'modulo.notificaciones', 'modulo.requisas',
-    'ot.ver.todas', 'requisa.despachar',
+    'ot.ver.todas', 'requisa.despachar', 'requisa.descargar', 'ot.inventario.firmar',
   ],
   tecnico: [
     'modulo.ordenes', 'modulo.notificaciones',

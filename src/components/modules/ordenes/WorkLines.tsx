@@ -28,14 +28,12 @@ import {
 import {
   isRequisitionComplete,
   isRequisitionRequester,
-  missingSteps,
   requiresRequisition,
-  requisitionStepLabels,
   signatureFor,
   signaturesOf,
 } from '@/lib/requisition';
 import { RequisitionProgress } from './RequisitionProgress';
-import { RequisitionPdfButton } from './RequisitionPdfButton';
+import { RequisitionDocumentButton } from './RequisitionDocument';
 import {
   formatDateTime,
   findingStatusLabels,
@@ -44,24 +42,24 @@ import {
   lineStatusVariants,
 } from './otMeta';
 
-/**
- * canAdd: puede crear lineas nuevas.
- * canEdit: puede editar o eliminar lineas ya creadas (tecnico, actividades, observaciones, repuestos sin firmar).
- * canExecute: puede ejecutarlas (responsable, estado, horas, actividades completadas, evidencias, repuestos).
- */
-export function WorkLinesSection({ ot, canAdd, canEdit, canExecute }: {
+export function WorkLinesSection({ ot, canAdd, canEdit, canExecute, canFinalize, finalizeBlockedReason, onFinalize }: {
   ot: WorkOrder;
   canAdd: boolean;
   canEdit: boolean;
   canExecute: boolean;
+  canFinalize: boolean;
+  finalizeBlockedReason: string | null;
+  onFinalize: () => void;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [lightbox, setLightbox] = useState<OTLinePhoto | null>(null);
   const { addOTLine, currentUser, currentRole, storageWarning, dismissStorageWarning } = useApp();
   const canAddLines = canAdd;
-  // se propone al tecnico asignado; si no hay, el propio tecnico que crea la linea
-  const defaultTechnician = ot.assignedToType === 'tecnico' && ot.assignedTo
+  // se propone al tecnico asignado (o al taller externo, si la OT se asigno a uno: asi queda registrado
+  // de forma automatica quien hizo la linea sin que haya que escribirlo a mano); sin asignacion, el propio
+  // tecnico que crea la linea
+  const defaultTechnician = ot.assignedTo && (ot.assignedToType === 'tecnico' || ot.assignedToType === 'taller_externo')
     ? ot.assignedTo
     : (currentRole === 'tecnico' ? currentUser : '');
 
@@ -74,11 +72,24 @@ export function WorkLinesSection({ ot, canAdd, canEdit, canExecute }: {
             Cada linea es una unidad independiente de ejecucion y trazabilidad
           </p> */}
         </div>
-        {canAddLines && (
-          <Button size="sm" variant="outline" onClick={() => setShowAddModal(true)}>
-            <Plus size={14} /> Agregar linea de trabajo
-          </Button>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {(canFinalize || finalizeBlockedReason) && (
+            <Button
+              size="sm"
+              className="min-h-[44px] sm:min-h-0"
+              disabled={!canFinalize}
+              title={finalizeBlockedReason ?? undefined}
+              onClick={onFinalize}
+            >
+              <PenTool size={14} /> Finalizar OT
+            </Button>
+          )}
+          {canAddLines && (
+            <Button size="sm" variant="outline" className="min-h-[44px] sm:min-h-0" onClick={() => setShowAddModal(true)}>
+              <Plus size={14} /> Agregar linea de trabajo
+            </Button>
+          )}
+        </div>
       </div>
 
       {storageWarning && (
@@ -136,19 +147,14 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
   const { updateOTLine, deleteOTLine, startLine, finishLine, reviewFinding, signRequisition, hasPermission, currentUser } = useApp();
   const [editingWork, setEditingWork] = useState(false);
   const [signError, setSignError] = useState<string | null>(null);
-  // los hallazgos que ya estaban registrados los sigue revisando el Jefe de Taller
   const canReviewFinding = hasPermission('ot.lineas.aprobarHallazgo') && line.isFinding && line.findingStatus === 'pendiente';
-  // lineas anteriores a las actividades no traen el campo
   const activities = line.activities ?? [];
-  // requisa de repuestos: firma primero el tecnico de la linea (solicitante); la linea inicia con todas las firmas
   const needsRequisition = requiresRequisition(line);
   const requesterSigned = Boolean(signatureFor(line, 'solicitante'));
   const canRequest = hasPermission('requisa.solicitar')
     && isRequisitionRequester(line, ot.assignedTo, currentUser)
     && ot.status !== 'finalizada' && ot.status !== 'cerrada';
-  const requisitionDone = isRequisitionComplete(line);
   const hasSignatures = signaturesOf(line).length > 0;
-  const pendingSignatures = missingSteps(line).map(step => requisitionStepLabels[step]);
   const hasPhotos = line.photosBefore.length + line.photosAfter.length > 0;
   const showActions = (canExecute || (needsRequisition && canRequest)) && (!line.startedAt || !line.finishedAt);
 
@@ -181,26 +187,13 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
             </div>
           )}
 
-          {/* Responsable, estado y acciones en una sola fila */}
-          <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
-            <Field label="Tecnico" className="min-w-[10rem] flex-1 sm:w-56 sm:flex-none">
-              {canEdit ? (
-                <TextInput value={line.technician} onChange={e => updateOTLine(ot.id, line.id, { technician: e.target.value })} />
-              ) : (
-                <p className="text-sm text-stone-800 py-2">{line.technician || '--'}</p>
-              )}
-            </Field>
-            <div className="flex flex-wrap items-center gap-2 pb-2">
-              <Badge variant={lineStatusVariants[line.status]}>{lineStatusLabels[line.status]}</Badge>
-              {line.startedAt && (
-                <span className="text-xs text-stone-500">
-                  Inicio {formatDateTime(line.startedAt)}{line.finishedAt ? ` · Fin ${formatDateTime(line.finishedAt)}` : ''}
-                </span>
-              )}
-            </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Badge variant={lineStatusVariants[line.status]}>{lineStatusLabels[line.status]}</Badge>
+            {ot.assignedToType === 'taller_externo' && (
+              <Badge variant="gray">Taller externo: {ot.assignedTo}</Badge>
+            )}
             {showActions && (
               <span className="ml-auto flex items-center gap-2">
-                {/* solo el tecnico de la linea firma la solicitud; quien supervisa no la firma por el */}
                 {!line.startedAt && needsRequisition && !requesterSigned && canRequest && (
                   <Button
                     size="sm"
@@ -211,27 +204,22 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
                     <PenTool size={12} /> Firmar
                   </Button>
                 )}
-                {/* tras firmar, Iniciar queda deshabilitado hasta reunir las demas firmas */}
-                {!line.startedAt && needsRequisition && requesterSigned && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="min-h-[44px] sm:min-h-0"
-                    disabled={!requisitionDone || !canExecute}
-                    title={
-                      !requisitionDone
-                        ? `Faltan firmas: ${pendingSignatures.join(', ')}`
-                        : !canExecute ? 'La OT debe estar aprobada y asignada al tecnico para iniciar la linea.' : undefined
-                    }
-                    onClick={() => startLine(ot.id, line.id)}
-                  >
-                    <Play size={12} /> Iniciar
-                  </Button>
-                )}
-                {!line.startedAt && !needsRequisition && canExecute && (
-                  <Button size="sm" variant="secondary" className="min-h-[44px] sm:min-h-0" onClick={() => startLine(ot.id, line.id)}>
-                    <Play size={12} /> Iniciar
-                  </Button>
+                {!line.startedAt && canExecute && (
+                  needsRequisition && !isRequisitionComplete(line) ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="min-h-[44px] sm:min-h-0"
+                      disabled
+                      title="Falta completar las firmas de la requisa de repuestos"
+                    >
+                      <Play size={12} /> Iniciar
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="secondary" className="min-h-[44px] sm:min-h-0" onClick={() => startLine(ot.id, line.id)}>
+                      <Play size={12} /> Iniciar
+                    </Button>
+                  )
                 )}
                 {line.startedAt && !line.finishedAt && canExecute && (
                   <Button size="sm" variant="primary" className="min-h-[44px] sm:min-h-0" onClick={() => finishLine(ot.id, line.id)}>
@@ -318,7 +306,6 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
   );
 }
 
-/** Repuestos de la linea junto con el avance de su requisa; quien edita lineas puede quitarlos mientras no haya firmas */
 function LineParts({ ot, line, canRemove }: { ot: WorkOrder; line: OTLine; canRemove: boolean }) {
   const { removeLinePart } = useApp();
 
@@ -326,14 +313,14 @@ function LineParts({ ot, line, canRemove }: { ot: WorkOrder; line: OTLine; canRe
     <div className="border-t border-stone-200/70 pt-3 space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Repuestos</p>
-        <RequisitionPdfButton ot={ot} line={line} />
+        <RequisitionDocumentButton ot={ot} line={line} />
       </div>
       <ul className="space-y-1">
         {line.parts.map(p => (
           <li key={p.partId} className="flex items-center gap-2 text-sm text-stone-700">
             <span className="w-10 flex-shrink-0 text-right font-medium">{p.quantity} x</span>
             <span className="min-w-0 flex-1 truncate">{p.partDescription}</span>
-            <span className="flex-shrink-0 text-xs text-stone-400">{p.partCode}</span>
+            {/* <span className="flex-shrink-0 text-xs text-stone-400">{p.partCode}</span> */}
             {canRemove && (
               <button
                 onClick={() => removeLinePart(ot.id, line.id, p.partId)}
@@ -349,7 +336,7 @@ function LineParts({ ot, line, canRemove }: { ot: WorkOrder; line: OTLine; canRe
       </ul>
       {requiresRequisition(line) && (
         <div className="flex flex-wrap items-center gap-2">
-          {line.requisition && <span className="text-xs font-semibold text-blue-700">{line.requisition.code}</span>}
+          {line.requisition && <span className="text-xs font-semibold text-blue-700">{}</span>}
           <RequisitionProgress line={line} />
         </div>
       )}
@@ -379,7 +366,6 @@ function EvidenceGroup({ ot, line, group, title, canEdit, onOpenPhoto }: {
         const dataUrl = await fileToCompressedDataUrl(file);
         addLinePhoto(ot.id, line.id, group, { dataUrl, name: file.name });
       } catch {
-        // archivo no valido: se ignora y se continua con el resto
       }
     }
     setBusy(false);
@@ -472,7 +458,6 @@ type NewLine = {
   needsPart: boolean;
   isFinding: boolean;
   parts: OTLinePart[];
-  photosBefore: { dataUrl: string; name: string }[];
 };
 
 type NewLinePayload = NewLine & { work: string; workPath: string[]; activities: OTActivity[] };
@@ -486,7 +471,6 @@ function emptyLineForm(technician: string): NewLine {
     needsPart: false,
     isFinding: false,
     parts: [],
-    photosBefore: [],
   };
 }
 
@@ -503,9 +487,6 @@ function AddLineModal({ open, onClose, onAdd, defaultTechnician }: {
   const [freeText, setFreeText] = useState('');
   const [pickPartId, setPickPartId] = useState('');
   const [pickQty, setPickQty] = useState(1);
-  const [busy, setBusy] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const cameraRef = useRef<HTMLInputElement>(null);
 
   const picked = inventory.find(p => p.id === pickPartId);
   const alreadyPicked = form.parts.find(p => p.partId === pickPartId)?.quantity ?? 0;
@@ -546,26 +527,6 @@ function AddLineModal({ open, onClose, onAdd, defaultTechnician }: {
 
   const removePickedPart = (partId: string) => {
     setForm(prev => ({ ...prev, parts: prev.parts.filter(p => p.partId !== partId) }));
-  };
-
-  const handleFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setBusy(true);
-    for (const file of Array.from(files)) {
-      try {
-        const dataUrl = await fileToCompressedDataUrl(file);
-        setForm(prev => ({ ...prev, photosBefore: [...prev.photosBefore, { dataUrl, name: file.name }] }));
-      } catch {
-        // archivo no valido: se omite y se continua con el resto
-      }
-    }
-    setBusy(false);
-    if (fileRef.current) fileRef.current.value = '';
-    if (cameraRef.current) cameraRef.current.value = '';
-  };
-
-  const removePhoto = (index: number) => {
-    setForm(prev => ({ ...prev, photosBefore: prev.photosBefore.filter((_, i) => i !== index) }));
   };
 
   const handleSubmit = () => {
@@ -667,54 +628,7 @@ function AddLineModal({ open, onClose, onAdd, defaultTechnician }: {
           />
         </Field>
 
-        <div>
-          <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide mb-2">Evidencia fotografica (opcional)</p>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button size="sm" variant="outline" onClick={() => cameraRef.current?.click()} disabled={busy}>
-              <Camera size={14} /> 
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={busy}>
-              <Upload size={14} /> {busy ? 'Cargando...' : ''}
-            </Button>
-          </div>
-          <input
-            ref={cameraRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={e => { void handleFiles(e.target.files); }}
-          />
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={e => { void handleFiles(e.target.files); }}
-          />
-
-          {form.photosBefore.length > 0 && (
-            <div className="flex flex-wrap gap-3 mt-3">
-              {form.photosBefore.map((photo, index) => (
-                <div key={`${photo.name}-${index}`} className="relative w-20 h-20">
-                  <img
-                    src={photo.dataUrl}
-                    alt={photo.name}
-                    className="w-full h-full object-cover rounded-md border border-stone-300 bg-stone-100"
-                  />
-                  <button
-                    onClick={() => removePhoto(index)}
-                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-sm"
-                    title="Quitar fotografia"
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* la evidencia fotografica se agrega despues de creada la linea (seccion "Evidencias" del detalle) */}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={handleClose}>Cancelar</Button>

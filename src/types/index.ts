@@ -81,7 +81,9 @@ export type OTStatus =
   | 'aprobada'
   | 'en_ejecucion'
   | 'finalizada'
-  | 'cerrada';
+  | 'cerrada'
+  /** Terminal: el Jefe de Taller la rechazo. No vuelve a "creada", queda cerrada por completo. */
+  | 'rechazada';
 
 /** Codigo del catalogo editable "Tipos de Trabajo de la OT" (Administracion). No es una union fija: el administrador puede agregar o eliminar tipos. */
 export type OTWorkType = string;
@@ -190,6 +192,9 @@ export interface WorkOrder {
   closedAt: string | null;
   approvedBy: string | null;
   signedBy: string | null;
+  /** Firma de Control de Inventario sobre el documento completo de la OT; no bloquea ni depende de "Firmar y cerrar OT" */
+  inventorySignedBy: string | null;
+  inventorySignedAt: string | null;
   rejectedReason: string | null;
   lines: OTLine[];
   estimatedCost: number;

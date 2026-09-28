@@ -1,5 +1,4 @@
 import { useApp } from '@/store/AppContext';
-import { useAuth } from '@/store/AuthContext';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -31,11 +30,13 @@ import {
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { WorkLinesSection } from './ordenes/WorkLines';
+import { OTDocumentButton } from './ordenes/OTDocument';
 import { OTTimeline } from './ordenes/OTTimeline';
 import {
   blockingReason,
   formatCLP,
   formatHours,
+  allOTStatuses,
   otFlow,
   otHours,
   otNeedsFollowUp,
@@ -57,9 +58,8 @@ export function OrdenesModule() {
   const {
     workOrders, assets, currentUser, hasPermission,
     addWorkOrder, submitForApproval, approveWorkOrder, rejectWorkOrder, approveEmergencyRetro,
-    assignWorkOrder, finalizeWorkOrder, closeWorkOrder, addNotification,
+    assignWorkOrder, finalizeWorkOrder, closeWorkOrder, signOTInventory, addNotification,
   } = useApp();
-  const { users } = useAuth();
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => (window.matchMedia('(max-width: 639px)').matches ? 'cuadricula' : 'lista'));
   const [selectedOTId, setSelectedOTId] = useState<string | null>(null);
@@ -70,8 +70,8 @@ export function OrdenesModule() {
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showRetroModal, setShowRetroModal] = useState(false);
+  const [showSignInventoryModal, setShowSignInventoryModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
-  const [actorName, setActorName] = useState(currentUser);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
 
@@ -104,12 +104,6 @@ export function OrdenesModule() {
 
   const selectedOT = selectedOTId ? visibleOrders.find(o => o.id === selectedOTId) ?? null : null;
   const canCreate = hasPermission('ot.crear');
-  const technicians = useMemo(() => users.filter(u => u.role === 'tecnico' && u.active).map(u => u.name), [users]);
-
-  const openAction = (setter: (v: boolean) => void) => {
-    setActorName(currentUser);
-    setter(true);
-  };
 
   if (selectedOT) {
     return (
@@ -119,28 +113,25 @@ export function OrdenesModule() {
           currentUser={currentUser}
           onBack={() => setSelectedOTId(null)}
           onSubmit={() => submitForApproval(selectedOT.id)}
-          onApprove={() => openAction(setShowApproveModal)}
+          onApprove={() => setShowApproveModal(true)}
           onReject={() => setShowRejectModal(true)}
-          onRetroApprove={() => openAction(setShowRetroModal)}
+          onRetroApprove={() => setShowRetroModal(true)}
           onAssign={() => setShowAssignModal(true)}
-          onFinalize={() => openAction(setShowFinalizeModal)}
+          onFinalize={() => setShowFinalizeModal(true)}
           onClose={() => setShowCloseModal(true)}
+          onSignInventory={() => setShowSignInventoryModal(true)}
         />
 
+        {/* El nombre de quien firma se infiere de la sesion (currentUser); estos modales solo piden confirmar. */}
         <ConfirmModal
           open={showApproveModal}
           onClose={() => setShowApproveModal(false)}
           title="Aprobar Orden de Trabajo"
-          message={`Confirmas la aprobacion de ${selectedOT.code}? Quedara disponible para ejecucion en taller.`}
+          message="Estas seguro de aprobar esta OT?"
           confirmLabel="Aprobar"
           confirmVariant="primary"
-          extraField={
-            <Field label="Aprobador">
-              <TextInput value={actorName} onChange={e => setActorName(e.target.value)} />
-            </Field>
-          }
           onConfirm={() => {
-            approveWorkOrder(selectedOT.id, actorName);
+            approveWorkOrder(selectedOT.id, currentUser);
             setShowApproveModal(false);
           }}
         />
@@ -149,7 +140,7 @@ export function OrdenesModule() {
           open={showRejectModal}
           onClose={() => { setShowRejectModal(false); setRejectReason(''); }}
           title="Rechazar Orden de Trabajo"
-          message={`Indica el motivo del rechazo de ${selectedOT.code}. Volvera al solicitante como "Creada".`}
+          message='Indica el motivo del rechazo. La OT quedara cerrada como "Rechazada".'
           confirmLabel="Rechazar"
           confirmVariant="danger"
           extraField={
@@ -170,17 +161,25 @@ export function OrdenesModule() {
           open={showFinalizeModal}
           onClose={() => setShowFinalizeModal(false)}
           title="Finalizar Orden de Trabajo"
-          message={`Confirmas que todas las lineas de trabajo de ${selectedOT.code} estan terminadas? Al firmar, la OT quedara en espera de la firma del Jefe de Taller para su cierre.`}
+          message="Estas seguro de finalizar esta OT? Quedara en espera de la firma del Jefe de Taller para su cierre."
           confirmLabel="Firmar y finalizar"
           confirmVariant="primary"
-          extraField={
-            <Field label="Firma de quien finaliza">
-              <TextInput value={actorName} onChange={e => setActorName(e.target.value)} />
-            </Field>
-          }
           onConfirm={() => {
-            finalizeWorkOrder(selectedOT.id, actorName);
+            finalizeWorkOrder(selectedOT.id, currentUser);
             setShowFinalizeModal(false);
+          }}
+        />
+
+        <ConfirmModal
+          open={showSignInventoryModal}
+          onClose={() => setShowSignInventoryModal(false)}
+          title="Firmar documento de la OT"
+          message="Estas seguro de firmar el documento de esta OT como Control de Inventario?"
+          confirmLabel="Firmar"
+          confirmVariant="primary"
+          onConfirm={() => {
+            signOTInventory(selectedOT.id, currentUser);
+            setShowSignInventoryModal(false);
           }}
         />
 
@@ -188,7 +187,7 @@ export function OrdenesModule() {
           open={showCloseModal}
           onClose={() => setShowCloseModal(false)}
           title="Cerrar Orden de Trabajo"
-          message={`Confirmas el cierre de ${selectedOT.code}? Con la firma de supervisor no se podran registrar mas avances.`}
+          message="Estas seguro de cerrar esta OT? No se podran registrar mas avances."
           confirmLabel="Firmar y cerrar OT"
           confirmVariant="primary"
           onConfirm={() => {
@@ -201,16 +200,11 @@ export function OrdenesModule() {
           open={showRetroModal}
           onClose={() => setShowRetroModal(false)}
           title="Aprobar retroactivamente"
-          message={`${selectedOT.code} es una OT de emergencia que se ejecuto sin aprobacion previa. Al confirmar queda revisada y aprobada, sin alterar su etapa actual.`}
+          message="Esta OT se ejecuto sin aprobacion previa. Estas seguro de aprobarla retroactivamente?"
           confirmLabel="Aprobar retroactivamente"
           confirmVariant="primary"
-          extraField={
-            <Field label="Revisado por">
-              <TextInput value={actorName} onChange={e => setActorName(e.target.value)} />
-            </Field>
-          }
           onConfirm={() => {
-            approveEmergencyRetro(selectedOT.id, actorName);
+            approveEmergencyRetro(selectedOT.id, currentUser);
             setShowRetroModal(false);
           }}
         />
@@ -219,7 +213,6 @@ export function OrdenesModule() {
           open={showAssignModal}
           onClose={() => setShowAssignModal(false)}
           ot={selectedOT}
-          technicians={technicians}
           onAssign={(who, type) => {
             assignWorkOrder(selectedOT.id, who, type);
             setShowAssignModal(false);
@@ -284,7 +277,7 @@ export function OrdenesModule() {
           </div>
           <Select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="w-full sm:w-auto">
             <option value="">Todos los estados</option>
-            {otFlow.map(s => <option key={s} value={s}>{statusLabels[s]}</option>)}
+            {allOTStatuses.map(s => <option key={s} value={s}>{statusLabels[s]}</option>)}
           </Select>
         </div>
 
@@ -448,7 +441,7 @@ function OTCard({ ot, onClick }: { ot: WorkOrder; onClick: () => void }) {
   );
 }
 
-function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRetroApprove, onAssign, onFinalize, onClose }: {
+function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRetroApprove, onAssign, onFinalize, onClose, onSignInventory }: {
   ot: WorkOrder;
   currentUser: string;
   onBack: () => void;
@@ -459,13 +452,16 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
   onAssign: () => void;
   onFinalize: () => void;
   onClose: () => void;
+  onSignInventory: () => void;
 }) {
   const { hasPermission } = useApp();
   const blocked = blockingReason(ot);
   const isAssigned = ot.assignedTo === currentUser;
   const isCreator = ot.createdBy === currentUser;
   const canSeeAllOTs = hasPermission('ot.ver.todas');
-  const linesOpen = ot.status !== 'finalizada' && ot.status !== 'cerrada';
+  // se pueden seguir agregando lineas mientras la OT no este cerrada ni rechazada, incluso ya finalizada
+  const locked = ot.status === 'cerrada' || ot.status === 'rechazada';
+  const linesOpen = !locked;
   // crear lineas: quien creo o tiene asignada la OT, o quien ve todas (Jefe de Taller), mientras no este finalizada
   const canAddLines = hasPermission('ot.lineas.agregar') && (isAssigned || isCreator || canSeeAllOTs) && linesOpen;
   // editar o eliminar lineas ya creadas y sus actividades: administrador y jefe de taller (el tecnico no)
@@ -480,7 +476,7 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
   const canApprove = hasPermission('ot.aprobar') && ot.status === 'pendiente_aprobacion';
   const canReject = hasPermission('ot.rechazar') && ot.status === 'pendiente_aprobacion';
   // la asignacion es unica: una vez asignada la OT no se reasigna
-  const canAssign = hasPermission('ot.asignar') && ot.status !== 'cerrada' && !ot.assignedTo;
+  const canAssign = hasPermission('ot.asignar') && !locked && !ot.assignedTo;
   // una OT que se ejecuto sin aprobacion previa (caso de emergencia) queda pendiente de revision retroactiva
   const canRetro = hasPermission('ot.emergencia.aprobarRetro')
     && !ot.approvedBy
@@ -490,7 +486,9 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
   // hallazgos por aprobar; despues la OT espera la firma del Jefe de Taller para cerrarse
   const canFinalizeNow = canFinalize && !blocked;
   const canClose = hasPermission('ot.cerrar') && ot.status === 'finalizada';
-  const hasActions = canSubmit || canApprove || canReject || canAssign || canRetro || canFinalizeNow || canClose;
+  // firma de Control de Inventario sobre el documento de la OT: en cualquier orden respecto al cierre del Jefe
+  const canSignInventory = hasPermission('ot.inventario.firmar') && ot.status === 'finalizada' && !ot.inventorySignedBy;
+  const hasActions = canSubmit || canApprove || canReject || canAssign || canRetro || canClose || canSignInventory;
   const showActionBar = hasActions || (canFinalize && Boolean(blocked));
 
   return (
@@ -499,19 +497,19 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
         <ArrowLeft size={16} /> Volver al listado
       </button>
 
-      <div className="bg-white rounded-lg shadow-card border border-stone-200">
+      <div className={`bg-white rounded-lg shadow-card border border-stone-200 transition-opacity ${locked ? 'opacity-60' : ''}`}>
         <div className="px-5 py-4 border-b border-stone-200">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 mb-1">
-                <span className="font-mono text-sm font-bold text-blue-700">{ot.code}</span>
-                <Badge variant={priorityVariants[ot.priority]}>{priorityLabels[ot.priority]}</Badge>
+                <span className="text-sm font-bold text-blue-700">{ot.code}</span>
+                {/* <Badge variant={priorityVariants[ot.priority]}>{priorityLabels[ot.priority]}</Badge> */}
+                <OTDocumentButton ot={ot} />
               </div>
               <h3 className="font-heading text-lg font-bold text-stone-800 break-words">{ot.description}</h3>
               <p className="text-sm text-stone-500 mt-0.5">{ot.assetCode} - {ot.assetName}</p>
             </div>
             <div className="sm:text-right flex-shrink-0">
-              <Badge variant={statusVariants[ot.status]}>{statusLabels[ot.status]}</Badge>
             </div>
           </div>
         </div>
@@ -529,7 +527,7 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
           <InfoCell label="Fecha Creacion" value={ot.createdAt} />
           <InfoCell label="Aprobado por" value={ot.approvedBy ?? 'Sin aprobar'} />
           <InfoCell label="Tiempo trabajado" value={formatHours(otHours(ot))} />
-          <InfoCell label="Costo repuestos" value={formatCLP(otPartsCost(ot))} />
+          {/* <InfoCell label="Costo repuestos" value={formatCLP(otPartsCost(ot))} /> */}
         </div>
 
         {ot.rejectedReason && (
@@ -548,6 +546,9 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
           </div>
         )}
 
+        {/* Al intentar cerrar la OT solo se habla del Jefe de Taller: la firma de Control de Inventario sobre
+            el documento es un tramite aparte que no bloquea ni se menciona aqui (ver "Firmar como Control de
+            Inventario" mas abajo, disponible en cualquier momento y en cualquier orden). */}
         {ot.status === 'finalizada' && (
           <div className="px-5 py-3 bg-blue-50 border-b border-blue-100 flex items-center gap-2">
             <PenTool size={16} className="text-blue-600 flex-shrink-0" />
@@ -557,7 +558,15 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
           </div>
         )}
 
-        <WorkLinesSection ot={ot} canAdd={canAddLines} canEdit={canEditLines} canExecute={canExecuteLines} />
+        <WorkLinesSection
+          ot={ot}
+          canAdd={canAddLines}
+          canEdit={canEditLines}
+          canExecute={canExecuteLines}
+          canFinalize={canFinalizeNow}
+          finalizeBlockedReason={canFinalize ? blocked : null}
+          onFinalize={onFinalize}
+        />
 
         {showActionBar && (
           <div className="px-5 py-4 border-t border-stone-200 flex items-center gap-2 flex-wrap">
@@ -578,17 +587,17 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
                 <UserPlus size={16} /> Asignar tecnico
               </Button>
             )}
-            {canFinalizeNow && (
-              <Button variant="primary" onClick={onFinalize}>
-                <PenTool size={16} /> Finalizar OT
-              </Button>
-            )}
             {canClose && (
               <Button variant="primary" onClick={onClose} disabled={Boolean(blocked)} title={blocked ?? undefined}>
                 <Lock size={16} /> Firmar y cerrar OT
               </Button>
             )}
-            {(canFinalize || canClose) && blocked && (
+            {canSignInventory && (
+              <Button variant="outline" onClick={onSignInventory}>
+                <PenTool size={16} /> Firmar como Control de Inventario
+              </Button>
+            )}
+            {canFinalize && blocked && (
               <span className="flex items-center gap-1.5 text-xs text-orange-700">
                 <AlertCircle size={13} /> {blocked}
               </span>
@@ -703,22 +712,22 @@ function CreateOTModal({ open, onClose, assets, workOrders, onCreate }: {
   );
 }
 
-function AssignModal({ open, onClose, ot, technicians, onAssign }: {
+function AssignModal({ open, onClose, ot, onAssign }: {
   open: boolean;
   onClose: () => void;
   ot: WorkOrder;
-  technicians: string[];
   onAssign: (who: string, type: 'tecnico' | 'taller_externo') => void;
 }) {
   const [type, setType] = useState<'tecnico' | 'taller_externo'>('tecnico');
-  const [technician, setTechnician] = useState('');
   const [externalShop, setExternalShop] = useState('');
+  // el responsable de ejecucion ya no se elige de una lista: se infiere solo, es quien creo la OT
+  // (normalmente el propio tecnico que la origino con sus lineas de trabajo)
+  const inferredTechnician = ot.createdBy;
 
   const handleSubmit = () => {
-    const who = type === 'tecnico' ? technician : externalShop.trim();
+    const who = type === 'tecnico' ? inferredTechnician : externalShop.trim();
     if (!who) return;
     onAssign(who, type);
-    setTechnician('');
     setExternalShop('');
   };
 
@@ -743,11 +752,8 @@ function AssignModal({ open, onClose, ot, technicians, onAssign }: {
         </Field>
 
         {type === 'tecnico' ? (
-          <Field label="Tecnico *">
-            <Select value={technician} onChange={e => setTechnician(e.target.value)}>
-              <option value="">Seleccionar tecnico...</option>
-              {technicians.map(t => <option key={t} value={t}>{t}</option>)}
-            </Select>
+          <Field label="Tecnico">
+            <p className="text-sm text-stone-800 py-2 px-3 rounded-md border border-stone-200 bg-stone-50">{inferredTechnician}</p>
           </Field>
         ) : (
           <Field label="Taller externo *">

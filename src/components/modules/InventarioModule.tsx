@@ -18,6 +18,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
+import { RequisasTable } from './RequisasModule';
+import { pendingRequisitionCount } from '@/lib/requisition';
 
 const formatCLP = (n: number) => 'L.' + n.toLocaleString('es-HN');
 
@@ -44,9 +46,12 @@ export function InventarioModule() {
   // El stock se ajusta automaticamente al consumir repuestos en lineas de OT.
   // El alta manual de repuestos (permiso 'inventario.catalogo.editar') es solo
   // para la demo: el catalogo vendra automaticamente del inventario de SAP.
-  const { parts, movements, hasPermission, addPart, updatePart, removePart } = useApp();
+  const { parts, movements, workOrders, currentUser, hasPermission, addPart, updatePart, removePart } = useApp();
   const canEditCatalog = hasPermission('inventario.catalogo.editar');
-  const [view, setView] = useState<'stock' | 'historial'>('stock');
+  const canSeeRequisas = hasPermission('modulo.requisas');
+  const canSeeAllOT = hasPermission('ot.ver.todas');
+  const pendingRequisitions = canSeeRequisas ? pendingRequisitionCount(workOrders, { canSeeAll: canSeeAllOT, currentUser }) : 0;
+  const [view, setView] = useState<'stock' | 'historial' | 'requisas'>('stock');
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [lowStockOnly, setLowStockOnly] = useState(false);
@@ -93,6 +98,19 @@ export function InventarioModule() {
             >
               Historial de Movimientos
             </button>
+            {canSeeRequisas && (
+              <button
+                onClick={() => setView('requisas')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${view === 'requisas' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
+              >
+                Requisas de Repuestos
+                {pendingRequisitions > 0 && (
+                  <span className="bg-orange-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center">
+                    {pendingRequisitions}
+                  </span>
+                )}
+              </button>
+            )}
           </div>
           {canEditCatalog && view === 'stock' && (
             <Button size="sm" onClick={() => setShowCreateModal(true)}>
@@ -197,7 +215,7 @@ export function InventarioModule() {
               )}
             </div>
           </>
-        ) : (
+        ) : view === 'historial' ? (
           <div className="overflow-x-auto">
             <table className="data-table">
               <thead>
@@ -234,6 +252,8 @@ export function InventarioModule() {
               </tbody>
             </table>
           </div>
+        ) : (
+          <RequisasTable />
         )}
       </div>
 

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import type {
   Asset,
   AssetHistoryEntry,
@@ -51,7 +51,8 @@ export type PhotoGroup = 'before' | 'after';
 
 type NewWorkOrder = Omit<
   WorkOrder,
-  'id' | 'lines' | 'closedAt' | 'approvedBy' | 'signedBy' | 'rejectedReason' | 'estimatedCost' | 'history' | 'createdBy' | 'status'
+  'id' | 'lines' | 'closedAt' | 'approvedBy' | 'signedBy' | 'inventorySignedBy' | 'inventorySignedAt'
+  | 'rejectedReason' | 'estimatedCost' | 'history' | 'createdBy' | 'status'
 >;
 
 interface AppState {
@@ -100,6 +101,7 @@ interface AppState {
   startExecution: (id: string, technician: string) => void;
   finalizeWorkOrder: (id: string, signer: string) => void;
   closeWorkOrder: (id: string) => void;
+  signOTInventory: (id: string, signer: string) => void;
 
   // Lineas de trabajo
   /** `parts` se consumen del inventario al crear la linea; `photosBefore` entran como evidencia "Antes" */
@@ -245,7 +247,7 @@ const storageKeys = {
   notifications: 'rcj_v1_notifications',
   workTypes: 'rcj_v1_work_types',
   maintenancePlans: 'rcj_v1_maintenance_plans',
-  permissions: 'rcj_v6_permissions',
+  permissions: 'rcj_v9_permissions',
   requisitionRepair: 'rcj_requisition_repair_v1',
 } as const;
 
@@ -290,6 +292,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [maintenancePlans, setMaintenancePlans] = useState<MaintenancePlans>(() => loadJSON(storageKeys.maintenancePlans, initialMaintenancePlans));
   // v4: se sube la version de la llave cada vez que cambian los permisos por defecto, para que apliquen
   const [permissions, setPermissions] = useState<PermissionMatrix>(() => loadJSON(storageKeys.permissions, defaultPermissions));
+  // la matriz solo se guarda cuando el administrador la edita: asi una pestana con una copia vieja en memoria
+  // nunca sobrescribe los permisos por defecto vigentes
+  const permissionsEdited = useRef(false);
   const [syncingAssets, setSyncingAssets] = useState(false);
   const [lastAssetSync, setLastAssetSync] = useState<string | null>(null);
   const [storageWarning, setStorageWarning] = useState<string | null>(null);
@@ -312,6 +317,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setRolePermission = useCallback((role: UserRole, permission: Permission, enabled: boolean) => {
     if (!enabled && isLocked(role, permission)) return;
+    permissionsEdited.current = true;
     setPermissions(prev => {
       const current = prev[role] ?? [];
       const next = enabled
@@ -321,7 +327,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const resetPermissions = useCallback(() => setPermissions(defaultPermissions), []);
+  const resetPermissions = useCallback(() => {
+    permissionsEdited.current = true;
+    setPermissions(defaultPermissions);
+  }, []);
 
   // Persistencia local: cada dominio se guarda completo en localStorage al cambiar.
   // Activos y OTs llevan fotos embebidas (dataUrl), asi que son los que mas facil
@@ -345,7 +354,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => { saveJSON(storageKeys.notifications, notifications); }, [notifications]);
   useEffect(() => { saveJSON(storageKeys.workTypes, workTypes); }, [workTypes]);
   useEffect(() => { saveJSON(storageKeys.maintenancePlans, maintenancePlans); }, [maintenancePlans]);
-  useEffect(() => { saveJSON(storageKeys.permissions, permissions); }, [permissions]);
+  useEffect(() => { if (permissionsEdited.current) saveJSON(storageKeys.permissions, permissions); }, [permissions]);
   useEffect(() => { saveJSON(storageKeys.requisitionRepair, true); }, []);
 
   // Sincronizacion entre pestanas: cuando otra pestana guarda un dominio, esta lo recarga sin necesitar F5.
@@ -475,6 +484,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       closedAt: null,
       approvedBy: null,
       signedBy: null,
+      inventorySignedBy: null,
+      inventorySignedAt: null,
       rejectedReason: null,
       estimatedCost: 0,
       history: [
@@ -509,7 +520,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [transition, workOrders, pushNotification]);
 
   const rejectWorkOrder = useCallback((id: string, reason: string) => {
-    transition(id, 'creada', { rejectedReason: reason, approvedBy: null });
+    // rechazada es terminal: no vuelve a "creada" para reenviarse, queda cerrada por completo
+    transition(id, 'rechazada', { rejectedReason: reason, approvedBy: null });
   }, [transition]);
 
   /** Deja constancia de la aprobacion sin alterar la etapa: la OT de emergencia ya se ejecuto */
@@ -590,6 +602,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [transition, workOrders, pushAssetHistory]);
 
+  // Firma de Control de Inventario sobre el documento de la OT: no cambia el estado ni depende
+  // de "Firmar y cerrar OT" del Jefe de Taller, cada una se firma en el orden que corresponda.
+  const signOTInventory = useCallback((id: string, signer: string) => {
+    setWorkOrders(prev => prev.map(ot => (
+      ot.id === id ? { ...ot, inventorySignedBy: signer, inventorySignedAt: now() } : ot
+    )));
+  }, []);
+
   // ===== Lineas de trabajo =====
 
   const patchLine = useCallback((otId: string, lineId: string, patch: (line: OTLine) => OTLine) => {
@@ -666,7 +686,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [workOrders, adjustStock, pushMovement, currentUser]);
 
   const startLine = useCallback((otId: string, lineId: string) => {
-    // una linea con requisa no inicia hasta reunir todas las firmas
+    // una linea con requisa no inicia hasta reunir todas las firmas (solicitante, Jefe de Taller y Control de Inventario)
     const target = workOrders.find(o => o.id === otId)?.lines.find(l => l.id === lineId);
     if (target && requiresRequisition(target) && !isRequisitionComplete(target)) return;
     patchLine(otId, lineId, line => ({
@@ -882,7 +902,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addAssetPhoto, removeAssetPhoto,
     parts, addPart, updatePart, removePart, movements,
     workOrders, addWorkOrder, updateWorkOrderStatus, submitForApproval, approveWorkOrder,
-    rejectWorkOrder, approveEmergencyRetro, assignWorkOrder, startExecution, finalizeWorkOrder, closeWorkOrder,
+    rejectWorkOrder, approveEmergencyRetro, assignWorkOrder, startExecution, finalizeWorkOrder, closeWorkOrder, signOTInventory,
     addOTLine, updateOTLine, deleteOTLine, startLine, finishLine,
     addLinePhoto, removeLinePhoto, removeLinePart, signRequisition, reviewFinding,
     storageWarning, dismissStorageWarning,
@@ -896,7 +916,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     removeAssetPhoto, parts, addPart, updatePart, removePart, movements, workOrders, addWorkOrder,
     updateWorkOrderStatus, submitForApproval,
     approveWorkOrder, rejectWorkOrder, approveEmergencyRetro, assignWorkOrder, startExecution,
-    finalizeWorkOrder, closeWorkOrder, addOTLine, updateOTLine, deleteOTLine, startLine, finishLine,
+    finalizeWorkOrder, closeWorkOrder, signOTInventory, addOTLine, updateOTLine, deleteOTLine, startLine, finishLine,
     addLinePhoto, removeLinePhoto, removeLinePart, signRequisition, reviewFinding, storageWarning,
     dismissStorageWarning, fuelLoads, addFuelLoad, notifications, markNotificationRead,
     markAllNotificationsRead, pushNotification, workTypes, addWorkType, updateWorkType, removeWorkType,
