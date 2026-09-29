@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/store/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Field, TextInput } from '@/components/ui/Field';
@@ -16,7 +16,52 @@ const roleIcons: Record<UserRole, LucideIcon> = {
   tecnico: Wrench,
 };
 
-function RoadBackdrop() {
+interface RoadVariant {
+  glowOrange: { cx: string; cy: string };
+  glowBlue: { cx: string; cy: string };
+  roadMain: string;
+  roadSecondary: string;
+}
+
+/**
+ * 5 variantes del mismo fondo (la primera es la imagen original que ya existia). Se turnan cada 5s
+ * en el fondo del login; todas usan la misma paleta de marca, solo cambian la curva de la carretera
+ * y de donde vienen los resplandores, para que se sientan distintas sin salirse del estilo.
+ */
+const roadVariants: RoadVariant[] = [
+  {
+    glowOrange: { cx: '0%', cy: '100%' },
+    glowBlue: { cx: '100%', cy: '0%' },
+    roadMain: 'M-120 940 C 260 640, 640 560, 1000 380 S 1400 60, 1560 -40',
+    roadSecondary: 'M1560 980 C 1200 760, 900 830, 560 650 S 100 320, -60 270',
+  },
+  {
+    glowOrange: { cx: '100%', cy: '100%' },
+    glowBlue: { cx: '0%', cy: '0%' },
+    roadMain: 'M1560 940 C 1180 620, 780 700, 440 420 S 40 80, -120 -40',
+    roadSecondary: 'M-120 980 C 240 700, 620 820, 900 560 S 1340 240, 1560 220',
+  },
+  {
+    glowOrange: { cx: '50%', cy: '0%' },
+    glowBlue: { cx: '50%', cy: '100%' },
+    roadMain: 'M-120 460 C 300 200, 700 720, 1120 440 S 1500 120, 1560 300',
+    roadSecondary: 'M-80 700 C 320 900, 680 300, 1080 620 S 1460 780, 1560 640',
+  },
+  {
+    glowOrange: { cx: '0%', cy: '0%' },
+    glowBlue: { cx: '100%', cy: '100%' },
+    roadMain: 'M-120 40 C 220 340, 620 260, 900 560 S 1320 860, 1560 940',
+    roadSecondary: 'M1560 40 C 1220 320, 860 200, 580 480 S 160 800, -80 860',
+  },
+  {
+    glowOrange: { cx: '100%', cy: '0%' },
+    glowBlue: { cx: '0%', cy: '100%' },
+    roadMain: 'M-120 500 C 260 760, 560 240, 900 480 S 1340 300, 1560 480',
+    roadSecondary: 'M-80 200 C 300 100, 640 560, 980 300 S 1420 560, 1560 760',
+  },
+];
+
+function RoadBackdrop({ variant }: { variant: RoadVariant }) {
   return (
     <svg
       aria-hidden="true"
@@ -26,11 +71,11 @@ function RoadBackdrop() {
       fill="none"
     >
       <defs>
-        <radialGradient id="glow-orange" cx="0%" cy="100%" r="65%">
+        <radialGradient id="glow-orange" cx={variant.glowOrange.cx} cy={variant.glowOrange.cy} r="65%">
           <stop offset="0" stopColor="#f97316" stopOpacity="0.38" />
           <stop offset="1" stopColor="#f97316" stopOpacity="0" />
         </radialGradient>
-        <radialGradient id="glow-blue" cx="100%" cy="0%" r="60%">
+        <radialGradient id="glow-blue" cx={variant.glowBlue.cx} cy={variant.glowBlue.cy} r="60%">
           <stop offset="0" stopColor="#3b82f6" stopOpacity="0.32" />
           <stop offset="1" stopColor="#3b82f6" stopOpacity="0" />
         </radialGradient>
@@ -48,13 +93,13 @@ function RoadBackdrop() {
       <rect width="1440" height="900" fill="url(#glow-blue)" />
 
       <path
-        d="M-120 940 C 260 640, 640 560, 1000 380 S 1400 60, 1560 -40"
+        d={variant.roadMain}
         stroke="url(#road-bed)"
         strokeWidth="160"
         strokeLinecap="round"
       />
       <path
-        d="M-120 940 C 260 640, 640 560, 1000 380 S 1400 60, 1560 -40"
+        d={variant.roadMain}
         stroke="#f97316"
         strokeOpacity="0.9"
         strokeWidth="5"
@@ -64,14 +109,14 @@ function RoadBackdrop() {
 
       {/* carretera secundaria en sentido contrario, mas tenue */}
       <path
-        d="M1560 980 C 1200 760, 900 830, 560 650 S 100 320, -60 270"
+        d={variant.roadSecondary}
         stroke="#ffffff"
         strokeOpacity="0.05"
         strokeWidth="96"
         strokeLinecap="round"
       />
       <path
-        d="M1560 980 C 1200 760, 900 830, 560 650 S 100 320, -60 270"
+        d={variant.roadSecondary}
         stroke="#ffffff"
         strokeOpacity="0.3"
         strokeWidth="3"
@@ -79,6 +124,31 @@ function RoadBackdrop() {
         className="road-flow-rev"
       />
     </svg>
+  );
+}
+
+/** Fondo dinamico: pasa de una variante a otra cada 5s con un fundido suave. Se detiene en la primera
+ * imagen (la que ya existia) si el usuario pidio menos movimiento en su sistema. */
+function LoginBackdrop() {
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const id = setInterval(() => setActive(i => (i + 1) % roadVariants.length), 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <>
+      {roadVariants.map((variant, i) => (
+        <div
+          key={i}
+          className={`absolute inset-0 transition-opacity duration-1000 ${i === active ? 'opacity-100' : 'opacity-0'}`}
+        >
+          <RoadBackdrop variant={variant} />
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -112,7 +182,7 @@ export function LoginScreen() {
 
   return (
     <div className="relative min-h-dvh flex items-center justify-center overflow-hidden bg-gradient-to-br from-blue-900 via-[#141f5a] to-[#0b1240] p-4 sm:p-6">
-      <RoadBackdrop />
+      <LoginBackdrop />
 
       <div className="login-rise relative z-10 w-full max-w-[490px]">
         <div className="relative overflow-hidden rounded-2xl bg-white/95 shadow-2xl ring-1 ring-white/40 backdrop-blur">

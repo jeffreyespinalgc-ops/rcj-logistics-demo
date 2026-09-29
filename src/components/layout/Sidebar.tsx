@@ -20,8 +20,9 @@ import {
 import type { LucideIcon } from 'lucide-react';
 
 /**
- * Estado del menu en movil: oculto, completo (sobre el contenido) o minimizado a una franja de iconos.
- * En escritorio el menu siempre va completo y fijo.
+ * Estado del menu, igual en movil y en escritorio: oculto, completo (iconos + titulo) o minimizado a
+ * una franja de iconos. En movil "full" se ve como una capa sobre el contenido (con fondo oscuro para
+ * cerrarla al tocar afuera); en escritorio el menu forma parte del layout y el contenido se acomoda solo.
  */
 export type SidebarMode = 'hidden' | 'full' | 'mini';
 
@@ -46,8 +47,8 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
   const { session, logout } = useAuth();
   const unreadCount = notifications.filter(n => !n.read).length;
   const mini = mode === 'mini';
-  // minimizado: en movil solo quedan los iconos; en escritorio el texto nunca se oculta
-  const hideText = mini ? 'max-lg:hidden' : '';
+  // minimizado: solo quedan los iconos, en cualquier tamano de pantalla
+  const hideText = mini ? 'hidden' : '';
 
   // cada rol solo ve los modulos que su permiso habilita
   const visibleItems = navItems.filter(item => hasPermission(modulePermissions[item.key]));
@@ -68,12 +69,12 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
       {mode === 'full' && <div className="fixed inset-0 z-30 bg-stone-900/50 lg:hidden" onClick={() => onModeChange('hidden')} />}
 
       <aside
-        className={`${mini ? 'w-14' : 'w-60'} lg:w-60 overflow-hidden bg-blue-900 text-blue-50 flex flex-col flex-shrink-0 fixed top-0 left-0 z-40 h-dvh transition-[transform,width] duration-200 motion-reduce:transition-none lg:sticky lg:z-auto lg:h-screen lg:translate-x-0 ${
+        className={`${mini ? 'w-14' : 'w-60'} ${mode === 'hidden' ? 'lg:w-0' : mini ? 'lg:w-14' : 'lg:w-60'} overflow-hidden bg-blue-900 text-blue-50 flex flex-col flex-shrink-0 fixed top-0 left-0 z-40 h-dvh transition-[transform,width] duration-200 motion-reduce:transition-none lg:sticky lg:z-auto lg:h-screen lg:translate-x-0 ${
           mode === 'hidden' ? '-translate-x-full' : 'translate-x-0'
         }`}
       >
         {mini && (
-          <div className="border-b border-blue-800/50 lg:hidden">
+          <div className="border-b border-blue-800/50">
             <button
               onClick={() => onModeChange('full')}
               aria-label="Expandir menu"
@@ -85,7 +86,7 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
           </div>
         )}
 
-        <div className={`relative px-5 py-8 border-b border-blue-800/50 justify-center items-center ${mini ? 'max-lg:hidden lg:flex' : 'flex'}`}>
+        <div className={`relative px-5 py-8 border-b border-blue-800/50 justify-center items-center ${mini ? 'hidden' : 'flex'}`}>
           <div className="flex items-center justify-center w-full">
             <div className="w-18 h-14 flex items-center justify-center flex-shrink-0">
               <img
@@ -99,7 +100,7 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
             onClick={() => onModeChange('mini')}
             aria-label="Minimizar menu"
             title="Minimizar menu"
-            className="absolute right-1.5 top-1.5 flex h-11 w-11 items-center justify-center rounded-md text-blue-200 transition-colors hover:bg-blue-800 hover:text-white lg:hidden"
+            className="absolute right-1.5 top-1.5 flex h-11 w-11 items-center justify-center rounded-md text-blue-200 transition-colors hover:bg-blue-800 hover:text-white"
           >
             <ChevronsLeft size={18} />
           </button>
@@ -116,13 +117,14 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
                 key={item.key}
                 onClick={() => {
                   setActiveModule(item.key);
-                  // el menu completo se cierra al elegir; la franja de iconos se queda
-                  if (mode === 'full') onModeChange('hidden');
+                  // en movil el menu completo se cierra al elegir (es una capa sobre el contenido); en
+                  // escritorio el menu es parte del layout y se queda como estaba
+                  if (mode === 'full' && window.matchMedia('(max-width: 1023.98px)').matches) onModeChange('hidden');
                 }}
                 aria-label={item.label}
                 title={mini ? item.label : undefined}
                 className={`w-full min-h-[44px] flex items-center gap-3 py-2.5 text-sm font-medium transition-colors duration-150 relative ${
-                  mini ? 'justify-center px-0 lg:justify-start lg:px-5' : 'px-5'
+                  mini ? 'justify-center px-0' : 'px-5'
                 } ${
                   active
                     ? 'bg-blue-800 text-white border-l-4 border-orange-500'
@@ -137,7 +139,7 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
                   </span>
                 )}
                 {showBadge && mini && (
-                  <span className="absolute right-1 top-1 min-w-[16px] rounded-full bg-orange-500 px-1 text-center text-[10px] font-bold leading-4 text-white lg:hidden">
+                  <span className="absolute right-1 top-1 min-w-[16px] rounded-full bg-orange-500 px-1 text-center text-[10px] font-bold leading-4 text-white">
                     {badgeCount}
                   </span>
                 )}
@@ -166,7 +168,7 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
         </div>
 
         {mini && (
-          <div className="flex flex-col items-center gap-1 border-t border-blue-800/50 py-3 lg:hidden">
+          <div className="flex flex-col items-center gap-1 border-t border-blue-800/50 py-3">
             <div
               title={session?.name}
               className="w-9 h-9 bg-blue-700 rounded-full flex items-center justify-center text-sm font-bold text-white"

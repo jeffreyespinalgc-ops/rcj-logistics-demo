@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Field, TextInput, Select } from '@/components/ui/Field';
 import { StatCard } from '@/components/ui/StatCard';
+import { IndicatorCards } from '@/components/ui/IndicatorCards';
 import { SortableTh } from '@/components/ui/SortableTh';
 import { useSort } from '@/lib/useSort';
 import type { FuelLoad } from '@/types';
@@ -98,12 +99,12 @@ export function CombustibleModule() {
 
   return (
     <div className="p-4 sm:p-6 flex flex-col gap-4">
-      <div className="hidden sm:grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+      <IndicatorCards>
         <StatCard label="Cargas Registradas" value={fuelLoads.length} icon={<Fuel size={28} />} />
         <StatCard label="Total Litros" value={totalLiters.toLocaleString() + ' L'} icon={<TrendingUp size={28} />} />
         <StatCard label="Costo Total" value={formatCLP(totalCost)} icon={<DollarSign size={28} />} />
         <StatCard label="Mayor Consumo" value={topConsumer?.assetName.split(' ').slice(0, 2).join(' ') ?? 'N/A'} icon={<Fuel size={28} />} subtitle={topConsumer ? `${topConsumer.totalLiters.toLocaleString()} L` : ''} />
-      </div>
+      </IndicatorCards>
 
       <div className="bg-white rounded-lg shadow-card border border-stone-200">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-stone-200">

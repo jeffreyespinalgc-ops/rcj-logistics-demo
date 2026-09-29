@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Field, TextInput, Select } from '@/components/ui/Field';
 import { StatCard } from '@/components/ui/StatCard';
+import { IndicatorCards } from '@/components/ui/IndicatorCards';
 import { SortableTh } from '@/components/ui/SortableTh';
 import type { Asset, AssetPhoto, AssetStatus, AssetType } from '@/types';
 import { fileToCompressedDataUrl } from '@/lib/image';
@@ -116,12 +117,12 @@ export function ActivosModule() {
 
   return (
     <div className="p-4 sm:p-6 flex flex-col gap-4">
-      <div className="hidden sm:grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+      <IndicatorCards>
         <StatCard label="Total Activos" value={stats.total} icon={<Truck size={28} />} />
         <StatCard label="Operativos" value={stats.operativos} icon={<Truck size={28} />} />
         <StatCard label="En Mantenimiento" value={stats.mantenimiento} icon={<Wrench size={28} />} />
         <StatCard label="Fuera de Servicio" value={stats.fueraServicio} icon={<Truck size={28} />} />
-      </div>
+      </IndicatorCards>
 
       <div className="bg-white rounded-lg shadow-card border border-stone-200">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-stone-200">
@@ -182,7 +183,7 @@ export function ActivosModule() {
                 <SortableTh label="Tipo" sortKey="type" sort={sort} onSort={toggle} />
                 <SortableTh label="Estado" sortKey="status" sort={sort} onSort={toggle} />
                 <SortableTh label="Ult. Mant." sortKey="lastMaintenance" sort={sort} onSort={toggle} />
-                <SortableTh label="SAP" sortKey="sap" sort={sort} onSort={toggle} />
+                <SortableTh label="Código de SAP" sortKey="sap" sort={sort} onSort={toggle} />
                 <th></th>
               </tr>
             </thead>
@@ -192,17 +193,17 @@ export function ActivosModule() {
                   <td className="text-stone-600 text-xs font-semibold">{asset.code}</td>
                   <td className="text-stone-600">{asset.name}</td>
                   <td className="text-stone-600">{typeLabels[asset.type]}</td>
-                  <td><Badge variant={statusVariants[asset.status]}>{statusLabels[asset.status]}</Badge></td>
+                  <td><Badge>{statusLabels[asset.status]}</Badge></td>
                   <td className="text-stone-500 text-xs">{asset.lastMaintenance}</td>
                   <td>
                     {asset.sapCode ? (
-                      <Badge variant="blue"><Link2 size={10} className="mr-1 inline" />{asset.sapCode}</Badge>
+                      <Badge><Link2 size={10} className="mr-1 inline" />{asset.sapCode}</Badge>
                     ) : (
-                      <Badge variant="gray">No vinculado</Badge>
+                      <Badge>No vinculado</Badge>
                     )}
                   </td>
                   <td className="text-right">
-                    <span className="text-orange-600 text-xs font-semibold hover:underline">Ver ficha</span>
+                    <span className="text-orange-600 text-xs font-semibold hover:underline">Ver</span>
                   </td>
                 </tr>
               ))}

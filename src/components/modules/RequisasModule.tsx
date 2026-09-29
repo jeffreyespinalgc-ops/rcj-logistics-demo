@@ -4,8 +4,10 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Field, Select } from '@/components/ui/Field';
+import { SortableTh } from '@/components/ui/SortableTh';
+import { useSort } from '@/lib/useSort';
 import type { OTLine, RequisitionStep, WorkOrder } from '@/types';
-import { AlertTriangle, ChevronDown, ChevronRight, FileSignature, PenTool, Search, SlidersHorizontal, X } from 'lucide-react';
+import { AlertTriangle, ChevronRight, FileSignature, PenTool, Search, SlidersHorizontal, X } from 'lucide-react';
 import {
   missingSteps,
   requiresRequisition,
@@ -20,6 +22,13 @@ import {
 import { RequisitionProgress } from './ordenes/RequisitionProgress';
 import { RequisitionDocumentButton, RequisitionDocumentView } from './ordenes/RequisitionDocument';
 import { formatDateTime } from './ordenes/otMeta';
+
+const requisitionSortGetters = {
+  requisa: (r: Row) => r.line.requisition?.code ?? '',
+  ot: (r: Row) => r.ot.code,
+  linea: (r: Row) => r.line.work,
+  firmas: (r: Row) => signaturesOf(r.line).length,
+};
 
 type StatusFilter = 'todas' | 'por_firmar' | RequisitionStatus;
 
@@ -53,11 +62,6 @@ interface Row {
   activityAt: string;
 }
 
-/**
- * Tabla de requisas: vive como pestana dentro de "Repuestos e Inventario" (ya no es un modulo aparte).
- * Sin filtro aplicado por defecto: arranca en "Todas" para que nadie tenga que quitar un filtro para ver
- * lo que hay.
- */
 export function RequisasTable() {
   const { workOrders, hasPermission, currentUser, setActiveModule } = useApp();
   const canAutorizar = hasPermission('requisa.autorizar');
@@ -118,9 +122,11 @@ export function RequisasTable() {
     return haystack.includes(query);
   });
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  // sin elegir columna, se respeta el orden por defecto (actividad mas reciente primero) de arriba
+  const { sorted, sort, toggle } = useSort(filtered, requisitionSortGetters);
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
-  const pageRows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const pageRows = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const filterOptions = (Object.keys(filterLabels) as StatusFilter[]).filter(f => f !== 'por_firmar' || canSign);
 
   const clearFilters = () => {
@@ -213,12 +219,10 @@ export function RequisasTable() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th aria-sort="descending">
-                    <span className="inline-flex items-center gap-1">Requisa <ChevronDown size={12} /></span>
-                  </th>
-                  <th>OT y vehiculo</th>
-                  <th>Linea y repuestos</th>
-                  <th>Firmas</th>
+                  <SortableTh label="Requisa" sortKey="requisa" sort={sort} onSort={toggle} />
+                  <SortableTh label="OT" sortKey="ot" sort={sort} onSort={toggle} />
+                  <SortableTh label="Linea y repuestos" sortKey="linea" sort={sort} onSort={toggle} />
+                  <SortableTh label="Firmas" sortKey="firmas" sort={sort} onSort={toggle} />
                   <th className="sticky right-0 bg-stone-100"><span className="sr-only">Accion</span></th>
                 </tr>
               </thead>
@@ -232,23 +236,23 @@ export function RequisasTable() {
                         <button onClick={open} className="block font-semibold text-blue-700 hover:underline">
                           {line.requisition?.code ?? <span className="font-medium text-stone-500">Sin solicitar</span>}
                         </button>
-                        <span className="mt-1 flex items-center gap-2">
+                        {/* <span className="mt-1 flex items-center gap-2">
                           <Badge variant={statusVariants[status]}>{statusLabels[status]}</Badge>
-                        </span>
-                        <span className="mt-1 block text-[11px] text-stone-400">{formatDateTime(activityAt)}</span>
+                        </span> */}
+                        {/* <span className="mt-1 block text-[11px] text-stone-400">{formatDateTime(activityAt)}</span> */}
                       </td>
                       <td className="whitespace-nowrap">
                         <span className="block font-medium text-stone-800">{ot.code}</span>
-                        <span className="block text-xs text-stone-500">{ot.assetCode} - {ot.assetName}</span>
+                        {/* <span className="block text-xs text-stone-500">{ot.assetCode} - {ot.assetName}</span> */}
                       </td>
                       <td className="min-w-[180px] max-w-[260px]">
                         <span className="block truncate text-stone-700" title={line.work}>{line.work}</span>
-                        <span
+                        {/* <span
                           className="block truncate text-xs text-stone-500"
                           title={line.parts.map(p => `${p.partDescription} x${p.quantity}`).join(', ')}
                         >
                           {first.partDescription} x{first.quantity}{line.parts.length > 1 ? ` +${line.parts.length - 1} mas` : ''}
-                        </span>
+                        </span> */}
                       </td>
                       <td><RequisitionProgress line={line} compact /></td>
                       <td className="sticky right-0 bg-white text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)]">

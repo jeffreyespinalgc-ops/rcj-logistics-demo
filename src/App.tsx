@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { AppProvider, useApp } from '@/store/AppContext';
 import { AuthProvider, useAuth } from '@/store/AuthContext';
 import { LoginScreen } from '@/components/auth/LoginScreen';
@@ -48,17 +48,27 @@ function ModuleRouter() {
 }
 
 function AppLayout() {
-  const [menuMode, setMenuMode] = useState<SidebarMode>('hidden');
+  // en movil arranca oculto (el menu es una capa que hay que abrir); en escritorio arranca completo,
+  // como cualquier app de escritorio
+  const [menuMode, setMenuMode] = useState<SidebarMode>(() => (
+    window.matchMedia('(min-width: 1024px)').matches ? 'full' : 'hidden'
+  ));
   const mini = menuMode === 'mini';
+  const hidden = menuMode === 'hidden';
+  // recuerda el ultimo estado visible (completo o solo iconos) para que el boton de mostrar/ocultar
+  // del header vuelva a como estaba, en vez de forzar siempre "completo"
+  const lastVisibleMode = useRef<'full' | 'mini'>(menuMode === 'mini' ? 'mini' : 'full');
+  if (menuMode !== 'hidden') lastVisibleMode.current = menuMode;
 
   return (
     <div className="flex min-h-screen bg-stone-100">
       <Sidebar mode={menuMode} onModeChange={setMenuMode} />
-      {/* la franja de iconos (3.5rem) empuja el contenido en movil para no taparlo */}
+      {/* la franja de iconos (3.5rem) empuja el contenido en movil para no taparlo; en escritorio el
+          menu ya forma parte del layout (sticky) y el contenido se acomoda solo */}
       <div className={`flex-1 flex flex-col min-w-0 transition-[padding] duration-200 motion-reduce:transition-none ${mini ? 'pl-14 lg:pl-0' : ''}`}>
         <Header
-          menuLabel={mini ? 'Ocultar menu' : 'Abrir menu'}
-          onMenuClick={() => setMenuMode(m => (m === 'mini' ? 'hidden' : 'full'))}
+          menuLabel={hidden ? 'Mostrar menu' : 'Ocultar menu'}
+          onMenuClick={() => setMenuMode(hidden ? lastVisibleMode.current : 'hidden')}
         />
         <main className="flex-1 overflow-y-auto">
           <ModuleRouter />

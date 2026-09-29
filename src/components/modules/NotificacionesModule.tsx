@@ -2,6 +2,7 @@ import { useApp } from '@/store/AppContext';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { StatCard } from '@/components/ui/StatCard';
+import { IndicatorCards } from '@/components/ui/IndicatorCards';
 import type { NotificationType } from '@/types';
 import {
   Bell,
@@ -57,12 +58,12 @@ export function NotificacionesModule() {
 
   return (
     <div className="p-4 sm:p-6 flex flex-col gap-4">
-      <div className="hidden sm:grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+      <IndicatorCards>
         <StatCard label="Total Alertas" value={notifications.length} icon={<Bell size={28} />} />
         <StatCard label="No Leidas" value={unreadCount} icon={<Bell size={28} />} />
         <StatCard label="Aprobaciones Pend." value={byType['aprobacion'] ?? 0} icon={<CheckCircle size={28} />} />
         <StatCard label="Alertas Bajo Stock" value={byType['bajo_stock'] ?? 0} icon={<Package size={28} />} />
-      </div>
+      </IndicatorCards>
 
       <div className="bg-white rounded-lg shadow-card border border-stone-200">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-stone-200">

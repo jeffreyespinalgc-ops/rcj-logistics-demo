@@ -547,20 +547,15 @@ function AddLineModal({ open, onClose, onAdd, defaultTechnician }: {
     <Modal open={open} onClose={handleClose} title="Agregar Linea de Trabajo" size="lg">
       <div className="space-y-4">
         <PlanPicker value={selection} onChange={setSelection} freeText={freeText} onFreeTextChange={setFreeText} />
-
-        <Field label="Tecnico responsable">
-          <TextInput value={form.technician} onChange={e => setForm({ ...form, technician: e.target.value })} />
-        </Field>
-
         <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm text-stone-700 cursor-pointer">
+          <label className="flex items-center gap-2 text-sm text-orange-300 cursor-pointer">
             <input
               type="checkbox"
               checked={form.needsPart}
               onChange={e => setForm({ ...form, needsPart: e.target.checked })}
               className="rounded border-stone-300 text-orange-500 focus:ring-orange-300"
             />
-            Requiere repuesto
+            ¿Requiere repuesto?
           </label>
 
           {form.needsPart && (

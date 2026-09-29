@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Field, TextInput, Select, TextArea } from '@/components/ui/Field';
 import { StatCard } from '@/components/ui/StatCard';
+import { IndicatorCards } from '@/components/ui/IndicatorCards';
 import { SortableTh } from '@/components/ui/SortableTh';
 import { useSort } from '@/lib/useSort';
 import type { WorkOrder, OTPriority } from '@/types';
@@ -224,12 +225,12 @@ export function OrdenesModule() {
 
   return (
     <div className="p-4 sm:p-6 flex flex-col gap-4">
-      <div className="hidden sm:grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+      <IndicatorCards>
         <StatCard label="Total OTs" value={stats.total} icon={<ClipboardList size={28} />} />
         <StatCard label="Por Aprobar" value={stats.porAprobar} icon={<AlertCircle size={28} />} />
         <StatCard label="En Ejecucion" value={stats.enEjecucion} icon={<Play size={28} />} />
         <StatCard label="Cerradas" value={stats.cerradas} icon={<CheckCircle size={28} />} />
-      </div>
+      </IndicatorCards>
 
       <div className="bg-white rounded-lg shadow-card border border-stone-200">
         <div className="flex items-center justify-between px-4 py-3 border-b border-stone-200 gap-3 flex-wrap">
@@ -522,7 +523,7 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
           <InfoCell label="Solicitado por" value={ot.createdBy} />
           <InfoCell
             label="Asignada a"
-            value={ot.assignedTo ? `${ot.assignedTo}${ot.assignedToType === 'taller_externo' ? ' (taller externo)' : ''}` : 'Sin asignar'}
+            value={ot.assignedTo ? `${ot.assignedTo}${ot.assignedToType === 'taller_externo' ? ' taller externo' : ''}` : 'Sin asignar'}
           />
           <InfoCell label="Fecha Creacion" value={ot.createdAt} />
           <InfoCell label="Aprobado por" value={ot.approvedBy ?? 'Sin aprobar'} />

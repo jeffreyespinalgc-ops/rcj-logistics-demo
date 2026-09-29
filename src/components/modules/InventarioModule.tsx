@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Field, TextInput, Select } from '@/components/ui/Field';
 import { StatCard } from '@/components/ui/StatCard';
+import { IndicatorCards } from '@/components/ui/IndicatorCards';
 import { SortableTh } from '@/components/ui/SortableTh';
 import { useSort } from '@/lib/useSort';
 import type { InventoryMovement, Part } from '@/types';
@@ -76,12 +77,12 @@ export function InventarioModule() {
 
   return (
     <div className="p-4 sm:p-6 flex flex-col gap-4">
-      <div className="hidden sm:grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+      <IndicatorCards>
         <StatCard label="Total Repuestos" value={parts.length} icon={<Package size={28} />} />
         <StatCard label="Alertas Bajo Stock" value={lowStockParts.length} icon={<AlertTriangle size={28} />} subtitle="Requieren reabastecimiento" />
         <StatCard label="Valor Inventario" value={formatCLP(totalValue)} icon={<Package size={28} />} />
         <StatCard label="Movimientos Recientes" value={movements.length} icon={<History size={28} />} />
-      </div>
+      </IndicatorCards>
 
       <div className="bg-white rounded-lg shadow-card border border-stone-200">
         <div className="flex items-center justify-between px-4 py-3 border-b border-stone-200 flex-wrap gap-2">

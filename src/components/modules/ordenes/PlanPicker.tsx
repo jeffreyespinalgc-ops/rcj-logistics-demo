@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Field, Select, TextInput } from '@/components/ui/Field';
 import type { OTActivity, OTLine } from '@/types';
+import { ChevronRight, Pencil } from 'lucide-react';
 import {
   planSelectionResult,
   resolvePlan,
@@ -12,9 +13,12 @@ import {
 } from '@/lib/planSelection';
 
 /**
- * Selector en cascada sobre los Planes de Mantenimiento: tipo de trabajo, un desplegable por cada
- * nivel y, al llegar a las actividades, casillas para marcar las que se van a realizar.
- * Si el tipo elegido aun no tiene plan, se ofrece un texto libre como respaldo.
+ * Selector en cascada sobre los Planes de Mantenimiento: tipo de trabajo y despues, en vez de apilar
+ * un desplegable por cada nivel (algunos planes tienen 2, otros 4), los niveles ya elegidos se ven
+ * como un "camino" de migas de pan y solo se muestra ABIERTO el desplegable del nivel que sigue. Asi
+ * el formulario se ve igual de ordenado sin importar cuantos niveles tenga el plan. Al llegar al
+ * ultimo nivel aparecen las casillas de Actividades. Si el tipo elegido aun no tiene plan, se ofrece
+ * un texto libre como respaldo.
  */
 export function PlanPicker({ value, onChange, freeText, onFreeTextChange }: {
   value: PlanSelection;
@@ -26,9 +30,11 @@ export function PlanPicker({ value, onChange, freeText, onFreeTextChange }: {
   const activeTypes = workTypes.filter(w => w.active);
   const type = workTypes.find(w => w.code === value.workTypeCode);
   const roots = type ? (maintenancePlans[type.code] ?? []) : [];
-  const { levels, leaves } = resolvePlan(roots, value.nodeIds);
+  const { levels, path, leaves } = resolvePlan(roots, value.nodeIds);
   const allChecked = leaves.length > 0 && leaves.every(l => value.checkedIds.includes(l.id));
   const freeTextMode = type ? roots.length === 0 : activeTypes.length === 0;
+  // el nivel activo es el primero que todavia no tiene seleccion; si todos los niveles ya se eligieron, no hay ninguno pendiente
+  const activeLevel = levels[path.length] ?? null;
 
   const selectLevel = (depth: number, id: string) => {
     onChange({ ...value, nodeIds: id ? [...value.nodeIds.slice(0, depth), id] : value.nodeIds.slice(0, depth), checkedIds: [] });
@@ -61,21 +67,48 @@ export function PlanPicker({ value, onChange, freeText, onFreeTextChange }: {
         </Field>
       ) : type && (
         <>
-          {levels.map((level, depth) => (
-            <Field key={depth}>
-              <Select value={level.selectedId ?? ''} onChange={e => selectLevel(depth, e.target.value)}>
-                <option value="">Seleccionar...</option>
-                {level.options.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
-              </Select>
-            </Field>
-          ))}
+          {levels.length > 0 && (
+            <div className="space-y-2">
+              {path.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1" aria-label="Niveles elegidos">
+                  {path.map((node, depth) => (
+                    <span key={node.id} className="flex items-center gap-1">
+                      {depth > 0 && <ChevronRight size={12} className="flex-shrink-0 text-stone-300" />}
+                      <button
+                        type="button"
+                        onClick={() => selectLevel(depth, '')}
+                        title="Cambiar esta seleccion"
+                        className="flex items-center gap-1 rounded-md bg-stone-100 px-2.5 py-1.5 text-xs font-medium text-stone-700 transition-colors hover:bg-orange-50 hover:text-orange-700"
+                      >
+                        {node.name}
+                        <Pencil size={10} className="text-stone-400" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {activeLevel && (
+                <div className="rounded-md border border-orange-200 bg-orange-50/40 p-2">
+                  <Select
+                    value=""
+                    onChange={e => selectLevel(path.length, e.target.value)}
+                    aria-label={path.length === 0 ? 'Nivel 1' : `Nivel ${path.length + 1}`}
+                  >
+                    <option value="">Seleccionar...</option>
+                    {activeLevel.options.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
 
           {leaves.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs font-semibold text-stone-600 uppercase tracking-wide">Actividades *</span>
                 <button type="button" onClick={toggleAll} className="text-xs font-medium text-orange-600 hover:text-orange-700">
-                  {allChecked ? 'Quitar todas' : 'Marcar todas'}
+                  {allChecked ? 'Seleccionar Todos' : 'Seleccionar Todos'}
                 </button>
               </div>
               <div className="max-h-48 overflow-y-auto border border-stone-200 rounded-md divide-y divide-stone-100 bg-white">

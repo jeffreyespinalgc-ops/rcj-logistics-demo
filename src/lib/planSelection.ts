@@ -39,16 +39,21 @@ export function resolvePlan(roots: MaintenanceTreeNode[], nodeIds: string[]): Re
   const levels: PlanLevel[] = [];
   const path: MaintenanceTreeNode[] = [];
   let siblings = roots;
+  // si el recorrido se detiene porque un nivel quedo sin elegir (hay hermanos con hijos, pero el usuario
+  // aun no dice cual), no hay que mostrar como "actividades" a otros hermanos de ESE mismo nivel que ya
+  // sean hojas (p. ej. un modelo de vehiculo al que todavia no le cargaron sus propios sub-niveles):
+  // solo existen actividades marcables cuando se llego de verdad al final del camino elegido.
+  let pendingLevel = false;
   for (let depth = 0; ; depth++) {
     const options = siblings.filter(n => n.children.length > 0);
     if (options.length === 0) break;
     const selected = options.find(n => n.id === nodeIds[depth]) ?? null;
     levels.push({ options, selectedId: selected?.id ?? null });
-    if (!selected) break;
+    if (!selected) { pendingLevel = true; break; }
     path.push(selected);
     siblings = selected.children;
   }
-  return { levels, path, leaves: siblings.filter(n => n.children.length === 0) };
+  return { levels, path, leaves: pendingLevel ? [] : siblings.filter(n => n.children.length === 0) };
 }
 
 /**
