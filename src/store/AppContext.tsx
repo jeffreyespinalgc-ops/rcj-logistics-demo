@@ -36,13 +36,16 @@ import {
 import { loadJSON, saveJSON } from '@/lib/localStore';
 import { defaultPermissions, isLocked, modulePermissions, type Permission, type PermissionMatrix } from '@/lib/permissions';
 import {
+  deliveredQuantity,
   dropInvalidRequesterRequisitions,
   firstMissingBefore,
+  isDelivered,
   isRequisitionComplete,
   isRequisitionRequester,
   requiresRequisition,
   requisitionStepLabels,
-  requisitionSteps,
+  requisitionStepsFor,
+  signaturesOf,
   signatureFor,
 } from '@/lib/requisition';
 import { useAuth } from '@/store/AuthContext';
@@ -55,10 +58,20 @@ type NewWorkOrder = Omit<
   | 'rejectedReason' | 'estimatedCost' | 'history' | 'createdBy' | 'status'
 >;
 
+/** Linea de trabajo tal como la llena el formulario, antes de que el sistema le asigne id, fechas y requisa */
+export type NewOTLine = Omit<OTLine, 'id' | 'createdAt' | 'photosBefore' | 'photosAfter' | 'parts' | 'startedAt' | 'finishedAt' | 'hours' | 'findingStatus'> & {
+  parts?: OTLinePart[];
+  photosBefore?: Omit<OTLinePhoto, 'id' | 'addedAt'>[];
+};
+
 interface AppState {
   // Navigation
   activeModule: ModuleKey;
   setActiveModule: (m: ModuleKey) => void;
+  /** OT que otro modulo pidio abrir (p. ej. desde una requisa); Ordenes de Trabajo la abre y la limpia */
+  pendingOTId: string | null;
+  openWorkOrder: (otId: string) => void;
+  clearPendingOT: () => void;
 
   // Sesion activa (viene del login)
   currentRole: UserRole;
@@ -90,7 +103,10 @@ interface AppState {
 
   // Work Orders
   workOrders: WorkOrder[];
-  addWorkOrder: (ot: NewWorkOrder) => void;
+  /** Crea la OT ya con sus lineas de trabajo (y los repuestos que piden) en un solo paso */
+  addWorkOrder: (ot: NewWorkOrder, lines?: NewOTLine[]) => void;
+  /** Descripcion y prioridad de la OT (Jefe de Taller). Devuelve el motivo si no se pudo, o null. */
+  updateWorkOrder: (id: string, patch: Partial<Pick<WorkOrder, 'description' | 'priority'>>) => string | null;
   updateWorkOrderStatus: (id: string, status: OTStatus) => void;
   submitForApproval: (id: string) => void;
   approveWorkOrder: (id: string, approver: string) => void;
@@ -104,14 +120,8 @@ interface AppState {
   signOTInventory: (id: string, signer: string) => void;
 
   // Lineas de trabajo
-  /** `parts` se consumen del inventario al crear la linea; `photosBefore` entran como evidencia "Antes" */
-  addOTLine: (
-    otId: string,
-    line: Omit<OTLine, 'id' | 'createdAt' | 'photosBefore' | 'photosAfter' | 'parts' | 'startedAt' | 'finishedAt' | 'hours' | 'findingStatus'> & {
-      parts?: OTLinePart[];
-      photosBefore?: Omit<OTLinePhoto, 'id' | 'addedAt'>[];
-    }
-  ) => void;
+  /** `parts` son una solicitud (el stock sale al entregarse); `photosBefore` entran como la evidencia de la linea */
+  addOTLine: (otId: string, line: NewOTLine) => void;
   updateOTLine: (otId: string, lineId: string, patch: Partial<OTLine>) => void;
   deleteOTLine: (otId: string, lineId: string) => void;
   /** Inicia la linea; si es la primera y la OT esta aprobada, la OT pasa a "En ejecucion" */
@@ -120,12 +130,17 @@ interface AppState {
   finishLine: (otId: string, lineId: string) => void;
   addLinePhoto: (otId: string, lineId: string, group: PhotoGroup, photo: Omit<OTLinePhoto, 'id' | 'addedAt'>) => void;
   removeLinePhoto: (otId: string, lineId: string, group: PhotoGroup, photoId: string) => void;
-  removeLinePart: (otId: string, lineId: string, partId: string) => void;
   /**
-   * Firma un paso de la requisa de repuestos de la linea. Con la ultima firma se descuentan los repuestos
-   * del inventario. Devuelve el motivo si no se pudo firmar, o null.
+   * Cambia los repuestos solicitados de una linea (agregar, quitar o cambiar cantidades). Solo el Jefe de Taller,
+   * y solo antes de que Control de Inventario los entregue. Las firmas que ya tiene la requisa se conservan.
    */
-  signRequisition: (otId: string, lineId: string, step: RequisitionStep) => string | null;
+  setLineParts: (otId: string, lineId: string, parts: OTLinePart[]) => string | null;
+  /**
+   * Firma una etapa de la requisa de repuestos de la linea. Cuando Control de Inventario aprueba y entrega
+   * (`delivered`: cantidad por repuesto, por defecto lo maximo posible) se descuentan del inventario solo las
+   * unidades entregadas. Devuelve el motivo si no se pudo firmar, o null.
+   */
+  signRequisition: (otId: string, lineId: string, step: RequisitionStep, delivered?: Record<string, number>) => string | null;
   /** Aprobacion / rechazo de una linea marcada como hallazgo (Jefe de Taller) */
   reviewFinding: (otId: string, lineId: string, approved: boolean) => void;
 
@@ -245,8 +260,11 @@ const storageKeys = {
   workOrders: 'rcj_v1_work_orders',
   fuelLoads: 'rcj_v1_fuel_loads',
   notifications: 'rcj_v1_notifications',
-  workTypes: 'rcj_v1_work_types',
-  maintenancePlans: 'rcj_v1_maintenance_plans',
+  // v3: catalogo de fabrica completo (Camion/Volqueta/Traileta/Vehiculo Ligero con modelos, intervalos y
+  // tareas en Preventivo/Correctivo; Emergencia/Inspeccion con mas items) -- sube de version de nuevo para
+  // que el default nuevo reemplace lo que hubiera en v2 (ver mockData.ts)
+  workTypes: 'rcj_v3_work_types',
+  maintenancePlans: 'rcj_v3_maintenance_plans',
   permissions: 'rcj_v9_permissions',
   requisitionRepair: 'rcj_requisition_repair_v1',
 } as const;
@@ -256,15 +274,27 @@ const stepPermissions: Record<RequisitionStep, Permission> = {
   solicitante: 'requisa.solicitar',
   autoriza: 'requisa.autorizar',
   despacha: 'requisa.despachar',
+  // quien solicita es quien confirma que recibio: el mismo permiso
+  recibe: 'requisa.solicitar',
 };
 
-/** Siguiente numero de requisa: REQ-<anio>-0001, consecutivo entre todas las lineas */
-function nextRequisitionCode(orders: WorkOrder[]): string {
-  const max = orders.flatMap(o => o.lines).reduce((acc, l) => {
+/** Generador de numeros de requisa: REQ-<anio>-0001, consecutivo entre todas las lineas */
+function requisitionCodeSequence(orders: WorkOrder[]): () => string {
+  let max = orders.flatMap(o => o.lines).reduce((acc, l) => {
     const n = Number(l.requisition?.code.split('-').pop());
     return Number.isFinite(n) ? Math.max(acc, n) : acc;
   }, 0);
-  return `REQ-${today().slice(0, 4)}-${String(max + 1).padStart(4, '0')}`;
+  const year = today().slice(0, 4);
+  return () => `REQ-${year}-${String(++max).padStart(4, '0')}`;
+}
+
+/**
+ * Una sola requisa (un solo codigo/documento) por OT: si otra linea de la misma OT ya tiene una, se reutiliza
+ * su codigo en vez de generar uno nuevo. Las firmas siguen siendo por linea (cada una su propio
+ * Solicitante->Jefe->Control->Receptor), solo el codigo/documento se comparte.
+ */
+function otRequisitionCode(ot: WorkOrder | undefined, nextCode: () => string): string {
+  return ot?.lines.find(l => l.requisition?.code)?.requisition?.code ?? nextCode();
 }
 
 /** Horas trabajadas entre dos marcas de tiempo, redondeadas a cuartos de hora */
@@ -275,8 +305,9 @@ function hoursBetween(startedAt: string, finishedAt: string): number {
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const { session } = useAuth();
+  const { session, users } = useAuth();
   const [requestedModule, setActiveModule] = useState<ModuleKey>('activos');
+  const [pendingOTId, setPendingOTId] = useState<string | null>(null);
   const [assets, setAssets] = useState<Asset[]>(() => loadJSON(storageKeys.assets, initialAssets));
   const [assetHistory, setAssetHistory] = useState<AssetHistoryEntry[]>(() => loadJSON(storageKeys.assetHistory, initialAssetHistory));
   const [parts, setParts] = useState<Part[]>(() => loadJSON(storageKeys.parts, initialParts));
@@ -302,6 +333,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // El rol y el nombre vienen de la sesion iniciada en el login
   const currentRole: UserRole = session?.role ?? 'tecnico';
   const currentUser = session?.name ?? '';
+  // la firma que el usuario dibujo al entrar por primera vez: se hereda en todo lo que firma
+  const currentSignature = useMemo(
+    () => users.find(u => u.id === session?.userId)?.signature ?? null,
+    [users, session]
+  );
+
+  const openWorkOrder = useCallback((otId: string) => {
+    setActiveModule('ordenes');
+    setPendingOTId(otId);
+  }, []);
+  const clearPendingOT = useCallback(() => setPendingOTId(null), []);
 
   const hasPermission = useCallback(
     (p: Permission) => permissions[currentRole]?.includes(p) ?? false,
@@ -457,7 +499,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const removeAssetPhoto = useCallback((assetId: string, photoId: string) => {
     setAssets(prev => prev.map(a => (a.id === assetId ? { ...a, photos: a.photos.filter(p => p.id !== photoId) } : a)));
   }, []);
-
+ 
   // ===== Flujo de la OT =====
 
   const transition = useCallback((id: string, status: OTStatus, patch: Partial<WorkOrder> = {}) => {
@@ -467,20 +509,70 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ...ot,
         ...patch,
         status,
-        history: [...ot.history, { status, at: now(), by: currentUser, role: currentRole }],
+        history: [...ot.history, { status, at: now(), by: currentUser, role: currentRole, signature: currentSignature }],
       };
     }));
-  }, [currentRole, currentUser]);
+  }, [currentRole, currentUser, currentSignature]);
 
-  const addWorkOrder = useCallback((ot: NewWorkOrder) => {
+  /**
+   * Arma la linea que se guarda a partir de lo que llena el formulario. "Solicitado por" se infiere del
+   * tecnico que crea la OT o la linea: si pide repuestos, su firma guardada queda registrada sola y la
+   * requisa nace ya solicitada (el Jefe de Taller es el siguiente en firmar).
+   */
+  const buildLine = useCallback((input: NewOTLine, nextCode: () => string): { line: OTLine; requested: boolean } => {
+    const { parts: lineParts = [], photosBefore: linePhotos = [], ...data } = input;
+    const requested = currentRole === 'tecnico' && hasPermission('requisa.solicitar') && input.needsPart && lineParts.length > 0;
+    const line: OTLine = {
+      ...data,
+      id: genId(),
+      createdAt: today(),
+      startedAt: null,
+      finishedAt: null,
+      hours: 0,
+      photosBefore: linePhotos.map(p => ({ ...p, id: genId(), addedAt: now() })),
+      photosAfter: [],
+      parts: lineParts,
+      // los repuestos elegidos son una solicitud: el stock sale cuando Control de Inventario los entrega
+      requisition: requested
+        ? {
+            code: nextCode(),
+            signatures: [{ step: 'solicitante', role: currentRole, name: currentUser, at: now(), signature: currentSignature }],
+            releasedAt: null,
+            receiptRequired: true,
+          }
+        : null,
+      // el hallazgo nace pendiente: lo aprueba el Jefe de Taller, nunca quien lo registra
+      findingStatus: input.isFinding ? 'pendiente' : 'no_aplica',
+    };
+    return { line, requested };
+  }, [currentRole, currentUser, currentSignature, hasPermission]);
+
+  const notifyRequisitionRequested = useCallback((otCode: string, line: OTLine) => {
+    if (!line.requisition) return;
+    pushNotification({
+      type: 'aprobacion',
+      title: `Requisa ${line.requisition.code} pendiente de firma`,
+      description: `${otCode} - ${line.work} - solicitada por ${currentUser}`,
+      date: today(),
+      reference: line.requisition.code,
+      priority: 'media',
+    });
+  }, [pushNotification, currentUser]);
+
+  const addWorkOrder = useCallback((ot: NewWorkOrder, newLines: NewOTLine[] = []) => {
     const stamp = now();
     const by = currentUser;
+    const nextCode = requisitionCodeSequence(workOrders);
+    // si varias lineas nuevas piden repuestos a la vez, comparten un solo codigo de requisa (un documento por OT)
+    let sharedCode: string | null = null;
+    const getCode = () => (sharedCode ??= nextCode());
+    const built = newLines.map(l => buildLine(l, getCode));
     const newOT: WorkOrder = {
       ...ot,
       id: genId(),
       status: 'pendiente_aprobacion',
       createdBy: by,
-      lines: [],
+      lines: built.map(b => b.line),
       closedAt: null,
       approvedBy: null,
       signedBy: null,
@@ -489,12 +581,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       rejectedReason: null,
       estimatedCost: 0,
       history: [
-        { status: 'creada', at: stamp, by, role: currentRole },
-        { status: 'pendiente_aprobacion', at: stamp, by, role: currentRole },
+        { status: 'creada', at: stamp, by, role: currentRole, signature: currentSignature },
+        { status: 'pendiente_aprobacion', at: stamp, by, role: currentRole, signature: currentSignature },
       ],
     };
     setWorkOrders(prev => [newOT, ...prev]);
-  }, [currentRole, currentUser]);
+    built.forEach(b => { if (b.requested) notifyRequisitionRequested(newOT.code, b.line); });
+  }, [currentRole, currentUser, currentSignature, workOrders, buildLine, notifyRequisitionRequested]);
+
+  const updateWorkOrder = useCallback<AppState['updateWorkOrder']>((id, patch) => {
+    if (!hasPermission('ot.lineas.editar')) return 'Tu rol no puede editar la OT.';
+    const ot = workOrders.find(o => o.id === id);
+    if (!ot) return 'No se encontro la OT.';
+    if (ot.status === 'cerrada' || ot.status === 'rechazada') return 'Una OT cerrada o rechazada ya no se modifica.';
+    if (patch.description !== undefined && !patch.description.trim()) return 'La descripcion no puede quedar vacia.';
+    setWorkOrders(prev => prev.map(o => (o.id === id
+      ? { ...o, ...patch, ...(patch.description !== undefined ? { description: patch.description.trim() } : {}) }
+      : o)));
+    return null;
+  }, [hasPermission, workOrders]);
 
   const updateWorkOrderStatus = useCallback((id: string, status: OTStatus) => {
     transition(id, status, status === 'cerrada' ? { closedAt: today() } : {});
@@ -504,9 +609,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
     transition(id, 'pendiente_aprobacion', { rejectedReason: null });
   }, [transition]);
 
+  // definida antes de approveWorkOrder porque la usa para poner en ejecucion la OT cuando alguna
+  // linea arranca sola (sin repuestos por solicitar) al aprobarse
+  const startExecution = useCallback((id: string, technician: string) => {
+    transition(id, 'en_ejecucion', { signedBy: null });
+    const ot = workOrders.find(o => o.id === id);
+    if (ot) {
+      pushNotification({
+        type: 'aprobacion',
+        title: `${ot.code} en ejecucion`,
+        description: `${ot.assetName} - a cargo de ${technician}`,
+        date: today(),
+        reference: ot.code,
+        priority: 'baja',
+      });
+    }
+  }, [transition, workOrders, pushNotification]);
+
   const approveWorkOrder = useCallback((id: string, approver: string) => {
     transition(id, 'aprobada', { approvedBy: approver, rejectedReason: null });
     const ot = workOrders.find(o => o.id === id);
+    // las lineas sin repuestos por solicitar no esperan firmas: arrancan solas al aprobarse la OT, sin boton "Iniciar"
+    const autoStarts = ot?.lines.some(l => !l.startedAt && !requiresRequisition(l)) ?? false;
+    if (autoStarts) {
+      setWorkOrders(prev => prev.map(o => (
+        o.id === id
+          ? { ...o, lines: o.lines.map(l => (!l.startedAt && !requiresRequisition(l) ? { ...l, startedAt: now(), finishedAt: null, status: 'en_ejecucion' as const } : l)) }
+          : o
+      )));
+      startExecution(id, ot?.assignedTo ?? approver);
+    }
     if (ot) {
       pushNotification({
         type: 'aprobacion',
@@ -517,7 +649,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         priority: 'media',
       });
     }
-  }, [transition, workOrders, pushNotification]);
+  }, [transition, workOrders, pushNotification, startExecution]);
 
   const rejectWorkOrder = useCallback((id: string, reason: string) => {
     // rechazada es terminal: no vuelve a "creada" para reenviarse, queda cerrada por completo
@@ -532,7 +664,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             ...ot,
             approvedBy: approver,
             rejectedReason: null,
-            history: [...ot.history, { status: 'aprobada' as OTStatus, at: now(), by: approver, role: currentRole }],
+            history: [...ot.history, { status: 'aprobada' as OTStatus, at: now(), by: approver, role: currentRole, signature: currentSignature }],
           }
         : ot
     )));
@@ -547,7 +679,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         priority: 'media',
       });
     }
-  }, [currentRole, workOrders, pushNotification]);
+  }, [currentRole, currentSignature, workOrders, pushNotification]);
 
   const assignWorkOrder = useCallback((id: string, assignedTo: string, type: 'tecnico' | 'taller_externo') => {
     setWorkOrders(prev => prev.map(ot => (ot.id === id ? { ...ot, assignedTo, assignedToType: type } : ot)));
@@ -564,22 +696,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [workOrders, pushNotification]);
 
-  const startExecution = useCallback((id: string, technician: string) => {
-    transition(id, 'en_ejecucion', { signedBy: null });
-    const ot = workOrders.find(o => o.id === id);
-    if (ot) {
-      pushNotification({
-        type: 'aprobacion',
-        title: `${ot.code} en ejecucion`,
-        description: `${ot.assetName} - a cargo de ${technician}`,
-        date: today(),
-        reference: ot.code,
-        priority: 'baja',
-      });
-    }
-  }, [transition, workOrders, pushNotification]);
-
   const finalizeWorkOrder = useCallback((id: string, signer: string) => {
+    const stamp = now();
+    // ya no hay boton "Finalizar" por linea: al finalizar la OT, toda linea ya iniciada ("en_ejecucion") se
+    // marca completada sola. Las "pendiente" (requisa sin completar), "esperando_repuesto" y
+    // "requiere_seguimiento" no se tocan aqui: blockingReason sigue impidiendo finalizar mientras existan.
+    setWorkOrders(prev => prev.map(ot => (
+      ot.id === id
+        ? {
+            ...ot,
+            lines: ot.lines.map(l => (
+              l.status === 'en_ejecucion'
+                ? { ...l, startedAt: l.startedAt ?? stamp, finishedAt: stamp, hours: hoursBetween(l.startedAt ?? stamp, stamp) || l.hours, status: 'completado' as const }
+                : l
+            )),
+          }
+        : ot
+    )));
     transition(id, 'finalizada', { signedBy: signer });
     const ot = workOrders.find(o => o.id === id);
     if (ot) {
@@ -620,26 +753,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addOTLine = useCallback<AppState['addOTLine']>((otId, line) => {
-    const { parts: lineParts = [], photosBefore: linePhotos = [], ...data } = line;
-    const newLine: OTLine = {
-      ...data,
-      id: genId(),
-      createdAt: today(),
-      startedAt: null,
-      finishedAt: null,
-      hours: 0,
-      photosBefore: linePhotos.map(p => ({ ...p, id: genId(), addedAt: now() })),
-      photosAfter: [],
-      parts: lineParts,
-      // los repuestos elegidos son una solicitud: el stock se descuenta al reunirse todas las firmas de la requisa
-      requisition: null,
-      // el hallazgo nace pendiente: lo aprueba el Jefe de Taller, nunca quien lo registra
-      findingStatus: line.isFinding ? 'pendiente' : 'no_aplica',
-    };
-    setWorkOrders(prev => prev.map(ot => (ot.id === otId ? { ...ot, lines: [...ot.lines, newLine] } : ot)));
-
     const ot = workOrders.find(o => o.id === otId);
+    // si la OT ya tiene una requisa (de otra linea), esta nueva linea se suma a ese mismo documento
+    const { line: built, requested } = buildLine(line, () => otRequisitionCode(ot, requisitionCodeSequence(workOrders)));
+    // sin repuestos por solicitar y la OT ya se puede ejecutar: la linea arranca sola, sin boton "Iniciar"
+    const newLine = ot && (ot.status === 'aprobada' || ot.status === 'en_ejecucion') && !requiresRequisition(built)
+      ? { ...built, startedAt: now(), status: 'en_ejecucion' as const }
+      : built;
+    setWorkOrders(prev => prev.map(o => (o.id === otId ? { ...o, lines: [...o.lines, newLine] } : o)));
+
     if (!ot) return;
+    if (newLine.startedAt && ot.status === 'aprobada') startExecution(otId, ot.assignedTo ?? currentUser);
+    if (requested) notifyRequisitionRequested(ot.code, newLine);
 
     if (line.notes) {
       pushNotification({
@@ -651,7 +776,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         priority: 'media',
       });
     }
-  }, [workOrders, pushNotification]);
+  }, [workOrders, buildLine, notifyRequisitionRequested, pushNotification, startExecution, currentUser]);
 
   const updateOTLine = useCallback((otId: string, lineId: string, patch: Partial<OTLine>) => {
     // la aprobacion del hallazgo solo se cambia via reviewFinding (Jefe de Taller)
@@ -666,16 +791,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWorkOrders(prev => prev.map(o =>
       o.id === otId ? { ...o, lines: o.lines.filter(l => l.id !== lineId) } : o
     ));
-    // devolver al inventario los repuestos solo si la requisa ya se firmo por completo y los descontó
-    if (ot && line && line.requisition?.releasedAt) {
+    // devolver al inventario lo que Control de Inventario ya entrego (y se desconto); lo solicitado y no entregado nunca salio
+    if (ot && line && isDelivered(line)) {
       line.parts.forEach(p => {
-        adjustStock(p.partId, p.quantity);
+        const back = deliveredQuantity(line, p);
+        if (back <= 0) return;
+        adjustStock(p.partId, back);
         pushMovement({
           partId: p.partId,
           partCode: p.partCode,
           partDescription: p.partDescription,
           type: 'entrada',
-          quantity: p.quantity,
+          quantity: back,
           reason: `Reverso por eliminacion de linea - ${line.work}`,
           reference: ot.code,
           user: currentUser,
@@ -686,7 +813,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [workOrders, adjustStock, pushMovement, currentUser]);
 
   const startLine = useCallback((otId: string, lineId: string) => {
-    // una linea con requisa no inicia hasta reunir todas las firmas (solicitante, Jefe de Taller y Control de Inventario)
+    // una linea con requisa no inicia hasta completarla (solicitud, autorizacion, aprobacion/entrega y recepcion)
     const target = workOrders.find(o => o.id === otId)?.lines.find(l => l.id === lineId);
     if (target && requiresRequisition(target) && !isRequisitionComplete(target)) return;
     patchLine(otId, lineId, line => ({
@@ -731,38 +858,74 @@ export function AppProvider({ children }: { children: ReactNode }) {
     ));
   }, [patchLine]);
 
-  const removeLinePart = useCallback((otId: string, lineId: string, partId: string) => {
-    const line = workOrders.find(o => o.id === otId)?.lines.find(l => l.id === lineId);
-    // una solicitud ya firmada no se modifica; sin firmas el repuesto aun no salio del inventario
-    if (!line || (line.requisition?.signatures.length ?? 0) > 0) return;
-    patchLine(otId, lineId, l => ({ ...l, parts: l.parts.filter(p => p.partId !== partId) }));
-  }, [workOrders, patchLine]);
-
-  const signRequisition = useCallback<AppState['signRequisition']>((otId, lineId, step) => {
+  const setLineParts = useCallback<AppState['setLineParts']>((otId, lineId, nextParts) => {
+    if (!hasPermission('ot.lineas.editar')) return 'Tu rol no puede modificar los repuestos.';
     const ot = workOrders.find(o => o.id === otId);
     const line = ot?.lines.find(l => l.id === lineId);
     if (!ot || !line) return 'No se encontro la linea de la OT.';
+    if (ot.status === 'cerrada' || ot.status === 'rechazada') return 'Una OT cerrada o rechazada ya no se modifica.';
+    // mientras los repuestos no salgan del inventario se pueden cambiar; despues el stock ya no cuadraria
+    if (isDelivered(line)) return 'Control de Inventario ya entrego estos repuestos; no se pueden modificar.';
+    if (nextParts.some(p => !Number.isInteger(p.quantity) || p.quantity <= 0)) return 'Las cantidades deben ser numeros enteros mayores a cero.';
+    if (new Set(nextParts.map(p => p.partId)).size !== nextParts.length) return 'Un repuesto no puede repetirse en la misma linea.';
+    // las firmas que ya tiene la requisa se conservan tal cual
+    patchLine(otId, lineId, l => ({ ...l, parts: nextParts.map(p => ({ ...p, deliveredQuantity: undefined })), needsPart: nextParts.length > 0 }));
+    return null;
+  }, [hasPermission, workOrders, patchLine]);
+
+  const signRequisition = useCallback<AppState['signRequisition']>((otId, lineId, step, delivered) => {
+    const ot = workOrders.find(o => o.id === otId);
+    const line = ot?.lines.find(l => l.id === lineId);
+    if (!ot || !line) return 'No se encontro la linea de la OT.';
+    if (ot.status === 'cerrada' || ot.status === 'rechazada') return 'Una OT cerrada o rechazada ya no se modifica.';
     if (!requiresRequisition(line)) return 'Esta linea no tiene repuestos por solicitar.';
+    if (!requisitionStepsFor(line).includes(step)) return 'Esta etapa no aplica a la requisa.';
     if (signatureFor(line, step)) return 'Esta firma ya esta registrada.';
-    if (!hasPermission(stepPermissions[step])) return 'Tu rol no puede firmar este paso de la requisa.';
-    if (step === 'solicitante' && !isRequisitionRequester(line, ot.assignedTo, currentUser)) {
-      return 'Solo el tecnico de la linea puede firmar la solicitud.';
+    if (!hasPermission(stepPermissions[step])) return 'Tu rol no puede firmar esta etapa de la requisa.';
+    if ((step === 'solicitante' || step === 'recibe') && !isRequisitionRequester(line, ot.assignedTo, currentUser)) {
+      return step === 'solicitante'
+        ? 'Solo el tecnico de la linea puede firmar la solicitud.'
+        : 'Solo el tecnico de la linea puede confirmar que recibio los repuestos.';
     }
     const previous = firstMissingBefore(line, step);
-    if (previous) return `Falta la firma de ${requisitionStepLabels[previous]} antes de firmar este paso.`;
+    if (previous) return `Falta la firma de "${requisitionStepLabels[previous]}" antes de firmar esta etapa.`;
 
-    // quien despacha, o quien reune la ultima firma, confirma que hay stock para entregar
-    const completes = requisitionSteps.filter(s => s !== step).every(s => signatureFor(line, s));
-    if (step === 'despacha' || completes) {
-      const short = line.parts.find(p => (parts.find(x => x.id === p.partId)?.currentStock ?? 0) < p.quantity);
-      if (short) return `Stock insuficiente de ${short.partDescription}.`;
+    // Control de Inventario entrega lo que hay: por repuesto, entre 0 y lo menor entre lo solicitado y el stock
+    let deliveredParts: OTLinePart[] | null = null;
+    if (step === 'despacha') {
+      const plan = line.parts.map(p => {
+        const max = Math.min(p.quantity, parts.find(x => x.id === p.partId)?.currentStock ?? 0);
+        return { part: p, max, qty: Math.floor(delivered?.[p.partId] ?? max) };
+      });
+      const invalid = plan.find(x => !Number.isFinite(x.qty) || x.qty < 0 || x.qty > x.max);
+      if (invalid) return `La cantidad a entregar de ${invalid.part.partDescription} debe estar entre 0 y ${invalid.max}.`;
+      if (plan.every(x => x.qty === 0)) return 'No hay nada que entregar: indica al menos una unidad (revisa el stock disponible).';
+      deliveredParts = plan.map(x => ({ ...x.part, deliveredQuantity: x.qty }));
     }
 
     const stamp = now();
-    const code = line.requisition?.code ?? nextRequisitionCode(workOrders);
-    const signature: RequisitionSignature = { step, role: currentRole, name: currentUser, at: stamp };
-    const signatures = [...(line.requisition?.signatures ?? []), signature];
-    patchLine(otId, lineId, l => ({ ...l, requisition: { code, signatures, releasedAt: completes ? stamp : null } }));
+    const code = line.requisition?.code ?? otRequisitionCode(ot, requisitionCodeSequence(workOrders));
+    const signature: RequisitionSignature = {
+      step,
+      role: currentRole,
+      name: currentUser,
+      at: stamp,
+      signature: currentSignature,
+      // "Entregado a": el tecnico que solicito, a quien Control le entrega los repuestos
+      ...(step === 'despacha' ? { deliveredTo: signatureFor(line, 'solicitante')?.name ?? ot.assignedTo ?? line.technician } : {}),
+    };
+    const signatures = [...signaturesOf(line), signature];
+    const releasedAt = step === 'despacha' ? stamp : (line.requisition?.releasedAt ?? null);
+    // sin boton "Iniciar": en cuanto la requisa queda completa (ultima firma que falta), la linea arranca sola
+    const requisitionNowComplete = requisitionStepsFor(line).every(s => signatures.some(x => x.step === s));
+    const autoStarts = requisitionNowComplete && !line.startedAt;
+    patchLine(otId, lineId, l => ({
+      ...l,
+      parts: deliveredParts ?? l.parts,
+      requisition: { code, signatures, releasedAt, receiptRequired: l.requisition?.receiptRequired ?? true },
+      ...(autoStarts ? { startedAt: stamp, finishedAt: null, status: 'en_ejecucion' as const } : {}),
+    }));
+    if (autoStarts && ot.status === 'aprobada') startExecution(otId, ot.assignedTo ?? currentUser);
 
     if (step === 'solicitante') {
       pushNotification({
@@ -775,16 +938,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    if (completes) {
-      line.parts.forEach(p => {
-        adjustStock(p.partId, -p.quantity);
+    if (deliveredParts) {
+      deliveredParts.forEach(p => {
+        const qty = p.deliveredQuantity ?? 0;
+        if (qty <= 0) return;
+        adjustStock(p.partId, -qty);
         pushMovement({
           partId: p.partId,
           partCode: p.partCode,
           partDescription: p.partDescription,
           type: 'salida',
-          quantity: p.quantity,
-          reason: `Requisa ${code} - ${line.work}`,
+          quantity: qty,
+          reason: `Requisa ${code} - ${line.work}${qty < p.quantity ? ` (entrega parcial ${qty} de ${p.quantity})` : ''}`,
           reference: ot.code,
           user: currentUser,
           date: today(),
@@ -793,21 +958,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
           assetId: ot.assetId,
           date: today(),
           type: 'movimiento',
-          description: `Salida de repuesto - ${p.partDescription} x${p.quantity}`,
+          description: `Salida de repuesto - ${p.partDescription} x${qty}`,
           reference: ot.code,
         });
       });
       pushNotification({
         type: 'firma',
-        title: `Requisa ${code} firmada por todas las partes`,
-        description: `${ot.code} - ${line.work} - lista para iniciar`,
+        title: `Requisa ${code} entregada`,
+        description: `${ot.code} - ${line.work} - pendiente de que el tecnico confirme la recepcion`,
         date: today(),
         reference: code,
         priority: 'alta',
       });
     }
+
+    if (step === 'recibe') {
+      pushNotification({
+        type: 'firma',
+        title: `Requisa ${code} recibida`,
+        description: `${ot.code} - ${line.work} - en ejecucion`,
+        date: today(),
+        reference: code,
+        priority: 'media',
+      });
+    }
     return null;
-  }, [workOrders, parts, patchLine, adjustStock, pushMovement, pushAssetHistory, pushNotification, hasPermission, currentRole, currentUser]);
+  }, [workOrders, parts, patchLine, adjustStock, pushMovement, pushAssetHistory, pushNotification, hasPermission, currentRole, currentUser, currentSignature, startExecution]);
 
   const reviewFinding = useCallback((otId: string, lineId: string, approved: boolean) => {
     patchLine(otId, lineId, line => ({ ...line, findingStatus: approved ? 'aprobada' : 'rechazada' }));
@@ -895,29 +1071,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const dismissStorageWarning = useCallback(() => setStorageWarning(null), []);
 
   const value = useMemo<AppState>(() => ({
-    activeModule, setActiveModule,
+    activeModule, setActiveModule, pendingOTId, openWorkOrder, clearPendingOT,
     currentRole, currentUser,
     permissions, hasPermission, setRolePermission, resetPermissions,
     assets, assetHistory, addAsset, syncingAssets, lastAssetSync, syncAssetsFromSAP,
     addAssetPhoto, removeAssetPhoto,
     parts, addPart, updatePart, removePart, movements,
-    workOrders, addWorkOrder, updateWorkOrderStatus, submitForApproval, approveWorkOrder,
+    workOrders, addWorkOrder, updateWorkOrder, updateWorkOrderStatus, submitForApproval, approveWorkOrder,
     rejectWorkOrder, approveEmergencyRetro, assignWorkOrder, startExecution, finalizeWorkOrder, closeWorkOrder, signOTInventory,
     addOTLine, updateOTLine, deleteOTLine, startLine, finishLine,
-    addLinePhoto, removeLinePhoto, removeLinePart, signRequisition, reviewFinding,
+    addLinePhoto, removeLinePhoto, setLineParts, signRequisition, reviewFinding,
     storageWarning, dismissStorageWarning,
     fuelLoads, addFuelLoad,
     notifications, markNotificationRead, markAllNotificationsRead, addNotification: pushNotification,
     workTypes, addWorkType, updateWorkType, removeWorkType,
     maintenancePlans, addMaintenanceNode, renameMaintenanceNode, removeMaintenanceNode, moveMaintenanceNode,
   }), [
-    activeModule, currentRole, currentUser, permissions, hasPermission, setRolePermission, resetPermissions,
+    activeModule, pendingOTId, openWorkOrder, clearPendingOT, currentRole, currentUser, permissions, hasPermission, setRolePermission, resetPermissions,
     assets, assetHistory, addAsset, syncingAssets, lastAssetSync, syncAssetsFromSAP, addAssetPhoto,
-    removeAssetPhoto, parts, addPart, updatePart, removePart, movements, workOrders, addWorkOrder,
+    removeAssetPhoto, parts, addPart, updatePart, removePart, movements, workOrders, addWorkOrder, updateWorkOrder,
     updateWorkOrderStatus, submitForApproval,
     approveWorkOrder, rejectWorkOrder, approveEmergencyRetro, assignWorkOrder, startExecution,
     finalizeWorkOrder, closeWorkOrder, signOTInventory, addOTLine, updateOTLine, deleteOTLine, startLine, finishLine,
-    addLinePhoto, removeLinePhoto, removeLinePart, signRequisition, reviewFinding, storageWarning,
+    addLinePhoto, removeLinePhoto, setLineParts, signRequisition, reviewFinding, storageWarning,
     dismissStorageWarning, fuelLoads, addFuelLoad, notifications, markNotificationRead,
     markAllNotificationsRead, pushNotification, workTypes, addWorkType, updateWorkType, removeWorkType,
     maintenancePlans, addMaintenanceNode, renameMaintenanceNode, removeMaintenanceNode, moveMaintenanceNode,

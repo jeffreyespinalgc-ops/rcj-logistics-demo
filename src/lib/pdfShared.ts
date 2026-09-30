@@ -65,3 +65,34 @@ export async function renderPdfPages(doc: jsPDF, targetWidth = 1400): Promise<st
   }
   return pages;
 }
+
+/** Ancho y alto de un PNG leyendo su cabecera (IHDR), sin tener que decodificar la imagen */
+function pngSize(dataUrl: string): { width: number; height: number } | null {
+  try {
+    const bytes = atob(dataUrl.slice(dataUrl.indexOf(',') + 1, dataUrl.indexOf(',') + 45));
+    const at = (i: number) => bytes.charCodeAt(i);
+    const width = (at(16) << 24) | (at(17) << 16) | (at(18) << 8) | at(19);
+    const height = (at(20) << 24) | (at(21) << 16) | (at(22) << 8) | at(23);
+    return width > 0 && height > 0 ? { width, height } : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Coloca la firma guardada de quien firmo dentro de la caja indicada (mm), sin deformarla, centrada
+ * horizontalmente y apoyada en el borde inferior (sobre la linea de firma).
+ */
+export function drawSignatureImage(doc: jsPDF, dataUrl: string | null | undefined, box: { x: number; y: number; w: number; h: number }): void {
+  if (!dataUrl) return;
+  const size = pngSize(dataUrl);
+  if (!size) return;
+  const ratio = size.width / size.height;
+  let w = box.w;
+  let h = w / ratio;
+  if (h > box.h) {
+    h = box.h;
+    w = h * ratio;
+  }
+  doc.addImage(dataUrl, 'PNG', box.x + (box.w - w) / 2, box.y + box.h - h, w, h);
+}

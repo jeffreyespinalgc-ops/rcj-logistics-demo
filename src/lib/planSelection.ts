@@ -1,4 +1,4 @@
-import type { CatalogItem, MaintenancePlans, MaintenanceTreeNode, OTActivity } from '@/types';
+import type { Asset, CatalogItem, MaintenancePlans, MaintenanceTreeNode, OTActivity } from '@/types';
 
 /**
  * Seleccion de una linea de trabajo sobre los Planes de Mantenimiento:
@@ -83,6 +83,46 @@ export function planSelectionResult(
     .map(l => ({ name: l.name }));
   const workPath = [type.name, ...path.map(n => n.name)];
   return { valid: activities.length > 0, work: workPath.join(' > '), workPath, activities };
+}
+
+/** Vehiculo Ligero / Vehiculo Pesado / Maquinaria / Equipo Auxiliar: mismas etiquetas que ActivosModule.tsx */
+const assetTypeLabels: Record<Asset['type'], string> = {
+  vehiculo_ligero: 'Vehiculo Ligero',
+  vehiculo_pesado: 'Vehiculo Pesado',
+  maquinaria: 'Maquinaria',
+  equipo_auxiliar: 'Equipo Auxiliar',
+};
+
+/** Quita tildes/diacriticos para que "Camion"/"Camión" (o mayus/minus) se comparen igual */
+const normalize = (s: string) => s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+/**
+ * Adivina hasta donde se puede bajar sola en el arbol segun el vehiculo elegido: en cada nivel, si el
+ * nombre de UN SOLO hijo aparece dentro de la marca/modelo/nombre/tipo del vehiculo (o al reves), se
+ * selecciona solo; si hay mas de una coincidencia (o ninguna), se deja ese nivel para que el usuario
+ * elija a mano. El tipo de vehiculo (Vehiculo Ligero/Pesado/Maquinaria/Equipo Auxiliar) es una categoria
+ * amplia: si el arbol usa categorias mas finas (p. ej. "Camion"/"Volqueta"/"Traileta", todas serian el
+ * mismo "Vehiculo Pesado"), esas solo se infieren si esa palabra tambien aparece en el nombre/marca/modelo
+ * del vehiculo -- no hay en el sistema un campo mas fino que el tipo para distinguirlas.
+ */
+export function inferNodeIds(roots: MaintenanceTreeNode[], asset: Asset): string[] {
+  const haystacks = [asset.brand, asset.model, asset.name, assetTypeLabels[asset.type]].filter(Boolean).map(normalize);
+  const matches = (name: string) => {
+    const n = normalize(name);
+    if (!n) return false;
+    return haystacks.some(h => h.includes(n) || n.includes(h));
+  };
+  const nodeIds: string[] = [];
+  let siblings = roots;
+  for (;;) {
+    const options = siblings.filter(n => n.children.length > 0);
+    if (options.length === 0) break;
+    const found = options.filter(n => matches(n.name));
+    if (found.length !== 1) break;
+    nodeIds.push(found[0].id);
+    siblings = found[0].children;
+  }
+  return nodeIds;
 }
 
 /** Reconstruye la seleccion de una linea ya creada buscando su ruta por nombre en el plan actual */

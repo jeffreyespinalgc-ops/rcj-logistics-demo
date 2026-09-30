@@ -21,6 +21,7 @@ import {
   Search,
   Play,
   PenTool,
+  Pencil,
   Send,
   Camera,
   Package,
@@ -29,9 +30,11 @@ import {
   ShieldAlert,
   Flag,
 } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { WorkLinesSection } from './ordenes/WorkLines';
+import { CreateOTPage } from './ordenes/CreateOT';
 import { OTDocumentButton } from './ordenes/OTDocument';
+import { OTHistoryButton } from './ordenes/OTHistory';
 import { OTTimeline } from './ordenes/OTTimeline';
 import {
   blockingReason,
@@ -57,14 +60,14 @@ type ViewMode = 'lista' | 'cuadricula';
 
 export function OrdenesModule() {
   const {
-    workOrders, assets, currentUser, hasPermission,
-    addWorkOrder, submitForApproval, approveWorkOrder, rejectWorkOrder, approveEmergencyRetro,
-    assignWorkOrder, finalizeWorkOrder, closeWorkOrder, signOTInventory, addNotification,
+    workOrders, currentUser, hasPermission, pendingOTId, clearPendingOT,
+    submitForApproval, approveWorkOrder, rejectWorkOrder, approveEmergencyRetro,
+    assignWorkOrder, finalizeWorkOrder, closeWorkOrder, signOTInventory,
   } = useApp();
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => (window.matchMedia('(max-width: 639px)').matches ? 'cuadricula' : 'lista'));
   const [selectedOTId, setSelectedOTId] = useState<string | null>(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
@@ -103,8 +106,20 @@ export function OrdenesModule() {
     return true;
   }), [visibleOrders, search, filterStatus]);
 
+  // otro modulo (p. ej. Requisas de Repuestos) puede pedir abrir una OT concreta
+  useEffect(() => {
+    if (!pendingOTId) return;
+    setCreating(false);
+    setSelectedOTId(pendingOTId);
+    clearPendingOT();
+  }, [pendingOTId, clearPendingOT]);
+
   const selectedOT = selectedOTId ? visibleOrders.find(o => o.id === selectedOTId) ?? null : null;
   const canCreate = hasPermission('ot.crear');
+
+  if (creating && canCreate) {
+    return <CreateOTPage onBack={() => setCreating(false)} onCreated={() => setCreating(false)} />;
+  }
 
   if (selectedOT) {
     return (
@@ -235,7 +250,7 @@ export function OrdenesModule() {
       <div className="bg-white rounded-lg shadow-card border border-stone-200">
         <div className="flex items-center justify-between px-4 py-3 border-b border-stone-200 gap-3 flex-wrap">
           <div className="flex items-center gap-3">
-            <h3 className="font-heading text-base font-bold text-stone-800">Ordenes de Trabajo</h3>
+            <h3 className="ui-title">Ordenes de trabajo</h3>
             <div className="flex items-center gap-1 bg-stone-100 rounded-md p-0.5">
               <button
                 onClick={() => setViewMode('lista')}
@@ -252,6 +267,8 @@ export function OrdenesModule() {
             </div>
           </div>
 
+
+
           <div className="flex items-center gap-2">
             {/* {!canSeeAll && (
               <span className="text-xs text-stone-400 pr-2 border-r border-stone-200">
@@ -259,8 +276,8 @@ export function OrdenesModule() {
               </span>
             )} */}
             {canCreate && (
-              <Button onClick={() => setShowCreateModal(true)}>
-                <Plus size={16} /> Nueva OT
+              <Button onClick={() => setCreating(true)}>
+                <Plus size={16} />
               </Button>
             )}
           </div>
@@ -293,32 +310,16 @@ export function OrdenesModule() {
         )}
 
         {filtered.length === 0 && (
-          <div className="text-center py-8 text-stone-400 text-sm">No se encontraron ordenes con los filtros seleccionados</div>
+          <div className="text-center py-8 text-stone-400 text-content">No se encontraron ordenes con los filtros seleccionados</div>
         )}
       </div>
 
-      <CreateOTModal
-        open={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        assets={assets}
-        workOrders={workOrders}
-        onCreate={(data) => {
-          addWorkOrder(data);
-          addNotification({
-            type: 'aprobacion',
-            title: `${data.code} pendiente de aprobacion`,
-            description: `${data.assetName} - ${data.description}`,
-            date: new Date().toISOString().slice(0, 10),
-            reference: data.code,
-            priority: data.priority === 'critica' ? 'alta' : 'media',
-          });
-        }}
-      />
     </div>
   );
 }
 
 const priorityRank: Record<OTPriority, number> = { baja: 0, media: 1, alta: 2, critica: 3 };
+const allPriorities: OTPriority[] = ['baja', 'media', 'alta', 'critica'];
 
 const otSortGetters = {
   code: (ot: WorkOrder) => ot.code,
@@ -347,6 +348,7 @@ function OTTable({ orders, onSelect }: { orders: WorkOrder[]; onSelect: (id: str
             <SortableTh label="Líneas" sortKey="lines" sort={sort} onSort={toggle} />
             <SortableTh label="Asignada a" sortKey="assignedTo" sort={sort} onSort={toggle} />
             <SortableTh label="Creación" sortKey="createdAt" sort={sort} onSort={toggle} />
+            <th className="relative w-10"><span className="sr-only">Historial</span></th>
           </tr>
         </thead>
         <tbody>
@@ -361,7 +363,7 @@ function OTTable({ orders, onSelect }: { orders: WorkOrder[]; onSelect: (id: str
                 <td className="font-medium text-stone-800 max-w-[280px] truncate">{ot.description}</td>
                 <td><Badge variant={priorityVariants[ot.priority]}>{priorityLabels[ot.priority]}</Badge></td>
                 <td><Badge variant={statusVariants[ot.status]}>{statusShortLabels[ot.status]}</Badge></td>
-                <td className="text-stone-600 text-xs whitespace-nowrap">
+                <td className="text-stone-600 whitespace-nowrap">
                   {progress.total === 0 ? 'Sin lineas' : `${progress.done}/${progress.total}`}
                   {otWaitingParts(ot) && <span className="ml-1 text-yellow-600" title="Esperando repuesto">·</span>}
                   {otNeedsFollowUp(ot) && <span className="ml-1 text-purple-600" title="Requiere seguimiento">·</span>}
@@ -369,11 +371,12 @@ function OTTable({ orders, onSelect }: { orders: WorkOrder[]; onSelect: (id: str
                     <Flag size={11} className="ml-1 inline text-orange-500" />
                   )}
                 </td>
-                <td className="text-stone-600 text-xs">
+                <td className="text-stone-600">
                   {ot.assignedTo ?? <span className="text-stone-400">Sin asignar</span>}
-                  {ot.assignedToType === 'taller_externo' && <span className="block text-[10px] text-stone-400">Taller externo</span>}
+                  {ot.assignedToType === 'taller_externo' && <span className="block text-stone-400">Taller externo</span>}
                 </td>
-                <td className="text-stone-500 text-xs">{ot.createdAt}</td>
+                <td className="text-stone-500">{ot.createdAt}</td>
+                <td className="text-right"><OTHistoryButton ot={ot} /></td>
               </tr>
             );
           })}
@@ -393,13 +396,13 @@ function OTCard({ ot, onClick }: { ot: WorkOrder; onClick: () => void }) {
       className="bg-white rounded-md shadow-card border border-stone-200 p-3 cursor-pointer hover:shadow-card-hover hover:border-orange-300 transition-all"
     >
       <div className="flex items-start justify-between gap-2 mb-1.5">
-        <span className="font-mono text-xs font-bold text-blue-700">{ot.code}</span>
+        <span className="text-content font-bold text-blue-700">{ot.code}</span>
         <Badge variant={statusVariants[ot.status]}>{statusShortLabels[ot.status]}</Badge>
       </div>
 
-      <p className="text-sm font-medium text-stone-800 mb-1 line-clamp-2">{ot.description}</p>
-      <p className="text-xs text-stone-500 mb-2">
-        <span className="font-mono">{ot.assetCode}</span> · {ot.assetName}
+      <p className="text-content font-normal text-stone-800 mb-1 line-clamp-2">{ot.description}</p>
+      <p className="text-content text-stone-500 mb-2">
+        {ot.assetCode} · {ot.assetName}
       </p>
 
       <div className="flex items-center gap-1.5 flex-wrap mb-2">
@@ -408,7 +411,7 @@ function OTCard({ ot, onClick }: { ot: WorkOrder; onClick: () => void }) {
 
       {progress.total > 0 && (
         <div className="mb-2">
-          <div className="flex items-center justify-between text-[11px] text-stone-500 mb-1">
+          <div className="flex items-center justify-between text-content text-stone-500 mb-1">
             <span>Lineas de trabajo</span>
             <span className="font-semibold text-stone-700">{progress.done}/{progress.total} completadas</span>
           </div>
@@ -418,23 +421,23 @@ function OTCard({ ot, onClick }: { ot: WorkOrder; onClick: () => void }) {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-1.5 text-[11px] text-stone-500 pt-2 border-t border-stone-100">
-        <span className="truncate">Asignada a: <strong className="text-stone-700 font-medium">{ot.assignedTo ?? 'Sin asignar'}</strong></span>
-        <span className="text-right">Creada: <strong className="text-stone-700 font-medium">{ot.createdAt}</strong></span>
+      <div className="grid grid-cols-2 gap-1.5 text-content font-normal text-stone-700 pt-2 border-t border-stone-100">
+        <span className="truncate"><strong className="font-bold text-stone-600">Asignada a:</strong> {ot.assignedTo ?? 'Sin asignar'}</span>
+        <span className="text-right"><strong className="font-bold text-stone-600">Creada:</strong> {ot.createdAt}</span>
         <span className="flex items-center gap-1"><Clock size={11} /> {formatHours(otHours(ot))}</span>
-        <span className="text-right">Repuestos: <strong className="text-stone-700 font-medium">{formatCLP(otPartsCost(ot))}</strong></span>
+        <span className="text-right"><strong className="font-bold text-stone-600">Repuestos:</strong> {formatCLP(otPartsCost(ot))}</span>
       </div>
 
       {(photos > 0 || otWaitingParts(ot) || otNeedsFollowUp(ot)) && (
         <div className="flex items-center gap-2 mt-2 flex-wrap">
           {photos > 0 && (
-            <span className="flex items-center gap-1 text-[11px] text-stone-400"><Camera size={11} /> {photos} evidencias</span>
+            <span className="flex items-center gap-1 text-content text-stone-400"><Camera size={11} /> {photos} evidencias</span>
           )}
           {otWaitingParts(ot) && (
-            <span className="flex items-center gap-1 text-[11px] text-yellow-700"><Package size={11} /> Esperando repuesto</span>
+            <span className="flex items-center gap-1 text-content text-yellow-700"><Package size={11} /> Esperando repuesto</span>
           )}
           {otNeedsFollowUp(ot) && (
-            <span className="flex items-center gap-1 text-[11px] text-purple-700"><AlertCircle size={11} /> Requiere seguimiento</span>
+            <span className="flex items-center gap-1 text-content text-purple-700"><AlertCircle size={11} /> Requiere seguimiento</span>
           )}
         </div>
       )}
@@ -456,38 +459,28 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
   onSignInventory: () => void;
 }) {
   const { hasPermission } = useApp();
+  const [editingOT, setEditingOT] = useState(false);
   const blocked = blockingReason(ot);
   const isAssigned = ot.assignedTo === currentUser;
   const isCreator = ot.createdBy === currentUser;
   const canSeeAllOTs = hasPermission('ot.ver.todas');
-  // se pueden seguir agregando lineas mientras la OT no este cerrada ni rechazada, incluso ya finalizada
   const locked = ot.status === 'cerrada' || ot.status === 'rechazada';
   const linesOpen = !locked;
-  // crear lineas: quien creo o tiene asignada la OT, o quien ve todas (Jefe de Taller), mientras no este finalizada
   const canAddLines = hasPermission('ot.lineas.agregar') && (isAssigned || isCreator || canSeeAllOTs) && linesOpen;
-  // editar o eliminar lineas ya creadas y sus actividades: administrador y jefe de taller (el tecnico no)
   const canEditLines = hasPermission('ot.lineas.editar') && linesOpen;
-  // ejecutar lineas (iniciar, finalizar, evidencias): el tecnico asignado o quien ve todas (Jefe de Taller)
-  // con el permiso de ejecucion, con la OT aprobada o en ejecucion. Iniciar la primera linea pone la OT en
-  // ejecucion, por eso no hay un boton de inicio a nivel de OT.
   const canExecuteLines = hasPermission('ot.lineas.estado') && (isAssigned || canSeeAllOTs)
     && (ot.status === 'aprobada' || ot.status === 'en_ejecucion');
 
   const canSubmit = hasPermission('ot.crear') && ot.status === 'creada';
   const canApprove = hasPermission('ot.aprobar') && ot.status === 'pendiente_aprobacion';
   const canReject = hasPermission('ot.rechazar') && ot.status === 'pendiente_aprobacion';
-  // la asignacion es unica: una vez asignada la OT no se reasigna
   const canAssign = hasPermission('ot.asignar') && !locked && !ot.assignedTo;
-  // una OT que se ejecuto sin aprobacion previa (caso de emergencia) queda pendiente de revision retroactiva
   const canRetro = hasPermission('ot.emergencia.aprobarRetro')
     && !ot.approvedBy
     && (ot.status === 'en_ejecucion' || ot.status === 'finalizada');
   const canFinalize = hasPermission('ot.finalizar') && (isAssigned || canSeeAllOTs) && ot.status === 'en_ejecucion';
-  // "Finalizar OT" (firma de quien ejecuta) solo aparece cuando todas las lineas estan finalizadas y no quedan
-  // hallazgos por aprobar; despues la OT espera la firma del Jefe de Taller para cerrarse
   const canFinalizeNow = canFinalize && !blocked;
   const canClose = hasPermission('ot.cerrar') && ot.status === 'finalizada';
-  // firma de Control de Inventario sobre el documento de la OT: en cualquier orden respecto al cierre del Jefe
   const canSignInventory = hasPermission('ot.inventario.firmar') && ot.status === 'finalizada' && !ot.inventorySignedBy;
   const hasActions = canSubmit || canApprove || canReject || canAssign || canRetro || canClose || canSignInventory;
   const showActionBar = hasActions || (canFinalize && Boolean(blocked));
@@ -498,50 +491,54 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
         <ArrowLeft size={16} /> Volver al listado
       </button>
 
-      <div className={`bg-white rounded-lg shadow-card border border-stone-200 transition-opacity ${locked ? 'opacity-60' : ''}`}>
+      <div className="bg-white rounded-lg shadow-card border border-stone-200">
         <div className="px-5 py-4 border-b border-stone-200">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 mb-1">
                 <span className="text-sm font-bold text-blue-700">{ot.code}</span>
-                {/* <Badge variant={priorityVariants[ot.priority]}>{priorityLabels[ot.priority]}</Badge> */}
                 <OTDocumentButton ot={ot} />
+                <OTHistoryButton ot={ot} />
               </div>
-              <h3 className="font-heading text-lg font-bold text-stone-800 break-words">{ot.description}</h3>
-              <p className="text-sm text-stone-500 mt-0.5">{ot.assetCode} - {ot.assetName}</p>
+              <h3 className="ui-title break-words">{ot.description}</h3>
+              <p className="text-sm font-normal text-stone-500 mt-0.5">{ot.assetCode} - {ot.assetName}</p>
             </div>
-            <div className="sm:text-right flex-shrink-0">
-            </div>
+            {canEditLines && (
+              <Button variant="outline" size="sm" className="min-h-[44px] sm:min-h-0 flex-shrink-0 self-start" onClick={() => setEditingOT(true)}>
+                <Pencil size={14} /> Editar OT
+              </Button>
+            )}
           </div>
         </div>
 
-        <div className="px-5 py-4 border-b border-stone-200 bg-stone-50/50">
+        <div className="px-5 py-4 border-b border-stone-100 bg-stone-50/50">
           <OTTimeline ot={ot} />
         </div>
 
-        <div className="px-5 py-4 border-b border-stone-200 grid grid-cols-2 md:grid-cols-5 gap-4">
-          <InfoCell label="Solicitado por" value={ot.createdBy} />
-          <InfoCell
-            label="Asignada a"
-            value={ot.assignedTo ? `${ot.assignedTo}${ot.assignedToType === 'taller_externo' ? ' taller externo' : ''}` : 'Sin asignar'}
-          />
-          <InfoCell label="Fecha Creacion" value={ot.createdAt} />
-          <InfoCell label="Aprobado por" value={ot.approvedBy ?? 'Sin aprobar'} />
-          <InfoCell label="Tiempo trabajado" value={formatHours(otHours(ot))} />
-          {/* <InfoCell label="Costo repuestos" value={formatCLP(otPartsCost(ot))} /> */}
+        <div className="px-4 sm:px-5 py-4 border-b border-stone-50">
+          <dl className="sap-grid grid-cols-1 border-stone-100 sm:grid-cols-2 sm:border-stone-100 lg:grid-cols-3 lg:border-stone-100">
+            <SapCell label="Solicitado por">{ot.createdBy}</SapCell>
+            <SapCell label="Asignada a">
+              {ot.assignedTo ? `${ot.assignedTo}${ot.assignedToType === 'taller_externo' ? ' (taller externo)' : ''}` : 'Sin asignar'}
+            </SapCell>
+            <SapCell label="Fecha de creacion">{ot.createdAt}</SapCell>
+            <SapCell label="Aprobado por">{ot.approvedBy ?? 'Sin aprobar'}</SapCell>
+            <SapCell label="Prioridad">{priorityLabels[ot.priority]}</SapCell>
+            <SapCell label="Tiempo trabajado">{formatHours(otHours(ot))}</SapCell>
+          </dl>
         </div>
 
         {ot.rejectedReason && (
           <div className="px-5 py-3 bg-red-50 border-b border-red-100 flex items-center gap-2">
             <XCircle size={16} className="text-red-600" />
-            <p className="text-sm text-red-700"><strong>Rechazada:</strong> {ot.rejectedReason}</p>
+            <p className="text-content text-red-700"><strong>Rechazada:</strong> {ot.rejectedReason}</p>
           </div>
         )}
 
         {canRetro && (
           <div className="px-5 py-3 bg-orange-50 border-b border-orange-100 flex items-center gap-2">
             <ShieldAlert size={16} className="text-orange-600 flex-shrink-0" />
-            <p className="text-sm text-orange-800 flex-1">
+            <p className="text-content text-orange-800 flex-1">
               OT ejecutada sin aprobacion previa. Requiere revision retroactiva.
             </p>
           </div>
@@ -553,7 +550,7 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
         {ot.status === 'finalizada' && (
           <div className="px-5 py-3 bg-blue-50 border-b border-blue-100 flex items-center gap-2">
             <PenTool size={16} className="text-blue-600 flex-shrink-0" />
-            <p className="text-sm text-blue-800">
+            <p className="text-content text-blue-800">
               Firmada por <strong>{ot.signedBy ?? '--'}</strong>. En espera de la firma del Jefe de Taller para cerrar la OT.
             </p>
           </div>
@@ -599,7 +596,7 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
               </Button>
             )}
             {canFinalize && blocked && (
-              <span className="flex items-center gap-1.5 text-xs text-orange-700">
+              <span className="flex items-center gap-1.5 text-content text-orange-700">
                 <AlertCircle size={13} /> {blocked}
               </span>
             )}
@@ -607,106 +604,54 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
         )}
 
         {!showActionBar && ot.status !== 'cerrada' && (
-          <div className="px-5 py-3 border-t border-stone-200 text-xs text-stone-500">
+          <div className="px-5 py-3 border-t border-stone-200 text-content text-stone-500">
 
           </div>
         )}
       </div>
+
+      {editingOT && <EditOTModal ot={ot} onClose={() => setEditingOT(false)} />}
     </div>
   );
 }
 
-function InfoCell({ label, value }: { label: string; value: string }) {
+function SapCell({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
-      <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1">{label}</p>
-      <p className="text-sm text-stone-800 break-words">{value}</p>
+    <div className="sap-cell border-stone-100">
+      <dt>{label}:</dt>
+      <dd>{children}</dd>
     </div>
   );
 }
 
-function CreateOTModal({ open, onClose, assets, workOrders, onCreate }: {
-  open: boolean;
-  onClose: () => void;
-  assets: { id: string; code: string; name: string }[];
-  workOrders: WorkOrder[];
-  onCreate: (data: {
-    code: string;
-    assetId: string;
-    assetCode: string;
-    assetName: string;
-    priority: OTPriority;
-    description: string;
-    createdAt: string;
-    assignedTo: string | null;
-    assignedToType: 'tecnico' | 'taller_externo' | null;
-  }) => void;
-}) {
-  const [assetId, setAssetId] = useState('');
-  const [priority, setPriority] = useState<OTPriority>('media');
-  const [description, setDescription] = useState('');
+function EditOTModal({ ot, onClose }: { ot: WorkOrder; onClose: () => void }) {
+  const { updateWorkOrder } = useApp();
+  const [description, setDescription] = useState(ot.description);
+  const [priority, setPriority] = useState<OTPriority>(ot.priority);
+  const [error, setError] = useState<string | null>(null);
+  const unchanged = description.trim() === ot.description && priority === ot.priority;
 
-  const nextCode = useMemo(() => {
-    const max = workOrders.reduce((acc, ot) => {
-      const n = Number(ot.code.split('-').pop());
-      return Number.isFinite(n) ? Math.max(acc, n) : acc;
-    }, 0);
-    return `OT-2026-${String(max + 1).padStart(4, '0')}`;
-  }, [workOrders]);
-
-  const handleSubmit = () => {
-    const asset = assets.find(a => a.id === assetId);
-    if (!asset || !description) return;
-    onCreate({
-      code: nextCode,
-      assetId: asset.id,
-      assetCode: asset.code,
-      assetName: asset.name,
-      priority,
-      description,
-      createdAt: new Date().toISOString().slice(0, 10),
-      // la asignacion la hace el Jefe de Taller despues de aprobar
-      assignedTo: null,
-      assignedToType: null,
-    });
-    onClose();
-    setAssetId('');
-    setDescription('');
+  const handleSave = () => {
+    const result = updateWorkOrder(ot.id, { description, priority });
+    if (result) setError(result);
+    else onClose();
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Crear Orden de Trabajo" size="lg">
+    <Modal open onClose={onClose} title={`Editar ${ot.code}`} size="md">
       <div className="space-y-4">
-        <Field label="Activo *">
-          <Select value={assetId} onChange={e => setAssetId(e.target.value)}>
-            <option value="">Seleccionar vehiculo...</option>
-            {assets.map(a => <option key={a.id} value={a.id}>{a.code} - {a.name}</option>)}
-          </Select>
+        <Field label="Descripcion *">
+          <TextArea value={description} onChange={e => { setDescription(e.target.value); setError(null); }} rows={3} />
         </Field>
-
         <Field label="Prioridad *">
           <Select value={priority} onChange={e => setPriority(e.target.value as OTPriority)}>
-            <option value="baja">Baja</option>
-            <option value="media">Media</option>
-            <option value="alta">Alta</option>
-            <option value="critica">Critica</option>
+            {allPriorities.map(p => <option key={p} value={p}>{priorityLabels[p]}</option>)}
           </Select>
         </Field>
-
-        <Field label="Descripcion *">
-          <TextArea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Describe el trabajo a realizar..." />
-        </Field>
-
-        {/* <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-md border border-blue-100">
-          <Send size={16} className="text-blue-600 flex-shrink-0" />
-          <p className="text-xs text-blue-700">
-            La OT se creara como <strong>{nextCode}</strong> y quedara <strong>pendiente de aprobacion</strong> del supervisor.
-          </p>
-        </div> */}
-
+        {error && <p role="alert" className="text-content text-red-700">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSubmit}><Plus size={16} /> Crear OT</Button>
+          <Button variant="outline" className="min-h-[44px] sm:min-h-0" onClick={onClose}>Cancelar</Button>
+          <Button className="min-h-[44px] sm:min-h-0" onClick={handleSave} disabled={unchanged || !description.trim()}>Guardar cambios</Button>
         </div>
       </div>
     </Modal>
@@ -721,8 +666,7 @@ function AssignModal({ open, onClose, ot, onAssign }: {
 }) {
   const [type, setType] = useState<'tecnico' | 'taller_externo'>('tecnico');
   const [externalShop, setExternalShop] = useState('');
-  // el responsable de ejecucion ya no se elige de una lista: se infiere solo, es quien creo la OT
-  // (normalmente el propio tecnico que la origino con sus lineas de trabajo)
+
   const inferredTechnician = ot.createdBy;
 
   const handleSubmit = () => {
@@ -754,7 +698,7 @@ function AssignModal({ open, onClose, ot, onAssign }: {
 
         {type === 'tecnico' ? (
           <Field label="Tecnico">
-            <p className="text-sm text-stone-800 py-2 px-3 rounded-md border border-stone-200 bg-stone-50">{inferredTechnician}</p>
+            <p className="text-content text-stone-800 py-2 px-3 rounded-md border border-stone-200 bg-stone-50">{inferredTechnician}</p>
           </Field>
         ) : (
           <Field label="Taller externo *">
@@ -763,7 +707,7 @@ function AssignModal({ open, onClose, ot, onAssign }: {
         )}
 
         {ot.assignedTo && (
-          <p className="text-xs text-stone-500">
+          <p className="text-content text-stone-500">
             Asignada actualmente a <strong className="text-stone-700">{ot.assignedTo}</strong>.
           </p>
         )}
@@ -790,7 +734,7 @@ function ConfirmModal({ open, onClose, title, message, confirmLabel, confirmVari
   return (
     <Modal open={open} onClose={onClose} title={title} size="sm">
       <div className="space-y-4">
-        <p className="text-sm text-stone-600">{message}</p>
+        <p className="text-content text-stone-600">{message}</p>
         {extraField}
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={onClose}>Cancelar</Button>

@@ -191,12 +191,12 @@ export function LoginScreen() {
           <div className="px-6 pb-7 pt-7 sm:px-8">
             <div className="flex flex-col items-center text-center">
               <img src={logo} alt="RCJ Logistics" className="h-14 w-auto object-contain" />
-              <h1 className="font-heading mt-5 text-xl font-bold text-stone-800">Bienvenido</h1>
+              <h1 className="ui-title mt-5">Bienvenido</h1>
             </div>
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div>
-                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-stone-600">Ingresar como</p>
+                <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-stone-600">Ingresar como</p>
                 <div className="grid grid-cols-2 gap-1 rounded-xl bg-stone-100 p-1 sm:grid-cols-4">
                   {roleOrder.map(r => {
                     const Icon = roleIcons[r];
@@ -207,7 +207,7 @@ export function LoginScreen() {
                         type="button"
                         aria-pressed={active}
                         onClick={() => selectRole(r)}
-                        className={`flex flex-col items-center justify-center gap-1 rounded-lg px-1.5 py-2.5 text-[11px] font-medium leading-tight transition-all ${
+                        className={`flex flex-col items-center justify-center gap-1 rounded-lg px-1.5 py-2.5 text-content font-medium leading-tight transition-all ${
                           active
                             ? 'bg-blue-900 text-white shadow-md'
                             : 'text-stone-500 hover:bg-white hover:text-stone-700'
@@ -273,11 +273,11 @@ export function LoginScreen() {
             <button
               type="button"
               onClick={fillDemoCredentials}
-              className="mt-5 w-full rounded-lg border border-dashed border-stone-300 px-3 py-2 text-center text-[11px] text-stone-400 transition-colors hover:border-orange-300 hover:bg-orange-50/50 hover:text-stone-600"
+              className="mt-5 w-full rounded-lg border border-dashed border-stone-300 px-3 py-2 text-center text-content text-stone-400 transition-colors hover:border-orange-300 hover:bg-orange-50/50 hover:text-stone-600"
               title="Autocompletar credenciales de prueba"
             >
               Credenciales de prueba para {roleLabels[role]}:{' '}
-              <span className="font-mono text-stone-500">
+              <span className="font-normal text-stone-500">
                 {demoCredentials[role].username} / {demoCredentials[role].password}
               </span>
             </button>

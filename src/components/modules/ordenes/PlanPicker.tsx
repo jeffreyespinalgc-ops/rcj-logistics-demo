@@ -106,14 +106,14 @@ export function PlanPicker({ value, onChange, freeText, onFreeTextChange }: {
           {leaves.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-semibold text-stone-600 uppercase tracking-wide">Actividades *</span>
+                <span className="text-xs font-bold text-stone-600 uppercase tracking-wide">Actividades *</span>
                 <button type="button" onClick={toggleAll} className="text-xs font-medium text-orange-600 hover:text-orange-700">
                   {allChecked ? 'Seleccionar Todos' : 'Seleccionar Todos'}
                 </button>
               </div>
               <div className="max-h-48 overflow-y-auto border border-stone-200 rounded-md divide-y divide-stone-100 bg-white">
                 {leaves.map(leaf => (
-                  <label key={leaf.id} className="flex items-center gap-2 px-3 py-2 text-sm text-stone-700 cursor-pointer hover:bg-stone-50">
+                  <label key={leaf.id} className="flex items-center gap-2 px-3 py-2 text-content text-stone-700 cursor-pointer hover:bg-stone-50">
                     <input
                       type="checkbox"
                       checked={value.checkedIds.includes(leaf.id)}

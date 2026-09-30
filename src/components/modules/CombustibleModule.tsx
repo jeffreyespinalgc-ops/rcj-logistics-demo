@@ -108,7 +108,7 @@ export function CombustibleModule() {
 
       <div className="bg-white rounded-lg shadow-card border border-stone-200">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-stone-200">
-          <h3 className="font-heading text-base font-bold text-stone-800">Resumen de Consumo por Activo</h3>
+          <h3 className="ui-title">Resumen de consumo por activo</h3>
           {canRegister && (
             <Button onClick={() => setShowModal(true)}>
               <Plus size={16} /> Registrar Carga
@@ -132,17 +132,17 @@ export function CombustibleModule() {
             <tbody>
               {sortedConsumption.map(a => (
                 <tr key={a.assetId}>
-                  <td className="font-mono text-xs font-semibold text-blue-700">{a.assetCode}</td>
-                  <td className="font-medium text-stone-800">{a.assetName}</td>
+                  <td className="font-bold text-blue-700">{a.assetCode}</td>
+                  <td className="font-normal text-stone-800">{a.assetName}</td>
                   <td className="text-right text-stone-600">{a.loads}</td>
-                  <td className="text-right font-semibold text-stone-800">{a.totalLiters.toLocaleString()} L</td>
+                  <td className="text-right font-normal text-stone-800">{a.totalLiters.toLocaleString()} L</td>
                   <td className="text-right text-stone-700">{formatCLP(a.totalCost)}</td>
                   <td className="text-right text-stone-500">{Math.round(a.totalLiters / a.loads).toLocaleString()} L</td>
-                  <td className="text-stone-500 text-xs">{a.lastLoad}</td>
+                  <td className="text-stone-500">{a.lastLoad}</td>
                   <td className="text-right">
                     <button
                       onClick={() => setSelectedAssetId(a.assetId)}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 hover:text-orange-800"
+                      className="inline-flex items-center gap-1 font-medium text-orange-700 hover:text-orange-800"
                     >
                       <History size={14} /> Historial
                     </button>
@@ -152,7 +152,7 @@ export function CombustibleModule() {
             </tbody>
           </table>
           {consumptionByAsset.length === 0 && (
-            <div className="text-center py-8 text-stone-400 text-sm">No hay cargas registradas</div>
+            <div className="text-center py-8 text-stone-400 text-content">No hay cargas registradas</div>
           )}
         </div>
       </div>
@@ -182,7 +182,7 @@ function AssetFuelHistory({ assetLabel, loads, onBack }: {
 
       <div className="bg-white rounded-lg shadow-card border border-stone-200">
         <div className="px-4 py-3 border-b border-stone-200">
-          <h3 className="font-heading text-base font-bold text-stone-800">Historial de Cargas</h3>
+          <h3 className="ui-title">Historial de cargas</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="data-table">
@@ -200,11 +200,11 @@ function AssetFuelHistory({ assetLabel, loads, onBack }: {
             <tbody>
               {sorted.map(f => (
                 <tr key={f.id}>
-                  <td className="text-stone-500 text-xs">{f.date}</td>
-                  <td className="text-stone-600 uppercase text-xs">{f.fuelType.replace('_', ' ')}</td>
-                  <td className="text-right font-semibold text-stone-800">{f.liters} L</td>
+                  <td className="text-stone-500">{f.date}</td>
+                  <td className="text-stone-600 uppercase">{f.fuelType.replace('_', ' ')}</td>
+                  <td className="text-right font-normal text-stone-800">{f.liters} L</td>
                   <td className="text-right text-stone-500">{formatCLP(f.unitPrice)}</td>
-                  <td className="text-right text-stone-700 font-medium">{formatCLP(f.cost)}</td>
+                  <td className="text-right text-stone-700 font-normal">{formatCLP(f.cost)}</td>
                   <td className="text-right text-stone-500">{f.odometer.toLocaleString()}</td>
                   <td className="text-stone-600">{f.provider}</td>
                 </tr>
@@ -212,7 +212,7 @@ function AssetFuelHistory({ assetLabel, loads, onBack }: {
             </tbody>
           </table>
           {loads.length === 0 && (
-            <div className="text-center py-8 text-stone-400 text-sm">No hay cargas registradas para este activo</div>
+            <div className="text-center py-8 text-stone-400 text-content">No hay cargas registradas para este activo</div>
           )}
         </div>
       </div>
@@ -297,8 +297,8 @@ function FuelLoadModal({ open, onClose, assets, onCreate }: {
           </Field>
         </div>
         <div className="p-3 bg-blue-50 rounded-md border border-blue-100 flex items-center justify-between">
-          <span className="text-sm text-blue-700 font-medium">Costo total de la carga:</span>
-          <span className="text-lg font-bold text-blue-800 font-heading">{formatCLP(cost)}</span>
+          <span className="text-sm text-blue-700 font-bold">Costo total de la carga:</span>
+          <span className="text-lg font-normal text-blue-800">{formatCLP(cost)}</span>
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose}>Cancelar</Button>

@@ -1,54 +1,88 @@
 import type { jsPDF } from 'jspdf';
-import type { OTLine, WorkOrder } from '@/types';
-import { isRequisitionComplete, signatureFor, signaturesOf } from '@/lib/requisition';
-import { formatDate, formatDateTime, loadPdfLogo, INK, NAVY, type BuiltPdf, type PdfLogo } from '@/lib/pdfShared';
+import type { OTLine, RequisitionStep, WorkOrder } from '@/types';
+import { deliveredQuantity, isPartial, requisitionStatus, signatureFor } from '@/lib/requisition';
+import { drawSignatureImage, formatDate, formatDateTime, loadPdfLogo, INK, NAVY, type BuiltPdf, type PdfLogo } from '@/lib/pdfShared';
+
+export interface RequisitionSigner {
+  /** Nombre del campo del formato: "Solicitado por", "Recibido por", etc. */
+  label: string;
+  /** Cargo de quien firma */
+  role: string;
+  name: string;
+  at: string;
+  /** Firma guardada del usuario (PNG); vacia si aun no firma o si firmo antes de existir la firma guardada */
+  signature: string | null;
+}
 
 export interface RequisitionPdfData {
   code: string;
   date: string;
   department: string;
-  items: { qty: number; description: string; code: string; unit: string; notes: string }[];
-  requestedBy: string;
-  deliveredTo: string;
+  /** Estado de la requisa en este momento, para distinguir una vista previa incompleta de la requisa terminada */
+  statusLabel: string;
+  /** La cantidad va como "entregado / solicitado" una vez que Control de Inventario entrega */
+  items: { qty: string; partial: boolean; description: string; code: string; unit: string; notes: string }[];
   /** En el orden en que aparecen al pie del formato */
-  signers: { label: string; name: string; at: string }[];
+  signers: RequisitionSigner[];
 }
 
 const ROWS_PER_PAGE = 10;
 
-/** Datos del formato a partir de la linea; null mientras la requisa no tenga las tres firmas */
-export function buildRequisitionPdfData(ot: WorkOrder, line: OTLine): RequisitionPdfData | null {
-  if (!line.requisition || !isRequisitionComplete(line)) return null;
+const statusLabels = {
+  sin_solicitar: 'SIN SOLICITAR',
+  en_firma: 'EN FIRMA',
+  completa: 'COMPLETA',
+} as const;
 
-  const signatures = signaturesOf(line);
+/**
+ * Datos del formato: una sola requisa (un solo documento) por OT. `line` da el contexto de firmas (cada linea
+ * firma su propio Solicitante->Jefe->Control->Receptor), pero los repuestos que se listan son los de TODAS las
+ * lineas de la OT que comparten el mismo codigo de requisa, para que el documento se vea completo sin importar
+ * desde que linea se abrio.
+ */
+export function buildRequisitionPdfData(ot: WorkOrder, line: OTLine): RequisitionPdfData {
   const requester = signatureFor(line, 'solicitante');
-  const signer = (step: 'autoriza' | 'despacha' | 'solicitante', label: string) => {
+  const fromStep = (step: RequisitionStep, label: string, role: string): RequisitionSigner => {
     const s = signatureFor(line, step);
-    return { label, name: s?.name ?? '', at: s ? formatDateTime(s.at) : '' };
+    return { label, role, name: s?.name ?? '', at: s ? formatDateTime(s.at) : '', signature: s?.signature ?? null };
   };
+  // "Entregado a" no lleva firma propia: es el tecnico a quien Control le entrego, registrado en el paso de Control
+  const dispatch = signatureFor(line, 'despacha');
+  const code = line.requisition?.code ?? null;
+  const sharedLines = code ? ot.lines.filter(l => l.requisition?.code === code) : [line];
 
   return {
-    code: line.requisition.code,
-    date: formatDate(line.requisition.releasedAt ?? signatures[signatures.length - 1].at),
+    code: code ?? 'Sin solicitar',
+    date: formatDate(requester?.at ?? line.createdAt),
     department: 'Taller',
-    items: line.parts.map(p => ({
-      qty: p.quantity,
+    statusLabel: statusLabels[requisitionStatus(line)],
+    items: sharedLines.flatMap(l => l.parts.map(p => ({
+      // siempre entregado/solicitado (no solo cuando ya se entrego): asi queda registrado incluso si al
+      // pedirlo solo habia menos stock del solicitado (ej. "0 / 3" antes de que Control entregue)
+      qty: `${deliveredQuantity(l, p)} / ${p.quantity}`,
+      partial: isPartial(l, p),
       description: p.partDescription,
       code: p.partCode,
-      unit: 'UND',
-      notes: `${ot.code} - ${ot.assetCode}`,
-    })),
-    requestedBy: requester?.name ?? '',
-    deliveredTo: line.technician || requester?.name || '',
+      unit: p.unit,
+      // que linea de trabajo pidio este repuesto (la OT ya es una sola para todo el documento)
+      notes: l.work,
+    }))),
     signers: [
-      signer('autoriza', 'Jefe de Taller'),
-      signer('despacha', 'Control de Inventario'),
-      signer('solicitante', 'Técnico'),
+      fromStep('solicitante', 'Solicitado por', ''),
+      fromStep('recibe', 'Recibido por', ''),
+      fromStep('autoriza', 'Autorizado por', ''),
+      fromStep('despacha', 'Aprobado por', ''),
+      {
+        label: 'Entregado a',
+        role: '',
+        name: '',
+        at: '',
+        signature: null,
+      },
     ],
   };
 }
 
-/** Dibuja el formato "Requisicion de materiales" (hoja carta horizontal), una hoja por cada 10 repuestos */
 export function drawRequisition(doc: jsPDF, data: RequisitionPdfData, logo: PdfLogo | null): void {
   const pages = Math.max(1, Math.ceil(data.items.length / ROWS_PER_PAGE));
   for (let page = 0; page < pages; page++) {
@@ -72,20 +106,17 @@ function drawPage(
   const fieldsH = 11;
   const tableHeadH = 9;
   const rowH = 8.5;
-  const signedH = 13;
-  const signaturesH = 28;
+  const signaturesH = 40;
   const tableTop = Y + headerH + fieldsH;
   const rowsTop = tableTop + tableHeadH;
   const rowsBottom = rowsTop + rowH * ROWS_PER_PAGE;
-  const signedTop = rowsBottom;
-  const signaturesTop = signedTop + signedH;
+  const signaturesTop = rowsBottom;
   const bottom = signaturesTop + signaturesH;
   const cols = [22, 96, 45, 28, 63];
 
   doc.setDrawColor(...NAVY);
   doc.setTextColor(...INK);
 
-  // encabezado: logo a la izquierda, titulo a la derecha
   doc.setLineWidth(0.3);
   doc.line(X + 72, Y, X + 72, Y + headerH);
   doc.line(X, Y + headerH, X + W, Y + headerH);
@@ -97,10 +128,12 @@ function drawPage(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
   doc.setTextColor(...NAVY);
-  doc.text('REQUISICIÓN DE MATERIALES', X + 72 + (W - 72) / 2, Y + headerH / 2 + 2.5, { align: 'center' });
+  doc.text('REQUISICIÓN DE MATERIALES', X + 72 + (W - 72) / 2, Y + headerH / 2 + 0.5, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(120, 120, 120);
   doc.setTextColor(...INK);
 
-  // No. requisicion, fecha y departamento
   const fields: [string, string][] = [
     ['No. Requisición:', pages > 1 ? `${data.code}  (${page}/${pages})` : data.code],
     ['Fecha:', data.date],
@@ -120,7 +153,6 @@ function drawPage(
     doc.text(value, lineStart + 2, Y + headerH + 7.3);
   });
 
-  // encabezado de la tabla
   doc.setFillColor(...NAVY);
   doc.rect(X, tableTop, W, tableHeadH, 'F');
   doc.setTextColor(255, 255, 255);
@@ -134,17 +166,15 @@ function drawPage(
   });
   doc.setTextColor(...INK);
 
-  // filas: siempre 10, con los repuestos al inicio y el resto en blanco
   doc.setLineWidth(0.2);
   for (let r = 0; r < ROWS_PER_PAGE; r++) {
     const ry = rowsTop + r * rowH;
     doc.line(X, ry + rowH, X + W, ry + rowH);
     const item = items[r];
     if (!item) continue;
-    doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     const cells: [string, number, 'center' | 'left'][] = [
-      [String(item.qty), 0, 'center'],
+      [item.qty, 0, 'center'],
       [item.description, 1, 'left'],
       [item.code, 2, 'center'],
       [item.unit, 3, 'center'],
@@ -152,6 +182,7 @@ function drawPage(
     ];
     let cellX = X;
     cells.forEach(([text, i, align]) => {
+      doc.setFont('helvetica', i === 0 && item.partial ? 'bold' : 'normal');
       const lines = (doc.splitTextToSize(text, cols[i] - 4) as string[]).slice(0, 2);
       const textY = ry + rowH / 2 + (lines.length > 1 ? -0.4 : 1.1);
       doc.text(lines, align === 'center' ? cellX + cols[i] / 2 : cellX + 2, textY, { align, lineHeightFactor: 1.15 });
@@ -164,54 +195,34 @@ function drawPage(
     doc.line(vx, tableTop + tableHeadH, vx, rowsBottom);
   });
 
-  // solicitado por / entregado a
-  const pairs: [string, string, number][] = [
-    ['Solicitado por:', data.requestedBy, X + 24],
-    ['Entregado a:', data.deliveredTo, X + W * 0.62],
-  ];
-  pairs.forEach(([label, value, px]) => {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.text(label, px, signedTop + 8.5);
-    const lineStart = px + doc.getTextWidth(label) + 2;
-    const lineEnd = label === 'Solicitado por:' ? X + W * 0.55 : X + W - 8;
-    doc.line(lineStart, signedTop + 9.5, lineEnd, signedTop + 9.5);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text(value, lineStart + 2, signedTop + 8.3);
-  });
-
-  // firmas: linea gruesa y, debajo, quien firmo con fecha y el cargo
   doc.setLineWidth(0.8);
   doc.line(X, signaturesTop, X + W, signaturesTop);
   doc.setLineWidth(0.2);
-  const sigW = W / 3;
+  const sigW = W / data.signers.length;
   data.signers.forEach((s, i) => {
     const sx = X + i * sigW;
     const center = sx + sigW / 2;
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(11);
-    doc.text(s.name, center, signaturesTop + 11, { align: 'center' });
+    drawSignatureImage(doc, s.signature, { x: sx + 6, y: signaturesTop + 3, w: sigW - 12, h: 15 });
+    doc.line(sx + 6, signaturesTop + 19, sx + sigW - 6, signaturesTop + 19);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text(s.label, center, signaturesTop + 24, { align: 'center' });
     doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.text((doc.splitTextToSize(s.name, sigW - 8) as string[])[0] ?? '', center, signaturesTop + 28.5, { align: 'center' });
     doc.setFontSize(7.5);
     doc.setTextColor(110, 110, 110);
-    doc.text(s.at, center, signaturesTop + 15, { align: 'center' });
+    // doc.text(s.role, center, signaturesTop + 32.5, { align: 'center' });
+    // doc.text(s.at, center, signaturesTop + 36, { align: 'center' });
     doc.setTextColor(...INK);
-    doc.line(sx + 14, signaturesTop + 16.5, sx + sigW - 14, signaturesTop + 16.5);
-    doc.setFontSize(9.5);
-    doc.text(s.label, center, signaturesTop + 21.5, { align: 'center' });
   });
 
-  // marco exterior
   doc.setLineWidth(0.5);
   doc.rect(X, Y, W, bottom - Y);
 }
 
-/** Arma el PDF de la requisa firmada por las tres partes; null si aun faltan firmas */
-export async function buildRequisitionPdf(ot: WorkOrder, line: OTLine): Promise<BuiltPdf | null> {
+export async function buildRequisitionPdf(ot: WorkOrder, line: OTLine): Promise<BuiltPdf> {
   const data = buildRequisitionPdfData(ot, line);
-  if (!data) return null;
-  // jsPDF se carga solo al abrir el documento para no engordar la carga inicial de la app
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
   drawRequisition(doc, data, await loadPdfLogo());

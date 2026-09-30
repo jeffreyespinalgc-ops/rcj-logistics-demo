@@ -139,7 +139,7 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
                   </span>
                 )}
                 {showBadge && mini && (
-                  <span className="absolute right-1 top-1 min-w-[16px] rounded-full bg-orange-500 px-1 text-center text-[10px] font-bold leading-4 text-white">
+                  <span className="absolute right-1 top-1 min-w-[16px] rounded-full bg-orange-500 px-1 text-center text-content font-bold leading-4 text-white">
                     {badgeCount}
                   </span>
                 )}

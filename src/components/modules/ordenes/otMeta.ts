@@ -1,4 +1,5 @@
 import type { FindingStatus, OTLine, OTLineStatus, OTPriority, OTStatus, UserRole, WorkOrder } from '@/types';
+import { usedQuantity } from '@/lib/requisition';
 
 type BadgeVariant = 'blue' | 'orange' | 'green' | 'red' | 'gray' | 'yellow' | 'purple';
 
@@ -143,7 +144,8 @@ export function formatHours(h: number): string {
   return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`;
 }
 
-export const linePartsCost = (line: OTLine) => line.parts.reduce((s, p) => s + p.quantity * p.unitCost, 0);
+// el costo cuenta lo que realmente salio del inventario (una entrega parcial cuesta menos que lo solicitado)
+export const linePartsCost = (line: OTLine) => line.parts.reduce((s, p) => s + usedQuantity(line, p) * p.unitCost, 0);
 
 export const otPartsCost = (ot: WorkOrder) => ot.lines.reduce((s, l) => s + linePartsCost(l), 0);
 
@@ -188,10 +190,12 @@ export const pendingFindings = (ot: WorkOrder) =>
   ot.lines.filter(l => l.isFinding && l.findingStatus === 'pendiente');
 
 /**
- * Lineas sin desenlace. Una OT no se puede finalizar ni cerrar mientras queden:
- * completado, completado con observaciones y no completado si cuentan como resueltas.
+ * Lineas que "Finalizar OT" no puede resolver solo. Ya no hay boton "Finalizar" por linea: al finalizar la OT,
+ * toda linea "en_ejecucion" (ya iniciada) se marca completada sola (ver finalizeWorkOrder). Siguen bloqueando:
+ * "pendiente" (todavia esperando que se complete su requisa de repuestos, asi que no ha arrancado sola),
+ * "esperando_repuesto" y "requiere_seguimiento" (necesitan atencion aparte, no se resuelven solas).
  */
-const unresolvedLineStatuses: OTLineStatus[] = ['pendiente', 'en_ejecucion', 'esperando_repuesto', 'requiere_seguimiento'];
+const unresolvedLineStatuses: OTLineStatus[] = ['pendiente', 'esperando_repuesto', 'requiere_seguimiento'];
 
 export const unresolvedLines = (ot: WorkOrder) =>
   ot.lines.filter(l => unresolvedLineStatuses.includes(l.status));

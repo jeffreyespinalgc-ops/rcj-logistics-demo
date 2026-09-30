@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from '@/store/AuthContext';
 import { LoginScreen } from '@/components/auth/LoginScreen';
 import { Sidebar, type SidebarMode } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
+import { SignatureModal } from '@/components/auth/SignatureModal';
 import { ActivosModule } from '@/components/modules/ActivosModule';
 import { InventarioModule } from '@/components/modules/InventarioModule';
 import { OrdenesModule } from '@/components/modules/OrdenesModule';
@@ -21,8 +22,8 @@ function AccessDenied() {
         <div className="w-12 h-12 text-stone-900 flex items-center justify-center mx-auto mb-3">
           <Lock size={28} />
         </div>
-        <h3 className="font-heading text-base font-bold text-stone-800">Sin acceso a este modulo</h3>
-        <p className="text-sm text-stone-500 mt-1">Tu rol no tiene permisos para ver esta seccion.</p>
+        <h3 className="ui-title">Sin acceso a este modulo</h3>
+        <p className="text-content text-stone-500 mt-1">Tu rol no tiene permisos para ver esta seccion.</p>
       </div>
     </div>
   );
@@ -48,6 +49,11 @@ function ModuleRouter() {
 }
 
 function AppLayout() {
+  const { session, users, updateUser } = useAuth();
+  const me = users.find(u => u.id === session?.userId);
+  // la primera vez que entra, el usuario registra su firma (obligatorio); despues puede rehacerla desde el encabezado
+  const mustSign = Boolean(me && !me.signature);
+  const [editingSignature, setEditingSignature] = useState(false);
   // en movil arranca oculto (el menu es una capa que hay que abrir); en escritorio arranca completo,
   // como cualquier app de escritorio
   const [menuMode, setMenuMode] = useState<SidebarMode>(() => (
@@ -69,11 +75,20 @@ function AppLayout() {
         <Header
           menuLabel={hidden ? 'Mostrar menu' : 'Ocultar menu'}
           onMenuClick={() => setMenuMode(hidden ? lastVisibleMode.current : 'hidden')}
+          onSignatureClick={() => setEditingSignature(true)}
         />
         <main className="flex-1 overflow-y-auto">
           <ModuleRouter />
         </main>
       </div>
+      {me && (mustSign || editingSignature) && (
+        <SignatureModal
+          mandatory={mustSign}
+          currentSignature={me.signature ?? null}
+          onSave={dataUrl => { updateUser(me.id, { signature: dataUrl }); setEditingSignature(false); }}
+          onClose={() => setEditingSignature(false)}
+        />
+      )}
     </div>
   );
 }

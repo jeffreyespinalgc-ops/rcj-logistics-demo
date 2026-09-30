@@ -145,7 +145,7 @@ export function PlansTab() {
 
   if (activeTypes.length === 0) {
     return (
-      <div className="p-6 text-center text-sm text-stone-400">
+      <div className="p-6 text-center text-content text-stone-400">
         No hay tipos de trabajo activos. Agrega uno en la pestana "Tipos de Trabajo".
       </div>
     );
@@ -170,7 +170,7 @@ export function PlansTab() {
 
       {drag && (
         <div
-          className="fixed z-[70] pointer-events-none px-2 py-1 rounded-md bg-white border border-orange-300 shadow-card-hover text-xs font-medium text-stone-700 max-w-[14rem] truncate"
+          className="fixed z-[70] pointer-events-none px-2 py-1 rounded-md bg-white border border-orange-300 shadow-card-hover text-content font-medium text-stone-700 max-w-[14rem] truncate"
           style={{ left: drag.x + 12, top: drag.y + 12 }}
         >
           {drag.label || 'Elemento'}
@@ -212,7 +212,7 @@ function MaintenanceNodeList({ parentId, nodes, depth }: {
           value={newName}
           onChange={e => setNewName(e.target.value)}
           placeholder={depth === 0 ? 'Nuevo elemento' : 'Nuevo subelemento'}
-          className="flex-1 max-w-xs !py-1 !text-xs"
+          className="flex-1 max-w-xs !py-1 !text-content"
         />
         <Button size="sm" variant="outline" onClick={handleAdd}><Plus size={12} /> Agregar</Button>
       </div>
@@ -254,7 +254,7 @@ function MaintenanceNodeRow({ node, depth }: {
         <TextInput
           value={node.name}
           onChange={e => renameMaintenanceNode(workType, node.id, e.target.value)}
-          className="flex-1 max-w-sm !py-1 !text-xs"
+          className="flex-1 max-w-sm !py-1 !text-content"
         />
         <button
           onClick={() => removeMaintenanceNode(workType, node.id)}

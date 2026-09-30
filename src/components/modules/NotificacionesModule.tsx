@@ -79,15 +79,15 @@ export function NotificacionesModule() {
             ))}
           </div>
           {unreadCount > 0 && (
-            <Button size="sm" variant="outline" onClick={markAllNotificationsRead}>
-              <CheckCheck size={14} /> Marcar todas leidas
+            <Button size="sm" variant="outline" onClick={markAllNotificationsRead} aria-tooltip="Marcar todas como leidas">
+              <CheckCheck size={14} />
             </Button>
           )}
         </div>
 
         <div className="divide-y divide-stone-100">
           {filtered.length === 0 ? (
-            <div className="text-center py-12 text-stone-400 text-sm">
+            <div className="text-center py-12 text-stone-400 text-content">
               <Bell size={32} className="mx-auto mb-2 text-stone-300" />
               No hay notificaciones
             </div>
@@ -108,11 +108,11 @@ export function NotificacionesModule() {
                       <p className={`text-sm ${!n.read ? 'font-bold text-stone-800' : 'font-medium text-stone-700'}`}>{n.title}</p>
                       {!n.read && <span className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0" />}
                     </div>
-                    <p className="text-sm text-stone-600 mb-1">{n.description}</p>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-stone-400">
+                    <p className="text-content text-stone-600 mb-1">{n.description}</p>
+                    <div className="flex flex-wrap items-center gap-2 text-content text-stone-400">
                       <span>{n.date}</span>
                       <span>·</span>
-                      <span className="font-mono">{n.reference}</span>
+                      <span>{n.reference}</span>
                       <span>·</span>
                       <Badge variant={priorityVariants[n.priority]}>{n.priority}</Badge>
                     </div>

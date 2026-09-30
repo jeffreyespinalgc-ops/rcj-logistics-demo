@@ -14,7 +14,7 @@ const variantStyles: Record<BadgeVariant, string> = {
 
 export function Badge({ variant = 'gray', children }: { variant?: BadgeVariant; children: ReactNode }) {
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${variantStyles[variant]}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-content font-medium border ${variantStyles[variant]}`}>
       {children}
     </span>
   );

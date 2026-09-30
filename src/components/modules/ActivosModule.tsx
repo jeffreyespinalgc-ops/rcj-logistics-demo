@@ -127,12 +127,12 @@ export function ActivosModule() {
       <div className="bg-white rounded-lg shadow-card border border-stone-200">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-stone-200">
           <div>
-            <h3 className="font-heading text-base font-bold text-stone-800">Listado de Activos</h3>
+            <h3 className="ui-title text-content">LISTADO DE ACTIVOS</h3>
           </div>
           <div className="flex items-center gap-2">
             {canCreateAsset && (
               <Button variant="outline" onClick={() => setShowCreateModal(true)}>
-                <Plus size={16} /> Crear Ficha Local
+                <Plus size={16} /> CREAR FICHA
               </Button>
             )}
             {canSync ? (
@@ -155,8 +155,8 @@ export function ActivosModule() {
             />
           </div>
           <Select value={filterType} onChange={e => setFilterType(e.target.value)} className="w-full sm:w-auto">
-            <option value="">Todos los tipos</option>
-            <option value="vehiculo_ligero">Vehiculo Ligero</option>
+            <option value="">TIPOS</option>
+            <option value="vehiculo_ligero">VEHICULO LIGERO</option>
             <option value="vehiculo_pesado">Vehiculo Pesado</option>
             <option value="maquinaria">Maquinaria</option>
             <option value="equipo_auxiliar">Equipo Auxiliar</option>
@@ -190,11 +190,11 @@ export function ActivosModule() {
             <tbody>
               {sorted.map(asset => (
                 <tr key={asset.id} className="cursor-pointer" onClick={() => setSelectedAsset(asset)}>
-                  <td className="text-stone-600 text-xs font-semibold">{asset.code}</td>
+                  <td className="text-stone-600 font-normal">{asset.code}</td>
                   <td className="text-stone-600">{asset.name}</td>
                   <td className="text-stone-600">{typeLabels[asset.type]}</td>
                   <td><Badge>{statusLabels[asset.status]}</Badge></td>
-                  <td className="text-stone-500 text-xs">{asset.lastMaintenance}</td>
+                  <td className="text-stone-500">{asset.lastMaintenance}</td>
                   <td>
                     {asset.sapCode ? (
                       <Badge><Link2 size={10} className="mr-1 inline" />{asset.sapCode}</Badge>
@@ -203,14 +203,14 @@ export function ActivosModule() {
                     )}
                   </td>
                   <td className="text-right">
-                    <span className="text-orange-600 text-xs font-semibold hover:underline">Ver</span>
+                    <span className="text-orange-600 font-semibold hover:underline">Ver</span>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
           {filtered.length === 0 && (
-            <div className="text-center py-8 text-stone-400 text-sm">No se encontraron activos con los filtros seleccionados</div>
+            <div className="text-center py-8 text-stone-400 text-content">No se encontraron activos con los filtros seleccionados</div>
           )}
         </div>
       </div>
@@ -248,8 +248,8 @@ function AssetDetail({ asset, history, onBack, detailTab, setDetailTab, onSync, 
               <Truck size={30} />
             </div>
             <div className="min-w-0">
-              <h3 className="font-heading text-lg font-bold text-stone-800">{asset.name}</h3>
-              <p className="text-sm text-stone-500 font-mono">{asset.code} · {asset.plate}</p>
+              <h3 className="ui-title">{asset.name}</h3>
+              <p className="text-sm font-normal text-stone-500">{asset.code} · {asset.plate}</p>
             </div>
           </div>
         </div>
@@ -272,7 +272,7 @@ function AssetDetail({ asset, history, onBack, detailTab, setDetailTab, onSync, 
         {detailTab === 'ficha' ? (
           <div className="p-5 space-y-5">
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <dl className="sap-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               <InfoField label="Marca" value={asset.brand} />
               <InfoField label="Modelo" value={asset.model} />
               <InfoField label="Año" value={String(asset.year)} />
@@ -285,7 +285,7 @@ function AssetDetail({ asset, history, onBack, detailTab, setDetailTab, onSync, 
               <InfoField label="Fecha de Adquisicion" value={asset.acquisitionDate} />
               <InfoField label="Costo de Adquisicion" value={formatCLP(asset.acquisitionCost)} />
               <InfoField label="Ultimo Mantenimiento" value={asset.lastMaintenance} />
-            </div>
+            </dl>
 
             <div className="border-t border-stone-200 pt-4">
               <div className="flex items-center justify-between mb-3">
@@ -299,18 +299,20 @@ function AssetDetail({ asset, history, onBack, detailTab, setDetailTab, onSync, 
                   </Button>
                 )}
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <dl className="sap-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 <InfoField label="Codigo SAP" value={asset.sapCode ?? 'No vinculado'} />
-                <div>
-                  <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1">Estado de Sincronizacion</p>
-                  {asset.sapSynced ? (
-                    <Badge variant="green"><Link2 size={10} className="mr-1 inline" /> Sincronizado</Badge>
-                  ) : (
-                    <Badge variant="orange">Pendiente</Badge>
-                  )}
+                <div className="sap-cell">
+                  <dt>Estado de sincronizacion:</dt>
+                  <dd>
+                    {asset.sapSynced ? (
+                      <Badge variant="green"><Link2 size={10} className="mr-1 inline" /> Sincronizado</Badge>
+                    ) : (
+                      <Badge variant="orange">Pendiente</Badge>
+                    )}
+                  </dd>
                 </div>
                 <InfoField label="Ultima Sincronizacion" value={formatDateTime(asset.lastSyncAt)} />
-              </div>
+              </dl>
             </div>
 
             <AssetPhotoGallery asset={asset} />
@@ -319,7 +321,7 @@ function AssetDetail({ asset, history, onBack, detailTab, setDetailTab, onSync, 
         ) : (
           <div className="p-5">
             {history.length === 0 ? (
-              <div className="text-center py-8 text-stone-400 text-sm">Sin historial registrado</div>
+              <div className="text-center py-8 text-stone-400 text-content">Sin historial registrado</div>
             ) : (
               <div className="relative pl-8 space-y-4 before:content-[''] before:absolute before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-stone-200">
                 {history.map(entry => {
@@ -331,10 +333,10 @@ function AssetDetail({ asset, history, onBack, detailTab, setDetailTab, onSync, 
                       </div>
                       <div className="bg-stone-50 rounded-lg p-3 border border-stone-100">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-semibold text-stone-700">{entry.reference}</span>
-                          <span className="text-xs text-stone-400">{entry.date}</span>
+                          <span className="text-content font-bold text-stone-700">{entry.reference}</span>
+                          <span className="text-content text-stone-400">{entry.date}</span>
                         </div>
-                        <p className="text-sm text-stone-600">{entry.description}</p>
+                        <p className="text-content text-stone-600">{entry.description}</p>
                       </div>
                     </div>
                   );
@@ -382,9 +384,7 @@ function AssetPhotoGallery({ asset }: { asset: Asset }) {
   return (
     <div className="border border-stone-200 rounded-md p-4">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <h4 className="font-heading text-sm font-bold text-stone-700 flex items-center gap-2">
-          <ImageIcon size={16} className="text-blue-600" /> Estado Actual del Activo
-        </h4>
+
         {canEdit && (
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => cameraRef.current?.click()} disabled={busy}>
@@ -410,8 +410,8 @@ function AssetPhotoGallery({ asset }: { asset: Asset }) {
           </button>
 
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-stone-500 mb-2">
-              Ultima fotografia: <span className="text-stone-700 font-medium">{formatDateTime(current.addedAt)}</span>
+            <p className="text-content text-stone-500 mb-2">
+              <strong className="font-bold text-stone-600"></strong> <span className="font-normal text-stone-700"></span>
             </p>
             <div className="flex items-center gap-2 flex-wrap">
               {photos.slice(0, -1).reverse().map(photo => (
@@ -438,9 +438,9 @@ function AssetPhotoGallery({ asset }: { asset: Asset }) {
             {canEdit && (
               <button
                 onClick={() => removeAssetPhoto(asset.id, current.id)}
-                className="text-xs text-stone-400 hover:text-red-600 transition-colors mt-3 inline-flex items-center gap-1"
+                className="text-content text-stone-400 hover:text-red-600 transition-colors mt-3 inline-flex items-center gap-1"
               >
-                <X size={12} /> Eliminar la fotografia actual
+                <X size={12} color='red'/>
               </button>
             )}
           </div>
@@ -448,7 +448,7 @@ function AssetPhotoGallery({ asset }: { asset: Asset }) {
       ) : (
         <div className="text-center py-6 border border-dashed border-stone-200 rounded-md">
           <ImageIcon size={22} className="text-stone-300 mx-auto mb-1" />
-          <p className="text-sm text-stone-400">
+          <p className="text-content text-stone-400">
             {canEdit ? 'Sin fotografias. Sube una imagen del estado actual del activo.' : 'Sin fotografias registradas.'}
           </p>
         </div>
@@ -460,8 +460,8 @@ function AssetPhotoGallery({ asset }: { asset: Asset }) {
           <div className="relative max-w-3xl max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between mb-2">
               <div className="text-white">
-                <p className="text-sm font-medium">{preview.name}</p>
-                <p className="text-xs text-stone-300">{formatDateTime(preview.addedAt)}</p>
+                <p className="text-content font-medium">{preview.name}</p>
+                <p className="text-content text-stone-300">{formatDateTime(preview.addedAt)}</p>
               </div>
               <button onClick={() => setPreview(null)} className="text-white/80 hover:text-white transition-colors">
                 <X size={22} />
@@ -475,11 +475,12 @@ function AssetPhotoGallery({ asset }: { asset: Asset }) {
   );
 }
 
+/** Dato de la ficha: etiqueta en negrita y valor en peso normal (formato de ficha, como SAP) */
 function InfoField({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1">{label}</p>
-      <p className="text-sm text-stone-800 break-words">{value}</p>
+    <div className="sap-cell">
+      <dt>{label}:</dt>
+      <dd>{value}</dd>
     </div>
   );
 }
@@ -522,7 +523,7 @@ function CreateAssetModal({ open, onClose, onCreate, locations }: {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Crear Ficha Local de Activo" size="lg">
+    <Modal open={open} onClose={onClose} title="Crear Ficha de Vehiculo" size="lg">
       <div className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Codigo *">

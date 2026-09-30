@@ -91,16 +91,16 @@ function UsersTab() {
               const isSelf = session?.userId === u.id;
               return (
                 <tr key={u.id}>
-                  <td className="font-medium text-stone-800">
+                  <td className="font-normal text-stone-800">
                     {u.name}
-                    {isSelf && <span className="ml-2 text-[11px] text-stone-400">(tu sesion)</span>}
+                    {isSelf && <span className="ml-2 text-stone-400">(tu sesion)</span>}
                   </td>
-                  <td className="font-mono text-xs text-stone-600">{u.username}</td>
+                  <td className="font-normal text-stone-600">{u.username}</td>
                   <td>
                     <Select
                       value={u.role}
                       onChange={e => updateUser(u.id, { role: e.target.value as UserRole })}
-                      className="!py-1 !text-xs"
+                      className="!py-1 !text-content"
                     >
                       {roleOrder.map(r => <option key={r} value={r}>{roleLabels[r]}</option>)}
                     </Select>
@@ -202,7 +202,7 @@ function WorkTypesTab() {
     <div className="p-4">
       <div className="border border-stone-200 rounded-md max-w-lg">
         <div className="px-4 py-3 border-b border-stone-200">
-          <h4 className="font-heading text-sm font-bold text-stone-700">Tipos de Trabajo</h4>
+          <h4 className="ui-subtitle">Tipos de trabajo</h4>
 
         </div>
 
@@ -212,7 +212,7 @@ function WorkTypesTab() {
               <TextInput
                 value={item.name}
                 onChange={e => updateWorkType(item.id, { name: e.target.value })}
-                className="flex-1 !py-1 !text-xs"
+                className="flex-1 !py-1 !text-content"
               />
               <button onClick={() => updateWorkType(item.id, { active: !item.active })}>
                 <Badge variant={item.active ? 'green' : 'gray'}>{item.active ? 'Activo' : 'Inactivo'}</Badge>
@@ -226,12 +226,12 @@ function WorkTypesTab() {
               </button>
             </div>
           ))}
-          {workTypes.length === 0 && <p className="px-4 py-6 text-center text-xs text-stone-400">Sin tipos de trabajo</p>}
+          {workTypes.length === 0 && <p className="px-4 py-6 text-center text-content text-stone-400">Sin tipos de trabajo</p>}
         </div>
 
         <div className="flex flex-wrap items-end gap-2 px-4 py-3 border-t border-stone-200 bg-stone-50/50">
           <Field label="Nombre" className="flex-1">
-            <TextInput value={name} onChange={e => setName(e.target.value)} placeholder="Nuevo tipo de trabajo" className="!py-1 !text-xs" />
+            <TextInput value={name} onChange={e => setName(e.target.value)} placeholder="Nuevo tipo de trabajo" className="!py-1 !text-content" />
           </Field>
           <Button size="sm" variant="outline" onClick={handleAdd}><Plus size={12} /> Agregar</Button>
         </div>
@@ -265,7 +265,7 @@ function PermissionsTab() {
             {permissionGroups.map(group => (
               <Fragment key={group.title}>
                 <tr className="bg-stone-50">
-                  <td colSpan={roleOrder.length + 1} className="font-heading text-xs font-bold text-stone-600 uppercase tracking-wide">
+                  <td colSpan={roleOrder.length + 1} className="ui-label uppercase tracking-wide">
                     {group.title}
                   </td>
                 </tr>

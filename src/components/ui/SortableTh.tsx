@@ -14,7 +14,7 @@ export function SortableTh<K extends string>({ label, sortKey, sort, onSort, cla
       <button
         type="button"
         onClick={() => onSort(sortKey)}
-        className="inline-flex items-center gap-1 hover:text-orange-600 transition-colors"
+        className="inline-flex items-center gap-1 text-content hover:text-orange-600 transition-colors"
         title="Ordenar por esta columna"
       >
         {label}

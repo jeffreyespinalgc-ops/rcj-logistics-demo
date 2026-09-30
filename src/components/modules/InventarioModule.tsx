@@ -79,7 +79,7 @@ export function InventarioModule() {
     <div className="p-4 sm:p-6 flex flex-col gap-4">
       <IndicatorCards>
         <StatCard label="Total Repuestos" value={parts.length} icon={<Package size={28} />} />
-        <StatCard label="Alertas Bajo Stock" value={lowStockParts.length} icon={<AlertTriangle size={28} />} subtitle="Requieren reabastecimiento" />
+        <StatCard label="Alertas Bajo Stock" value={lowStockParts.length} icon={<AlertTriangle size={28} />} subtitle="" />
         <StatCard label="Valor Inventario" value={formatCLP(totalValue)} icon={<Package size={28} />} />
         <StatCard label="Movimientos Recientes" value={movements.length} icon={<History size={28} />} />
       </IndicatorCards>
@@ -89,20 +89,20 @@ export function InventarioModule() {
           <div className="flex items-center gap-1">
             <button
               onClick={() => setView('stock')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${view === 'stock' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${view === 'stock' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
             >
               Inventario
             </button>
             <button
               onClick={() => setView('historial')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${view === 'historial' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${view === 'historial' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
             >
               Historial de Movimientos
             </button>
             {canSeeRequisas && (
               <button
                 onClick={() => setView('requisas')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${view === 'requisas' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${view === 'requisas' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
               >
                 Requisas de Repuestos
                 {pendingRequisitions > 0 && (
@@ -161,17 +161,17 @@ export function InventarioModule() {
                     const isCritical = part.currentStock < part.minStock * 0.5;
                     return (
                       <tr key={part.id} className={isLow ? 'bg-orange-50/40' : ''}>
-                        <td className="text-stone-600 text-xs font-semibold">{part.code}</td>
-                        <td className="font-medium text-stone-800">{part.description}</td>
+                        <td className="text-stone-600 font-normal">{part.code}</td>
+                        <td className="font-normal text-stone-800">{part.description}</td>
                         <td className="text-stone-600">{part.category}</td>
-                        <td className={`text-right font-semibold ${isLow ? 'text-orange-700' : 'text-stone-800'}`}>
+                        <td className={`text-right font-normal ${isLow ? 'text-orange-700' : 'text-stone-800'}`}>
                           {canEditCatalog ? (
                             <TextInput
                               type="number"
                               min={0}
                               value={part.currentStock}
                               onChange={e => updatePart(part.id, { currentStock: Number(e.target.value) })}
-                              className="w-20 !py-1 !text-xs text-right ml-auto"
+                              className="w-20 !py-1 !text-content text-right ml-auto"
                             />
                           ) : part.currentStock}
                         </td>
@@ -182,7 +182,7 @@ export function InventarioModule() {
                               min={0}
                               value={part.unitCost}
                               onChange={e => updatePart(part.id, { unitCost: Number(e.target.value) })}
-                              className="w-24 !py-1 !text-xs text-right ml-auto"
+                              className="w-24 !py-1 !text-content text-right ml-auto"
                             />
                           ) : formatCLP(part.unitCost)}
                         </td>
@@ -212,7 +212,7 @@ export function InventarioModule() {
                 </tbody>
               </table>
               {filteredParts.length === 0 && (
-                <div className="text-center py-8 text-stone-400 text-sm">No se encontraron repuestos con los filtros seleccionados</div>
+                <div className="text-center py-8 text-stone-400 text-content">No se encontraron repuestos con los filtros seleccionados</div>
               )}
             </div>
           </>
@@ -233,9 +233,9 @@ export function InventarioModule() {
               <tbody>
                 {sortedMovements.map(m => (
                   <tr key={m.id}>
-                    <td className="text-stone-500 text-xs">{m.date}</td>
-                    <td className="font-medium text-xs text-blue-700">{m.partCode}</td>
-                    <td className="font-medium text-stone-800">{m.partDescription}</td>
+                    <td className="text-stone-500">{m.date}</td>
+                    <td className="font-normal text-blue-700">{m.partCode}</td>
+                    <td className="font-normal text-stone-800">{m.partDescription}</td>
                     <td>
                       {m.type === 'entrada' ? (
                         <Badge variant="green"><ArrowUpCircle size={10} className="mr-1 inline" /> Entrada</Badge>
@@ -243,11 +243,11 @@ export function InventarioModule() {
                         <Badge variant="orange"><ArrowDownCircle size={10} className="mr-1 inline" /> Salida</Badge>
                       )}
                     </td>
-                    <td className={`text-right font-semibold ${m.type === 'entrada' ? 'text-green-700' : 'text-orange-700'}`}>
+                    <td className={`text-right font-normal ${m.type === 'entrada' ? 'text-green-700' : 'text-orange-700'}`}>
                       {m.type === 'entrada' ? '+' : '-'}{m.quantity}
                     </td>
-                    <td className="font-medium text-xs text-stone-500">{m.reference}</td>
-                    <td className="text-stone-600 text-xs">{m.user}</td>
+                    <td className="font-normal text-stone-500">{m.reference}</td>
+                    <td className="text-stone-600">{m.user}</td>
                   </tr>
                 ))}
               </tbody>
@@ -278,13 +278,14 @@ function CreatePartModal({ open, onClose, onCreate }: {
     unitCost: 0,
     warehouse: '',
     location: '',
+    unit: 'UND',
   });
 
   const handleSubmit = () => {
     if (!form.code || !form.description) return;
     onCreate(form);
     onClose();
-    setForm({ code: '', description: '', category: '', currentStock: 0, minStock: 0, maxStock: 0, unitCost: 0, warehouse: '', location: '' });
+    setForm({ code: '', description: '', category: '', currentStock: 0, minStock: 0, maxStock: 0, unitCost: 0, warehouse: '', location: '', unit: 'UND' });
   };
 
   return (

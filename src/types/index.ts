@@ -56,6 +56,8 @@ export interface Part {
   unitCost: number;
   warehouse: string;
   location: string;
+  /** Unidad de medida (UND, KG, Toneladas, ...); hoy se ingresa a mano, mas adelante vendra de SAP */
+  unit: string;
 }
 
 export type MovementType = 'entrada' | 'salida';
@@ -92,22 +94,35 @@ export type OTPriority = 'baja' | 'media' | 'alta' | 'critica';
 /** Roles del sistema */
 export type UserRole = 'administrador' | 'jefe_taller' | 'control_inventario' | 'tecnico';
 
-/** Paso de firma de la requisa de repuestos: quien ejecuta la linea solicita, el Jefe de Taller autoriza y Control de Inventario despacha */
-export type RequisitionStep = 'solicitante' | 'autoriza' | 'despacha';
+/**
+ * Etapas de la requisa de repuestos, en orden: el tecnico la solicita ("Solicitado por"), el Jefe de Taller la
+ * autoriza ("Autorizado por"), Control de Inventario la aprueba y entrega ("Aprobado por" / "Entregado a") y el
+ * tecnico confirma que la recibio ("Recibido por").
+ */
+export type RequisitionStep = 'solicitante' | 'autoriza' | 'despacha' | 'recibe';
 
 export interface RequisitionSignature {
   step: RequisitionStep;
   role: UserRole;
   name: string;
   at: string;
+  /** Firma dibujada por quien firma (la guardada en su perfil), en PNG; ausente en firmas anteriores a esa funcion */
+  signature?: string | null;
+  /** Solo en el paso "despacha": tecnico a quien se entregaron los repuestos ("Entregado a") */
+  deliveredTo?: string;
 }
 
 /** Requisa de los repuestos de una linea: se crea con la firma del solicitante */
 export interface LineRequisition {
   code: string;
   signatures: RequisitionSignature[];
-  /** Cuando se reunieron todas las firmas y se descontaron los repuestos del inventario */
+  /** Cuando Control de Inventario entrego los repuestos y se descontaron del inventario */
   releasedAt: string | null;
+  /**
+   * true cuando la requisa termina con la confirmacion "Recibido por" del tecnico. Las requisas que ya se habian
+   * entregado antes de existir ese paso no lo traen y se consideran completas al entregarse.
+   */
+  receiptRequired?: boolean;
 }
 
 /** Estado de aprobacion de una linea marcada como hallazgo */
@@ -133,8 +148,15 @@ export interface OTLinePart {
   partId: string;
   partCode: string;
   partDescription: string;
+  /** Unidad de medida del repuesto (copiada de Part.unit al elegirlo) */
+  unit: string;
+  /** Cantidad solicitada */
   quantity: number;
   unitCost: number;
+  /** Cantidad que Control de Inventario entrego (puede ser menor a la solicitada si no habia stock); ausente antes de la entrega */
+  deliveredQuantity?: number;
+  /** Observacion propia de este repuesto (distinta de las observaciones generales de la linea) */
+  notes?: string;
 }
 
 /** Actividad de un plan de mantenimiento elegida para una linea */
@@ -173,6 +195,8 @@ export interface OTHistoryEntry {
   at: string;
   by: string;
   role: UserRole;
+  /** Firma guardada de quien hizo el cambio de etapa, para los documentos de la OT */
+  signature?: string | null;
 }
 
 export interface WorkOrder {
@@ -265,6 +289,8 @@ export interface AppUser {
   name: string;
   role: UserRole;
   active: boolean;
+  /** Firma dibujada por el usuario la primera vez que inicia sesion (PNG); se hereda en los documentos que firma */
+  signature?: string | null;
 }
 
 export interface Session {

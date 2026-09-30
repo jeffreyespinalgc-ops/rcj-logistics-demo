@@ -15,8 +15,8 @@ export function StatCard({ label, value, icon, subtitle }: StatCardProps) {
       </div>
       <div className="min-w-0">
         <p className="text-xs font-medium text-stone-500 uppercase tracking-wide">{label}</p>
-        <p className="text-xl font-bold text-stone-800 font-heading break-words">{value}</p>
-        {subtitle && <p className="text-xs text-stone-400 mt-0.5">{subtitle}</p>}
+        <p className="text-xl font-bold text-stone-800 break-words">{value}</p>
+        {subtitle && <p className="text-content text-stone-400 mt-0.5">{subtitle}</p>}
       </div>
     </div>
   );

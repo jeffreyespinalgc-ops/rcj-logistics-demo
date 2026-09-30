@@ -46,11 +46,11 @@ export function DocumentPreview({ buildDoc, documentKey, altPrefix, canDownload,
     <div className="space-y-4">
       <div className="max-h-[65dvh] space-y-3 overflow-auto rounded-md border border-stone-200 bg-stone-100 p-2 sm:p-3">
         {preview.status === 'loading' && (
-          <p role="status" className="py-16 text-center text-sm text-stone-500">Generando documento...</p>
+          <p role="status" className="py-16 text-center text-content text-stone-500">Generando documento...</p>
         )}
         {preview.status === 'error' && (
           <div className="space-y-3 py-12 text-center">
-            <p role="alert" className="text-sm text-red-700">No se pudo generar el documento.</p>
+            <p role="alert" className="text-content text-red-700">No se pudo generar el documento.</p>
             <Button variant="outline" className="min-h-[44px]" onClick={() => setAttempt(a => a + 1)}>Reintentar</Button>
           </div>
         )}
@@ -66,7 +66,7 @@ export function DocumentPreview({ buildDoc, documentKey, altPrefix, canDownload,
 
       <div className="flex flex-wrap items-center justify-end gap-2">
         {!canDownload && preview.status === 'ready' && (
-          <span className="mr-auto text-xs text-stone-500">Tu rol puede ver el documento, pero no descargarlo.</span>
+          <span className="mr-auto text-content text-stone-500"></span>
         )}
         <Button variant="outline" className="min-h-[44px]" onClick={onBack}>{backLabel}</Button>
         {canDownload && (
@@ -75,7 +75,7 @@ export function DocumentPreview({ buildDoc, documentKey, altPrefix, canDownload,
             disabled={preview.status !== 'ready'}
             onClick={() => { if (preview.status === 'ready') preview.built.doc.save(preview.built.filename); }}
           >
-            <FileDown size={14} /> Descargar
+            <FileDown size={14} />
           </Button>
         )}
       </div>

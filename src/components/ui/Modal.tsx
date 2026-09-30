@@ -7,27 +7,31 @@ interface ModalProps {
   title: string;
   children: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
+  /** false: sin boton de cerrar ni cierre al tocar afuera (para pasos obligatorios, como registrar la firma) */
+  dismissible?: boolean;
 }
 
 const sizeClasses = {
   sm: 'max-w-md',
   md: 'max-w-lg',
-  lg: 'max-w-2xl',
-  xl: 'max-w-4xl',
+  lg: 'max-w-4xl',
+  xl: 'max-w-8xl ',
 };
 
-export function Modal({ open, onClose, title, children, size = 'md' }: ModalProps) {
+export function Modal({ open, onClose, title, children, size = 'md', dismissible = true }: ModalProps) {
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm" onClick={onClose} />
-      <div className={`relative bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} max-h-[90dvh] flex flex-col`}>
+      <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm" onClick={dismissible ? onClose : undefined} />
+      <div className={`relative bg-white rounded-lg shadow-xl w-9/12 ${sizeClasses[size]} max-h-[90dvh] flex flex-col`}>
         <div className="flex items-center justify-between px-5 py-3 border-b border-stone-200">
-          <h3 className="font-heading text-lg font-bold text-stone-800">{title}</h3>
-          <button onClick={onClose} className="text-stone-400 hover:text-stone-600 transition-colors">
-            <X size={20} />
-          </button>
+          <h3 className="ui-title">{title}</h3>
+          {dismissible && (
+            <button onClick={onClose} aria-label="Cerrar" className="text-stone-400 hover:text-stone-600 transition-colors">
+              <X size={20} />
+            </button>
+          )}
         </div>
         <div className="overflow-y-auto px-5 py-4 flex-1">
           {children}

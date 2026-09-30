@@ -3,12 +3,18 @@ export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      // una sola fuente en toda la app: Inter
       fontFamily: {
-        serif: ['Merriweather', 'Georgia', 'serif'],
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
+      fontSize: {
+        xs: ['10px', '1rem'],
+        sm: ['10px', '1rem'],
+        lg: ['10px', '1rem'],
+        xl: ['10px', '1rem'],
+        content: ['10px', '1rem'],
+      },
       colors: {
-        // Orange ramp — primary actions, alerts, accent
         orange: {
           50: '#fff7ed',
           100: '#ffedd5',
