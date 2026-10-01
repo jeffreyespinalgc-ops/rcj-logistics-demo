@@ -20,9 +20,9 @@ export interface RequisitionPdfData {
   department: string;
   /** Estado de la requisa en este momento, para distinguir una vista previa incompleta de la requisa terminada */
   statusLabel: string;
-  /** La cantidad va como "entregado / solicitado" una vez que Control de Inventario entrega */
-  items: { qty: string; partial: boolean; description: string; code: string; unit: string; notes: string }[];
-  /** En el orden en que aparecen al pie del formato */
+  /** Solicitado y Recibido van en columnas separadas (antes "entregado / solicitado" en una sola) */
+  items: { requested: string; received: string; partial: boolean; description: string; code: string; unit: string; notes: string }[];
+  /** En el orden en que aparecen al pie del formato: Tecnico -> Jefe de Taller -> Control de Inventario -> Tecnico */
   signers: RequisitionSigner[];
 }
 
@@ -46,8 +46,6 @@ export function buildRequisitionPdfData(ot: WorkOrder, line: OTLine): Requisitio
     const s = signatureFor(line, step);
     return { label, role, name: s?.name ?? '', at: s ? formatDateTime(s.at) : '', signature: s?.signature ?? null };
   };
-  // "Entregado a" no lleva firma propia: es el tecnico a quien Control le entrego, registrado en el paso de Control
-  const dispatch = signatureFor(line, 'despacha');
   const code = line.requisition?.code ?? null;
   const sharedLines = code ? ot.lines.filter(l => l.requisition?.code === code) : [line];
 
@@ -57,9 +55,10 @@ export function buildRequisitionPdfData(ot: WorkOrder, line: OTLine): Requisitio
     department: 'Taller',
     statusLabel: statusLabels[requisitionStatus(line)],
     items: sharedLines.flatMap(l => l.parts.map(p => ({
-      // siempre entregado/solicitado (no solo cuando ya se entrego): asi queda registrado incluso si al
-      // pedirlo solo habia menos stock del solicitado (ej. "0 / 3" antes de que Control entregue)
-      qty: `${deliveredQuantity(l, p)} / ${p.quantity}`,
+      // "Recibido" siempre presente (no solo cuando ya se entrego): asi queda registrado incluso si al
+      // pedirlo solo habia menos stock del solicitado (ej. "0" antes de que Control entregue)
+      requested: String(p.quantity),
+      received: String(deliveredQuantity(l, p)),
       partial: isPartial(l, p),
       description: p.partDescription,
       code: p.partCode,
@@ -68,17 +67,10 @@ export function buildRequisitionPdfData(ot: WorkOrder, line: OTLine): Requisitio
       notes: l.work,
     }))),
     signers: [
-      fromStep('solicitante', 'Solicitado por', ''),
-      fromStep('recibe', 'Recibido por', ''),
-      fromStep('autoriza', 'Autorizado por', ''),
-      fromStep('despacha', 'Aprobado por', ''),
-      {
-        label: 'Entregado a',
-        role: '',
-        name: '',
-        at: '',
-        signature: null,
-      },
+      fromStep('solicitante', 'Solicitado por', 'Tecnico'),
+      fromStep('autoriza', 'Autorizado por', 'Jefe de Taller'),
+      fromStep('despacha', 'Entregado por', 'Control de Inventario'),
+      fromStep('recibe', 'Recibido por', 'Tecnico'),
     ],
   };
 }
@@ -112,7 +104,7 @@ function drawPage(
   const rowsBottom = rowsTop + rowH * ROWS_PER_PAGE;
   const signaturesTop = rowsBottom;
   const bottom = signaturesTop + signaturesH;
-  const cols = [22, 96, 45, 28, 63];
+  const cols = [16, 16, 88, 42, 26, 66];
 
   doc.setDrawColor(...NAVY);
   doc.setTextColor(...INK);
@@ -157,10 +149,10 @@ function drawPage(
   doc.rect(X, tableTop, W, tableHeadH, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  const titles = ['CANT.', 'DESCRIPCIÓN', 'CÓDIGO', 'UNIDAD', 'OBSERVACIONES'];
+  const titles = ['SOLICITADO', 'RECIBIDO', 'DESCRIPCIÓN', 'CÓDIGO', 'UNIDAD', 'OBSERVACIONES'];
   let cx = X;
   titles.forEach((title, i) => {
+    doc.setFontSize(i < 2 ? 7 : 9);
     doc.text(title, cx + cols[i] / 2, tableTop + tableHeadH / 2 + 1.3, { align: 'center' });
     cx += cols[i];
   });
@@ -174,15 +166,16 @@ function drawPage(
     if (!item) continue;
     doc.setFontSize(8.5);
     const cells: [string, number, 'center' | 'left'][] = [
-      [item.qty, 0, 'center'],
-      [item.description, 1, 'left'],
-      [item.code, 2, 'center'],
-      [item.unit, 3, 'center'],
-      [item.notes, 4, 'left'],
+      [item.requested, 0, 'center'],
+      [item.received, 1, 'center'],
+      [item.description, 2, 'left'],
+      [item.code, 3, 'center'],
+      [item.unit, 4, 'center'],
+      [item.notes, 5, 'left'],
     ];
     let cellX = X;
     cells.forEach(([text, i, align]) => {
-      doc.setFont('helvetica', i === 0 && item.partial ? 'bold' : 'normal');
+      doc.setFont('helvetica', i === 1 && item.partial ? 'bold' : 'normal');
       const lines = (doc.splitTextToSize(text, cols[i] - 4) as string[]).slice(0, 2);
       const textY = ry + rowH / 2 + (lines.length > 1 ? -0.4 : 1.1);
       doc.text(lines, align === 'center' ? cellX + cols[i] / 2 : cellX + 2, textY, { align, lineHeightFactor: 1.15 });
@@ -202,7 +195,12 @@ function drawPage(
   data.signers.forEach((s, i) => {
     const sx = X + i * sigW;
     const center = sx + sigW / 2;
-    drawSignatureImage(doc, s.signature, { x: sx + 6, y: signaturesTop + 3, w: sigW - 12, h: 15 });
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(110, 110, 110);
+    doc.text(s.role.toUpperCase(), center, signaturesTop + 4, { align: 'center' });
+    doc.setTextColor(...INK);
+    drawSignatureImage(doc, s.signature, { x: sx + 6, y: signaturesTop + 6, w: sigW - 12, h: 13 });
     doc.line(sx + 6, signaturesTop + 19, sx + sigW - 6, signaturesTop + 19);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
@@ -210,11 +208,6 @@ function drawPage(
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9.5);
     doc.text((doc.splitTextToSize(s.name, sigW - 8) as string[])[0] ?? '', center, signaturesTop + 28.5, { align: 'center' });
-    doc.setFontSize(7.5);
-    doc.setTextColor(110, 110, 110);
-    // doc.text(s.role, center, signaturesTop + 32.5, { align: 'center' });
-    // doc.text(s.at, center, signaturesTop + 36, { align: 'center' });
-    doc.setTextColor(...INK);
   });
 
   doc.setLineWidth(0.5);

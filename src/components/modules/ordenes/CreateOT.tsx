@@ -95,14 +95,14 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
         </div>
 
         <section className="space-y-3 border-b border-stone-200 px-4 py-3 sm:px-5" aria-labelledby="ot-data">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <Field label="Vehiculo *">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+            <Field label="Vehiculo *" className="md:col-span-1">
               <Select value={assetId} onChange={e => { setAssetId(e.target.value); setError(null); }}>
                 <option value="">Seleccionar vehiculo...</option>
                 {assets.map(a => <option key={a.id} value={a.id}>{a.code} - {a.name}</option>)}
               </Select>
             </Field>
-            <Field label="Prioridad *">
+            <Field label="Prioridad *" className="md:col-span-1">
               <Select value={priority} onChange={e => setPriority(e.target.value as OTPriority)}>
                 {priorityOrder.map(p => <option key={p} value={p}>{priorityLabels[p]}</option>)}
               </Select>
@@ -111,7 +111,7 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
               <TextArea
                 value={description}
                 onChange={e => { setDescription(e.target.value); setError(null); }}
-                rows={2}
+                rows={1}
                 placeholder="Describe el trabajo a realizar..."
               />
             </Field>

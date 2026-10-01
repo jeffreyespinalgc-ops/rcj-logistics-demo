@@ -317,7 +317,7 @@ export function LineFields({ draft, asset }: { draft: LineDraft; asset?: Asset }
           onClick={() => setTab('anexos')}
           className={`min-h-[44px] px-3 text-content font-bold transition-colors sm:min-h-0 sm:py-2 ${tab === 'anexos' ? 'border-b-2 border-orange-500 text-orange-600' : 'border-b-2 border-transparent text-stone-500 hover:text-stone-700'}`}
         >
-          Anexos{draft.photosBefore.length > 0 ? ` (${draft.photosBefore.length})` : ''}
+          Anexos
         </button>
       </div>
 

@@ -1,16 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useApp } from '@/store/AppContext';
-import { useConfirm } from '@/store/ConfirmContext';
-import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
 import { Field, Select, TextInput } from '@/components/ui/Field';
-import type { MaintenanceTreeNode, OTActivity, OTLine } from '@/types';
+import type { MaintenanceTreeNode } from '@/types';
 import { ChevronRight } from 'lucide-react';
-import {
-  planSelectionResult,
-  selectionFromLine,
-  type PlanSelection,
-} from '@/lib/planSelection';
+import { type PlanSelection } from '@/lib/planSelection';
 
 const isLeaf = (node: MaintenanceTreeNode) => node.children.length === 0;
 
@@ -225,37 +218,5 @@ export function PlanPicker({ value, onChange, freeText, onFreeTextChange }: {
         <PlanColumns roots={roots} rootLabel={type.name} value={value} onChange={onChange} />
       )}
     </div>
-  );
-}
-
-/** Cambia la ruta y las actividades de una linea ya creada (solo quien puede editar lineas) */
-export function EditLineWorkModal({ line, onClose, onSave }: {
-  line: OTLine;
-  onClose: () => void;
-  onSave: (patch: { work: string; workPath: string[]; activities: OTActivity[] }) => void;
-}) {
-  const { workTypes, maintenancePlans } = useApp();
-  const confirm = useConfirm();
-  const [selection, setSelection] = useState<PlanSelection>(() => selectionFromLine(workTypes, maintenancePlans, line));
-  const [freeText, setFreeText] = useState(line.work);
-
-  const result = planSelectionResult(workTypes, maintenancePlans, selection, freeText);
-
-  const handleSave = async () => {
-    if (!result.valid) return;
-    if (!(await confirm({ title: 'Editar actividades', message: '¿Estas seguro de guardar los cambios de las actividades de esta linea?', confirmLabel: 'Guardar cambios' }))) return;
-    onSave({ work: result.work, workPath: result.workPath, activities: result.activities });
-  };
-
-  return (
-    <Modal open onClose={onClose} title="Editar actividades de la linea" size="md">
-      <div className="space-y-4">
-        <PlanPicker value={selection} onChange={setSelection} freeText={freeText} onFreeTextChange={setFreeText} />
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={!result.valid}>Guardar</Button>
-        </div>
-      </div>
-    </Modal>
   );
 }

@@ -24,7 +24,7 @@ export interface OTDocumentData {
   vehicle: string;
   rows: OTDocumentRow[];
   observations: string;
-  /** Solicitado por, Recibido por, Autorizado por, Aprobado por, Entregado a (en ese orden, formato de la empresa) */
+  /** Jefe de Taller, Control de Inventario, Tecnico (en ese orden); solo se llenan cuando las 3 etapas concluyeron */
   signers: OTDocumentSigner[];
 }
 
@@ -47,6 +47,13 @@ export function buildOTPdfData(ot: WorkOrder, users: AppUser[]): OTDocumentData 
 
   const finalizedEntry = ot.history.find(h => h.status === 'finalizada');
   const closedEntry = ot.history.find(h => h.status === 'cerrada');
+  const entryAt = (entry: { at: string } | undefined) => entry ? formatTime(entry.at) + ' ' + formatDate(entry.at) : '';
+  // las 3 firmas solo se muestran (nombre y firma) cuando la OT ya esta completamente terminada: cerrada por
+  // el Jefe de Taller Y firmada por Control de Inventario (pueden llegar en cualquier orden, ninguna bloquea
+  // a la otra); mientras falte alguna, las 3 casillas quedan en blanco aunque alguna ya se hubiera firmado
+  const allConcluded = ot.status === 'cerrada' && Boolean(ot.inventorySignedAt);
+  const signerOrBlank = (label: string, name: string, at: string, signature: string | null): OTDocumentSigner =>
+    allConcluded ? { label, name, at, signature } : { label, name: '', at: '', signature: null };
 
   return {
     code: ot.code,
@@ -55,11 +62,9 @@ export function buildOTPdfData(ot: WorkOrder, users: AppUser[]): OTDocumentData 
     rows,
     observations: ot.lines.map(l => l.notes.trim()).filter(Boolean).join(' / '),
     signers: [
-      { label: 'Solicitado por', name: ot.createdBy, at: '', signature: sigOf(ot.createdBy) },
-      { label: 'Recibido por', name: ot.signedBy ?? finalizedEntry?.by ?? '', at: finalizedEntry ? formatTime(finalizedEntry.at) + ' ' + formatDate(finalizedEntry.at) : '', signature: finalizedEntry?.signature ?? sigOf(ot.signedBy ?? finalizedEntry?.by) },
-      { label: 'Autorizado por', name: ot.approvedBy ?? '', at: '', signature: sigOf(ot.approvedBy) },
-      { label: 'Aprobado por', name: closedEntry?.by ?? '', at: closedEntry ? formatTime(closedEntry.at) + ' ' + formatDate(closedEntry.at) : '', signature: closedEntry?.signature ?? sigOf(closedEntry?.by) },
-      { label: 'Entregado a', name: ot.assignedTo ?? '', at: '', signature: sigOf(ot.assignedTo) },
+      signerOrBlank('Jefe de Taller', closedEntry?.by ?? '', entryAt(closedEntry), closedEntry?.signature ?? sigOf(closedEntry?.by)),
+      signerOrBlank('Control de Inventario', ot.inventorySignedBy ?? '', ot.inventorySignedAt ? formatTime(ot.inventorySignedAt) + ' ' + formatDate(ot.inventorySignedAt) : '', sigOf(ot.inventorySignedBy)),
+      signerOrBlank('Tecnico', ot.signedBy ?? finalizedEntry?.by ?? '', entryAt(finalizedEntry), finalizedEntry?.signature ?? sigOf(ot.signedBy ?? finalizedEntry?.by)),
     ],
   };
 }
@@ -82,8 +87,7 @@ function drawPage(doc: jsPDF, data: OTDocumentData, rows: OTDocumentRow[], logo:
   const tableHeadH = 8.5;
   const rowH = 7;
   const obsRowH = fieldRowH;
-  const sigRowH = 17;
-  const signaturesH = sigRowH * 3;
+  const signaturesH = 34;
   const tableTop = Y + headerH + fieldsH;
   const rowsTop = tableTop + tableHeadH;
   const rowsBottom = rowsTop + rowH * ROWS_PER_PAGE;
@@ -182,33 +186,28 @@ function drawPage(doc: jsPDF, data: OTDocumentData, rows: OTDocumentRow[], logo:
     doc.text(lines[0] ?? '', obsLineStart + 2, obsTop + 6.6);
   }
 
-  // firmas: formato de la empresa, 2 columnas x 3 filas (Solicitado/Autorizado, Recibido/Aprobado, --/Entregado a)
+  // firmas: Jefe de Taller | Control de Inventario | Tecnico, una sola fila -- solo se llenan cuando las
+  // 3 etapas concluyeron (ver `allConcluded` en buildOTPdfData); antes de eso quedan solo las lineas en blanco
   doc.setLineWidth(0.8);
   doc.line(X, signaturesTop, X + W, signaturesTop);
   doc.setLineWidth(0.2);
-  const sigColW = W / 2;
-  const pairs: (OTDocumentSigner | null)[][] = [
-    [data.signers[0], data.signers[2]],
-    [data.signers[1], data.signers[3]],
-    [null, data.signers[4]],
-  ];
-  pairs.forEach((pair, r) => {
-    const rowY = signaturesTop + r * sigRowH;
-    pair.forEach((s, c) => {
-      if (!s) return;
-      const sx = X + c * sigColW;
-      const lineStart = sx + 34;
-      const lineEnd = sx + sigColW - 6;
-      drawSignatureImage(doc, s.signature, { x: lineStart, y: rowY + 1, w: lineEnd - lineStart, h: sigRowH - 8 });
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.5);
-      doc.text(s.label + ':', sx + 4, rowY + sigRowH - 6.3);
-      doc.line(lineStart, rowY + sigRowH - 5.5, lineEnd, rowY + sigRowH - 5.5);
+  const sigColW = W / 3;
+  data.signers.forEach((s, i) => {
+    const sx = X + i * sigColW;
+    const center = sx + sigColW / 2;
+    const lineStart = sx + 10;
+    const lineEnd = sx + sigColW - 10;
+    drawSignatureImage(doc, s.signature, { x: lineStart, y: signaturesTop + 2, w: lineEnd - lineStart, h: 16 });
+    doc.line(lineStart, signaturesTop + 20, lineEnd, signaturesTop + 20);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text(s.label, center, signaturesTop + 26, { align: 'center' });
+    if (s.name) {
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      const lines = doc.splitTextToSize(s.name, lineEnd - (lineStart + 2)) as string[];
-      doc.text(lines[0] ?? '', lineStart + 2, rowY + sigRowH - 6.3);
-    });
+      doc.setFontSize(8.5);
+      const lines = doc.splitTextToSize(s.name, sigColW - 14) as string[];
+      doc.text(lines[0] ?? '', center, signaturesTop + 30.5, { align: 'center' });
+    }
   });
 
   doc.setLineWidth(0.5);

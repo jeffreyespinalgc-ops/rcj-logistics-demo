@@ -1,14 +1,14 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApp, type NewOTLine, type PhotoGroup } from '@/store/AppContext';
 import { useConfirm } from '@/store/ConfirmContext';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Field, Select, TextArea } from '@/components/ui/Field';
-import type { OTLine, OTLinePart, OTLinePhoto, OTPriority, WorkOrder } from '@/types';
+import type { OTLine, OTLinePhoto, OTPriority, WorkOrder } from '@/types';
 import { fileToCompressedDataUrl } from '@/lib/image';
-import { EditLineWorkModal } from './PlanPicker';
-import { LineFields, PartsEditor, useLineDraft } from './LineForm';
+import { selectionFromLine } from '@/lib/planSelection';
+import { LineFields, useLineDraft } from './LineForm';
 import {
   ChevronDown,
   ChevronRight,
@@ -32,7 +32,6 @@ import {
   requiresRequisition,
   requisitionSignLabels,
   signableSteps,
-  signaturesOf,
 } from '@/lib/requisition';
 import { RequisitionProgress } from './RequisitionProgress';
 import { RequisitionDocumentButton } from './RequisitionDocument';
@@ -149,8 +148,7 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
 }) {
   const { updateOTLine, deleteOTLine, reviewFinding, signRequisition, hasPermission, currentUser } = useApp();
   const confirm = useConfirm();
-  const [editingWork, setEditingWork] = useState(false);
-  const [editingParts, setEditingParts] = useState(false);
+  const [editingLine, setEditingLine] = useState(false);
   const [signError, setSignError] = useState<string | null>(null);
   const canReviewFinding = hasPermission('ot.lineas.aprobarHallazgo') && line.isFinding && line.findingStatus === 'pendiente'
     && ot.status !== 'cerrada' && ot.status !== 'rechazada';
@@ -256,8 +254,8 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
                         </ul>
                       )}
                       {canEdit && (
-                        <Button size="sm" variant="primary" className="ml-auto min-h-[44px] whitespace-nowrap sm:min-h-0" onClick={() => setEditingWork(true)}>
-                          <Pencil size={15} /> 
+                        <Button size="sm" variant="primary" className="ml-auto min-h-[44px] whitespace-nowrap sm:min-h-0" onClick={() => setEditingLine(true)}>
+                          <Pencil size={15} />
                         </Button>
                       )}
                     </div>
@@ -301,7 +299,7 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
                           className="min-h-[44px] whitespace-nowrap sm:min-h-0"
                           disabled={delivered}
                           title={delivered ? 'Control de Inventario ya entrego estos repuestos' : undefined}
-                          onClick={() => setEditingParts(true)}
+                          onClick={() => setEditingLine(true)}
                         >
                           <Pencil size={14} /> {line.parts.length > 0 ? ' ' : ' '}
                         </Button>
@@ -371,50 +369,52 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
         </div>
       )}
 
-      {editingWork && (
-        <EditLineWorkModal
-          line={line}
-          onClose={() => setEditingWork(false)}
-          onSave={patch => {
-            updateOTLine(ot.id, line.id, patch);
-            setEditingWork(false);
-          }}
-        />
-      )}
-
-      {editingParts && <EditPartsModal ot={ot} line={line} onClose={() => setEditingParts(false)} />}
+      {editingLine && <EditLineModal ot={ot} line={line} onClose={() => setEditingLine(false)} />}
     </div>
   );
 }
 
-/** Jefe de Taller: agregar, quitar o cambiar la cantidad de los repuestos de la linea (antes de que Control los entregue) */
-function EditPartsModal({ ot, line, onClose }: { ot: WorkOrder; line: OTLine; onClose: () => void }) {
-  const { setLineParts } = useApp();
+/**
+ * Jefe de Taller: edita una linea ya creada con el MISMO formulario completo de "Nueva OT" (tipo de
+ * trabajo, columnas del plan, tabla de repuestos y observaciones) en vez de 2 modales chicos separados
+ * para actividades y repuestos -- un solo lugar para editar "los campos respectivos" de la linea.
+ */
+function EditLineModal({ ot, line, onClose }: { ot: WorkOrder; line: OTLine; onClose: () => void }) {
+  const { assets, workTypes, maintenancePlans, updateOTLine, setLineParts } = useApp();
   const confirm = useConfirm();
-  const [parts, setParts] = useState<OTLinePart[]>(line.parts);
+  const draft = useLineDraft(line.technician);
+  const asset = assets.find(a => a.id === ot.assetId);
   const [error, setError] = useState<string | null>(null);
-  const unchanged = JSON.stringify(parts.map(p => [p.partId, p.quantity])) === JSON.stringify(line.parts.map(p => [p.partId, p.quantity]));
+  const partsUnchanged = JSON.stringify(draft.parts.map(p => [p.partId, p.quantity])) === JSON.stringify(line.parts.map(p => [p.partId, p.quantity]));
+
+  useEffect(() => {
+    draft.setSelection(selectionFromLine(workTypes, maintenancePlans, line));
+    draft.setNotes(line.notes);
+    draft.setParts(line.parts);
+    // solo al abrir: no queremos pisar lo que el usuario va editando
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSave = async () => {
-    if (!(await confirm({ title: 'Editar repuestos', message: '¿Estas seguro de guardar los cambios de los repuestos de esta linea?', confirmLabel: 'Guardar cambios' }))) return;
-    const result = setLineParts(ot.id, line.id, parts);
-    if (result) setError(result);
-    else onClose();
+    const work = draft.build();
+    if (!work) return;
+    if (!(await confirm({ title: 'Editar linea', message: '¿Estas seguro de guardar los cambios de esta linea de trabajo?', confirmLabel: 'Guardar cambios' }))) return;
+    if (!partsUnchanged) {
+      const result = setLineParts(ot.id, line.id, draft.parts);
+      if (result) { setError(result); return; }
+    }
+    updateOTLine(ot.id, line.id, { work: work.work, workPath: work.workPath, activities: work.activities, notes: draft.notes.trim() });
+    onClose();
   };
 
   return (
-    <Modal open onClose={onClose} title="Editar repuestos de la linea" size="lg">
+    <Modal open onClose={onClose} title="Editar linea de trabajo" size="xl">
       <div className="space-y-4">
-        <p className="text-content text-stone-600">{line.work}</p>
-        <PartsEditor value={parts} onChange={next => { setParts(next); setError(null); }} />
-        {signaturesOf(line).length > 0 && (
-          <p className="rounded-md border border-stone-200 bg-stone-50 p-2.5 text-content text-stone-600">
-          </p>
-        )}
+        <LineFields draft={draft} asset={asset} />
         {error && <p role="alert" className="text-content text-red-700">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" className="min-h-[44px] sm:min-h-0" onClick={onClose}>Cancelar</Button>
-          <Button className="min-h-[44px] sm:min-h-0" onClick={handleSave} disabled={unchanged}>Guardar cambios</Button>
+          <Button className="min-h-[44px] sm:min-h-0" onClick={handleSave} disabled={!draft.valid}>Guardar cambios</Button>
         </div>
       </div>
     </Modal>

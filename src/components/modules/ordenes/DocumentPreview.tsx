@@ -59,7 +59,7 @@ export function DocumentPreview({ buildDoc, documentKey, altPrefix, canDownload,
             key={i}
             src={src}
             alt={`${altPrefix}, hoja ${i + 1} de ${preview.pages.length}`}
-            className="h-auto w-full min-w-[640px] rounded bg-white shadow-card"
+            className="h-auto w-full rounded bg-white shadow-card"
           />
         ))}
       </div>
