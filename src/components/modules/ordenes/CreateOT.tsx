@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useApp, type NewOTLine } from '@/store/AppContext';
+import { useConfirm } from '@/store/ConfirmContext';
 import { Button } from '@/components/ui/Button';
 import { Field, Select, TextArea } from '@/components/ui/Field';
 import type { OTPriority } from '@/types';
@@ -15,6 +16,7 @@ const priorityOrder: OTPriority[] = ['baja', 'media', 'alta', 'critica'];
  */
 export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCreated: () => void }) {
   const { assets, workOrders, currentRole, currentUser, addWorkOrder, addNotification } = useApp();
+  const confirm = useConfirm();
   const [assetId, setAssetId] = useState('');
   const [priority, setPriority] = useState<OTPriority>('media');
   const [description, setDescription] = useState('');
@@ -46,11 +48,12 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
     setError(null);
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     const asset = assets.find(a => a.id === assetId);
     if (!asset) return setError('Selecciona el vehiculo de la OT.');
     if (!description.trim()) return setError('Escribe la descripcion de la OT.');
     if (draft.dirty && !pending) return setError('La linea en curso esta incompleta: elige el trabajo o limpiala antes de crear la OT.');
+    if (!(await confirm({ title: 'Crear OT', message: '¿Estas realmente seguro de crear la OT?', confirmLabel: 'Crear OT' }))) return;
 
     const date = new Date().toISOString().slice(0, 10);
     addWorkOrder({
@@ -108,7 +111,7 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
               <TextArea
                 value={description}
                 onChange={e => { setDescription(e.target.value); setError(null); }}
-                rows={3}
+                rows={2}
                 placeholder="Describe el trabajo a realizar..."
               />
             </Field>

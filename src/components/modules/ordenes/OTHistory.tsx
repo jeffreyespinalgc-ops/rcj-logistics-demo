@@ -6,7 +6,6 @@ import { History } from 'lucide-react';
 import { roleLabels } from '@/lib/roles';
 import { formatDateTime, statusLabels, statusVariants } from './otMeta';
 
-/** Boton "ver historial" + su modal: cada cambio de estado que tuvo la OT, quien lo hizo, con que rol y cuando */
 export function OTHistoryButton({ ot }: { ot: WorkOrder }) {
   const [open, setOpen] = useState(false);
 
@@ -30,13 +29,13 @@ function OTHistoryModal({ ot, onClose }: { ot: WorkOrder; onClose: () => void })
   const entries = ot.history;
 
   return (
-    <Modal open onClose={onClose} title={`Historial de ${ot.code}`} size="md">
+    <Modal open onClose={onClose} title={`Historial de ${ot.code}`} size="lg">
       {entries.length === 0 ? (
         <p className="text-content text-stone-500">Sin cambios registrados.</p>
       ) : (
         <div className="overflow-x-auto rounded-md border border-stone-200">
           <table className="data-table">
-            <thead>
+            <thead> 
               <tr>
                 <th className="w-10">#</th>
                 <th>Estado</th>
@@ -49,7 +48,7 @@ function OTHistoryModal({ ot, onClose }: { ot: WorkOrder; onClose: () => void })
               {entries.map((h, i) => (
                 <tr key={i}>
                   <td>{i + 1}</td>
-                  <td><Badge variant={statusVariants[h.status]}>{statusLabels[h.status]}</Badge></td>
+                  <td><Badge>{statusLabels[h.status]}</Badge></td>
                   <td className="font-normal text-stone-800">{h.by}</td>
                   <td className="text-stone-600">{roleLabels[h.role]}</td>
                   <td className="whitespace-nowrap text-stone-500">{formatDateTime(h.at)}</td>

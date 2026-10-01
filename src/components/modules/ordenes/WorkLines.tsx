@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { useApp, type NewOTLine, type PhotoGroup } from '@/store/AppContext';
+import { useConfirm } from '@/store/ConfirmContext';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -147,6 +148,7 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
   onOpenPhoto: (p: OTLinePhoto) => void;
 }) {
   const { updateOTLine, deleteOTLine, reviewFinding, signRequisition, hasPermission, currentUser } = useApp();
+  const confirm = useConfirm();
   const [editingWork, setEditingWork] = useState(false);
   const [editingParts, setEditingParts] = useState(false);
   const [signError, setSignError] = useState<string | null>(null);
@@ -186,10 +188,22 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
               <Flag size={14} className="text-orange-600" />
               <Badge variant={findingStatusVariants[line.findingStatus]}>{findingStatusLabels[line.findingStatus]}</Badge>
               <span className="ml-auto flex items-center gap-2">
-                <Button size="sm" variant="primary" onClick={() => reviewFinding(ot.id, line.id, true)}>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={async () => {
+                    if (await confirm({ title: 'Aprobar hallazgo', message: '¿Estas seguro de aprobar este hallazgo?', confirmLabel: 'Aprobar' })) reviewFinding(ot.id, line.id, true);
+                  }}
+                >
                   <CheckCircle size={12} /> Aprobar hallazgo
                 </Button>
-                <Button size="sm" variant="danger" onClick={() => reviewFinding(ot.id, line.id, false)}>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  onClick={async () => {
+                    if (await confirm({ title: 'Rechazar hallazgo', message: '¿Estas seguro de rechazar este hallazgo?', confirmLabel: 'Rechazar', variant: 'danger' })) reviewFinding(ot.id, line.id, false);
+                  }}
+                >
                   <XCircle size={12} /> Rechazar
                 </Button>
               </span>
@@ -213,7 +227,10 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
                             size="sm"
                             variant="primary"
                             className="min-h-[44px] sm:min-h-0"
-                            onClick={() => setSignError(signRequisition(ot.id, line.id, signStep))}
+                            onClick={async () => {
+                              if (!(await confirm({ title: 'Firmar requisa', message: `¿Estas seguro de firmar "${requisitionSignLabels[signStep]}"?`, confirmLabel: 'Firmar' }))) return;
+                              setSignError(signRequisition(ot.id, line.id, signStep));
+                            }}
                           >
                             <PenTool size={12} /> {requisitionSignLabels[signStep]}
                           </Button>
@@ -339,7 +356,14 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
 
           {canEdit && (
             <div className="flex justify-end">
-              <Button size="sm" variant="danger" className="min-h-[44px] sm:min-h-0" onClick={() => deleteOTLine(ot.id, line.id)}>
+              <Button
+                size="sm"
+                variant="danger"
+                className="min-h-[44px] sm:min-h-0"
+                onClick={async () => {
+                  if (await confirm({ title: 'Eliminar linea', message: '¿Estas seguro de eliminar esta linea de trabajo?', confirmLabel: 'Eliminar', variant: 'danger' })) deleteOTLine(ot.id, line.id);
+                }}
+              >
                 <Trash2 size={12} />
               </Button>
             </div>
@@ -366,11 +390,13 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
 /** Jefe de Taller: agregar, quitar o cambiar la cantidad de los repuestos de la linea (antes de que Control los entregue) */
 function EditPartsModal({ ot, line, onClose }: { ot: WorkOrder; line: OTLine; onClose: () => void }) {
   const { setLineParts } = useApp();
+  const confirm = useConfirm();
   const [parts, setParts] = useState<OTLinePart[]>(line.parts);
   const [error, setError] = useState<string | null>(null);
   const unchanged = JSON.stringify(parts.map(p => [p.partId, p.quantity])) === JSON.stringify(line.parts.map(p => [p.partId, p.quantity]));
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!(await confirm({ title: 'Editar repuestos', message: '¿Estas seguro de guardar los cambios de los repuestos de esta linea?', confirmLabel: 'Guardar cambios' }))) return;
     const result = setLineParts(ot.id, line.id, parts);
     if (result) setError(result);
     else onClose();
@@ -406,6 +432,7 @@ function EvidenceGroup({ ot, line, canEdit, onOpenPhoto }: {
   onOpenPhoto: (p: OTLinePhoto) => void;
 }) {
   const { addLinePhoto, removeLinePhoto } = useApp();
+  const confirm = useConfirm();
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -445,7 +472,9 @@ function EvidenceGroup({ ot, line, canEdit, onOpenPhoto }: {
             </button>
             {canEdit && (
               <button
-                onClick={() => removeLinePhoto(ot.id, line.id, group, photo.id)}
+                onClick={async () => {
+                  if (await confirm({ title: 'Eliminar fotografia', message: '¿Estas seguro de eliminar esta fotografia?', confirmLabel: 'Eliminar', variant: 'danger' })) removeLinePhoto(ot.id, line.id, group, photo.id);
+                }}
                 className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity shadow-sm"
                 title="Eliminar fotografia"
                 aria-label={`Eliminar ${photo.name}`}
@@ -509,6 +538,7 @@ function AddLineModal({ open, onClose, onAdd, defaultTechnician, ot }: {
   ot: WorkOrder;
 }) {
   const { assets } = useApp();
+  const confirm = useConfirm();
   const draft = useLineDraft(defaultTechnician);
   const asset = assets.find(a => a.id === ot.assetId);
 
@@ -517,9 +547,10 @@ function AddLineModal({ open, onClose, onAdd, defaultTechnician, ot }: {
     onClose();
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const line = draft.build();
     if (!line) return;
+    if (!(await confirm({ title: 'Agregar linea', message: '¿Estas seguro de agregar esta linea de trabajo?', confirmLabel: 'Agregar' }))) return;
     onAdd(line);
     draft.reset();
     onClose();

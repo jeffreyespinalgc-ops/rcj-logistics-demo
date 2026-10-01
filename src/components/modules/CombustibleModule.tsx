@@ -1,4 +1,5 @@
 import { useApp } from '@/store/AppContext';
+import { useConfirm } from '@/store/ConfirmContext';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Field, TextInput, Select } from '@/components/ui/Field';
@@ -233,12 +234,14 @@ function FuelLoadModal({ open, onClose, assets, onCreate }: {
   const [unitPrice, setUnitPrice] = useState(1100);
   const [odometer, setOdometer] = useState(0);
   const [provider, setProvider] = useState('Copec');
+  const confirm = useConfirm();
 
   const cost = liters * unitPrice;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const asset = assets.find(a => a.id === assetId);
     if (!asset || liters <= 0) return;
+    if (!(await confirm({ title: 'Registrar carga', message: '¿Estas seguro de registrar esta carga de combustible?', confirmLabel: 'Registrar carga' }))) return;
     onCreate({
       assetId: asset.id,
       assetCode: asset.code,

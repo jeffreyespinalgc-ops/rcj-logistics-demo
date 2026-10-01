@@ -1,24 +1,197 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '@/store/AppContext';
+import { useConfirm } from '@/store/ConfirmContext';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Field, Select, TextInput } from '@/components/ui/Field';
-import type { OTActivity, OTLine } from '@/types';
-import { ChevronRight, Pencil } from 'lucide-react';
+import type { MaintenanceTreeNode, OTActivity, OTLine } from '@/types';
+import { ChevronRight } from 'lucide-react';
 import {
   planSelectionResult,
-  resolvePlan,
   selectionFromLine,
   type PlanSelection,
 } from '@/lib/planSelection';
 
+const isLeaf = (node: MaintenanceTreeNode) => node.children.length === 0;
+
+interface Column {
+  depth: number;
+  /** Nombre de quien contiene estas opciones (el tipo de trabajo para la 1ra columna, el nodo elegido para las demas) */
+  parentName: string;
+  nodes: MaintenanceTreeNode[];
+}
+
+/** Arma una columna por nivel alcanzado, caminando `nodeIds` sobre el arbol real */
+function buildColumns(roots: MaintenanceTreeNode[], rootLabel: string, nodeIds: string[]): Column[] {
+  const cols: Column[] = [{ depth: 0, parentName: rootLabel, nodes: roots }];
+  let siblings = roots;
+  for (let i = 0; i < nodeIds.length; i++) {
+    const chosen = siblings.find(n => n.id === nodeIds[i]);
+    if (!chosen) break;
+    cols.push({ depth: i + 1, parentName: chosen.name, nodes: chosen.children });
+    siblings = chosen.children;
+  }
+  return cols;
+}
+
 /**
- * Selector en cascada sobre los Planes de Mantenimiento: tipo de trabajo y despues, en vez de apilar
- * un desplegable por cada nivel (algunos planes tienen 2, otros 4), los niveles ya elegidos se ven
- * como un "camino" de migas de pan y solo se muestra ABIERTO el desplegable del nivel que sigue. Asi
- * el formulario se ve igual de ordenado sin importar cuantos niveles tenga el plan. Al llegar al
- * ultimo nivel aparecen las casillas de Actividades. Si el tipo elegido aun no tiene plan, se ofrece
- * un texto libre como respaldo.
+ * Plan de mantenimiento en columnas, una al lado de la otra (como el buscador de archivos de macOS): al
+ * elegir una opcion se abre una columna nueva a la derecha con sus hijos, sin ocultar las anteriores --
+ * quedan ahi, con scroll horizontal si no caben en el ancho disponible (al abrir una columna nueva la fila
+ * se desliza sola hasta mostrarla, por eso las primeras "se ocultan": quedan fuera de vista por el scroll,
+ * no se destruyen). Arriba un breadcrumb fijo con toda la ruta elegida: cada paso es clickeable para volver
+ * a desplazarse hasta esa columna; elegir ahi una opcion DISTINTA recorta y rearma las columnas siguientes.
+ * El ultimo nivel de cada rama (nodos sin hijos) es una lista de seleccion multiple con casillas.
+ */
+function PlanColumns({ roots, rootLabel, value, onChange }: {
+  roots: MaintenanceTreeNode[];
+  rootLabel: string;
+  value: PlanSelection;
+  onChange: (next: PlanSelection) => void;
+}) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const columnRefs = useRef(new Map<number, HTMLDivElement>());
+  const columns = useMemo(() => buildColumns(roots, rootLabel, value.nodeIds), [roots, rootLabel, value.nodeIds]);
+
+  useEffect(() => {
+    rowRef.current?.scrollTo({ left: rowRef.current.scrollWidth, behavior: 'smooth' });
+  }, [columns.length]);
+
+  const selectAt = (depth: number, node: MaintenanceTreeNode) => {
+    // si el nodo elegido ya es el penultimo nivel (sus hijos son las actividades finales, sin mas niveles
+    // debajo), se marcan todas solas -- igual que si se hubiera tocado "Seleccionar Todos"
+    const autoChecked = node.children.length > 0 && node.children.every(isLeaf) ? node.children.map(c => c.id) : [];
+    onChange({ ...value, nodeIds: [...value.nodeIds.slice(0, depth), node.id], checkedIds: autoChecked });
+  };
+
+  const toggleLeaf = (id: string) => {
+    const checkedIds = value.checkedIds.includes(id) ? value.checkedIds.filter(c => c !== id) : [...value.checkedIds, id];
+    onChange({ ...value, checkedIds });
+  };
+
+  const toggleAll = (nodes: MaintenanceTreeNode[]) => {
+    const leafIds = nodes.map(n => n.id);
+    const allChecked = leafIds.every(id => value.checkedIds.includes(id));
+    onChange({ ...value, checkedIds: allChecked ? [] : leafIds });
+  };
+
+  const scrollToColumn = (depth: number) => {
+    columnRefs.current.get(depth)?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+  };
+
+  return (
+    <div className="overflow-hidden rounded-md border border-stone-200 bg-white">
+      {/* breadcrumb fijo: ubica la ruta elegida aunque sus columnas hayan quedado fuera de vista por el scroll */}
+      {columns.length > 1 && (
+        <nav aria-label="Ruta del plan" className="flex flex-wrap items-center gap-1 border-b border-stone-100 bg-stone-50/60 px-3 py-2">
+          <button
+            type="button"
+            onClick={() => scrollToColumn(0)}
+            className="rounded px-1.5 py-0.5 text-content font-bold text-stone-500 transition-colors hover:bg-white hover:text-orange-600"
+          >
+            {rootLabel}
+          </button>
+          {columns.slice(1).map((col, i) => (
+            <span key={col.depth} className="flex items-center gap-1">
+              <ChevronRight size={11} className="flex-shrink-0 text-stone-300" />
+              <button
+                type="button"
+                onClick={() => scrollToColumn(col.depth)}
+                className={`rounded px-1.5 py-0.5 text-content font-medium transition-colors hover:bg-white hover:text-orange-600 ${
+                  i === columns.length - 2 ? 'text-stone-800' : 'text-stone-500'
+                }`}
+              >
+                {col.parentName}
+              </button>
+            </span>
+          ))}
+        </nav>
+      )}
+
+      {/* columnas lado a lado, una por nivel alcanzado; scroll horizontal si no caben en el ancho disponible */}
+      <div ref={rowRef} className="flex h-64 overflow-x-auto overflow-y-hidden scroll-smooth">
+        {columns.map(col => {
+          const columnIsLeaf = col.nodes.length > 0 && col.nodes.every(isLeaf);
+          return (
+            <div
+              key={col.depth}
+              ref={el => {
+                if (el) columnRefs.current.set(col.depth, el);
+                else columnRefs.current.delete(col.depth);
+              }}
+              className="flex h-full w-52 flex-shrink-0 flex-col border-r border-stone-100 last:border-r-0 sm:w-60"
+            >
+              <div className="flex-shrink-0 border-b border-stone-100 bg-stone-50/80 px-2.5 py-1.5">
+                <p className="truncate text-content font-bold text-stone-500">{col.parentName}</p>
+              </div>
+
+              <div className="flex-1 overflow-y-auto">
+                {col.nodes.length === 0 ? (
+                  <p className="px-3 py-6 text-center text-content text-stone-400">Sin opciones</p>
+                ) : columnIsLeaf ? (
+                  <>
+                    <div className="flex justify-end border-b border-stone-100 px-2 py-1">
+                      <button type="button" onClick={() => toggleAll(col.nodes)} className="text-content font-medium text-orange-600 hover:text-orange-700">
+                        Seleccionar Todos
+                      </button>
+                    </div>
+                    <ul className="divide-y divide-stone-100">
+                      {col.nodes.map(node => {
+                        const checked = value.checkedIds.includes(node.id);
+                        return (
+                          <li key={node.id}>
+                            <label
+                              className={`flex min-h-[44px] cursor-pointer items-center gap-2 px-2.5 py-2 text-content text-stone-700 transition-colors hover:bg-orange-50/50 sm:min-h-0 ${
+                                checked ? 'bg-orange-200' : ''
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleLeaf(node.id)}
+                                className="flex-shrink-0 rounded border-stone-300 text-orange-500 focus:ring-orange-300"
+                              />
+                              <span className={checked ? 'font-bold text-stone-800' : ''}>{node.name}</span>
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </>
+                ) : (
+                  <ul className="divide-y divide-stone-100">
+                    {col.nodes.map(node => {
+                      const chosen = value.nodeIds[col.depth] === node.id;
+                      return (
+                        <li key={node.id}>
+                          <button
+                            type="button"
+                            onClick={() => selectAt(col.depth, node)}
+                            className={`flex min-h-[44px] w-full items-center gap-2 px-2.5 py-2 text-left text-content transition-colors hover:bg-stone-50 sm:min-h-0 ${
+                              chosen ? 'bg-orange-200' : ''
+                            }`}
+                          >
+                            <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${chosen ? 'bg-orange-500' : 'bg-transparent'}`} />
+                            <span className={`min-w-0 flex-1 truncate ${chosen ? 'font-bold text-stone-800' : 'text-stone-700'}`}>{node.name}</span>
+                            <ChevronRight size={14} className={`flex-shrink-0 ${chosen ? 'text-orange-500' : 'text-stone-300'}`} />
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Selector del Tipo de Trabajo y, debajo, su plan de mantenimiento en columnas. Si el tipo elegido aun no
+ * tiene plan, se ofrece un texto libre como respaldo.
  */
 export function PlanPicker({ value, onChange, freeText, onFreeTextChange }: {
   value: PlanSelection;
@@ -30,24 +203,7 @@ export function PlanPicker({ value, onChange, freeText, onFreeTextChange }: {
   const activeTypes = workTypes.filter(w => w.active);
   const type = workTypes.find(w => w.code === value.workTypeCode);
   const roots = type ? (maintenancePlans[type.code] ?? []) : [];
-  const { levels, path, leaves } = resolvePlan(roots, value.nodeIds);
-  const allChecked = leaves.length > 0 && leaves.every(l => value.checkedIds.includes(l.id));
   const freeTextMode = type ? roots.length === 0 : activeTypes.length === 0;
-  // el nivel activo es el primero que todavia no tiene seleccion; si todos los niveles ya se eligieron, no hay ninguno pendiente
-  const activeLevel = levels[path.length] ?? null;
-
-  const selectLevel = (depth: number, id: string) => {
-    onChange({ ...value, nodeIds: id ? [...value.nodeIds.slice(0, depth), id] : value.nodeIds.slice(0, depth), checkedIds: [] });
-  };
-
-  const toggleLeaf = (id: string) => {
-    const checkedIds = value.checkedIds.includes(id) ? value.checkedIds.filter(c => c !== id) : [...value.checkedIds, id];
-    onChange({ ...value, checkedIds });
-  };
-
-  const toggleAll = () => {
-    onChange({ ...value, checkedIds: allChecked ? [] : leaves.map(l => l.id) });
-  };
 
   return (
     <div className="space-y-3">
@@ -56,7 +212,7 @@ export function PlanPicker({ value, onChange, freeText, onFreeTextChange }: {
           value={type ? type.code : ''}
           onChange={e => onChange({ workTypeCode: e.target.value, nodeIds: [], checkedIds: [] })}
         >
-          <option value="">Seleccionar tipo de trabajo...</option>
+          <option value="">Seleccionar...</option>
           {activeTypes.map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
         </Select>
       </Field>
@@ -65,68 +221,8 @@ export function PlanPicker({ value, onChange, freeText, onFreeTextChange }: {
         <Field label="Trabajo *">
           <TextInput value={freeText} onChange={e => onFreeTextChange(e.target.value)} placeholder="Ej: Cambio de llanta" />
         </Field>
-      ) : type && (
-        <>
-          {levels.length > 0 && (
-            <div className="space-y-2">
-              {path.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1" aria-label="Niveles elegidos">
-                  {path.map((node, depth) => (
-                    <span key={node.id} className="flex items-center gap-1">
-                      {depth > 0 && <ChevronRight size={12} className="flex-shrink-0 text-stone-300" />}
-                      <button
-                        type="button"
-                        onClick={() => selectLevel(depth, '')}
-                        title="Cambiar esta seleccion"
-                        className="flex items-center gap-1 rounded-md bg-stone-100 px-2.5 py-1.5 text-xs font-medium text-stone-700 transition-colors hover:bg-orange-50 hover:text-orange-700"
-                      >
-                        {node.name}
-                        <Pencil size={10} className="text-stone-400" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {activeLevel && (
-                <div className="rounded-md border border-orange-200 bg-orange-50/40 p-2">
-                  <Select
-                    value=""
-                    onChange={e => selectLevel(path.length, e.target.value)}
-                    aria-label={path.length === 0 ? 'Nivel 1' : `Nivel ${path.length + 1}`}
-                  >
-                    <option value="">Seleccionar...</option>
-                    {activeLevel.options.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
-                  </Select>
-                </div>
-              )}
-            </div>
-          )}
-
-          {leaves.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-bold text-stone-600 uppercase tracking-wide">Actividades *</span>
-                <button type="button" onClick={toggleAll} className="text-xs font-medium text-orange-600 hover:text-orange-700">
-                  {allChecked ? 'Seleccionar Todos' : 'Seleccionar Todos'}
-                </button>
-              </div>
-              <div className="max-h-48 overflow-y-auto border border-stone-200 rounded-md divide-y divide-stone-100 bg-white">
-                {leaves.map(leaf => (
-                  <label key={leaf.id} className="flex items-center gap-2 px-3 py-2 text-content text-stone-700 cursor-pointer hover:bg-stone-50">
-                    <input
-                      type="checkbox"
-                      checked={value.checkedIds.includes(leaf.id)}
-                      onChange={() => toggleLeaf(leaf.id)}
-                      className="rounded border-stone-300 text-orange-500 focus:ring-orange-300"
-                    />
-                    {leaf.name}
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
+      ) : type && roots.length > 0 && (
+        <PlanColumns roots={roots} rootLabel={type.name} value={value} onChange={onChange} />
       )}
     </div>
   );
@@ -139,13 +235,15 @@ export function EditLineWorkModal({ line, onClose, onSave }: {
   onSave: (patch: { work: string; workPath: string[]; activities: OTActivity[] }) => void;
 }) {
   const { workTypes, maintenancePlans } = useApp();
+  const confirm = useConfirm();
   const [selection, setSelection] = useState<PlanSelection>(() => selectionFromLine(workTypes, maintenancePlans, line));
   const [freeText, setFreeText] = useState(line.work);
 
   const result = planSelectionResult(workTypes, maintenancePlans, selection, freeText);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!result.valid) return;
+    if (!(await confirm({ title: 'Editar actividades', message: '¿Estas seguro de guardar los cambios de las actividades de esta linea?', confirmLabel: 'Guardar cambios' }))) return;
     onSave({ work: result.work, workPath: result.workPath, activities: result.activities });
   };
 

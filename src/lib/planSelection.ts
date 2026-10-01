@@ -96,6 +96,13 @@ const assetTypeLabels: Record<Asset['type'], string> = {
 /** Quita tildes/diacriticos para que "Camion"/"Camión" (o mayus/minus) se comparen igual */
 const normalize = (s: string) => s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
+interface InferredPlan {
+  nodeIds: string[];
+  /** Hojas a marcar solas: solo se llenan si la ruta inferida llega de verdad hasta el penultimo nivel
+   * (el nodo cuyos hijos ya son las actividades/puntos de trabajo finales, sin mas niveles debajo) */
+  checkedIds: string[];
+}
+
 /**
  * Adivina hasta donde se puede bajar sola en el arbol segun el vehiculo elegido: en cada nivel, si el
  * nombre de UN SOLO hijo aparece dentro de la marca/modelo/nombre/tipo del vehiculo (o al reves), se
@@ -103,9 +110,12 @@ const normalize = (s: string) => s.trim().toLowerCase().normalize('NFD').replace
  * elija a mano. El tipo de vehiculo (Vehiculo Ligero/Pesado/Maquinaria/Equipo Auxiliar) es una categoria
  * amplia: si el arbol usa categorias mas finas (p. ej. "Camion"/"Volqueta"/"Traileta", todas serian el
  * mismo "Vehiculo Pesado"), esas solo se infieren si esa palabra tambien aparece en el nombre/marca/modelo
- * del vehiculo -- no hay en el sistema un campo mas fino que el tipo para distinguirlas.
+ * del vehiculo -- no hay en el sistema un campo mas fino que el tipo para distinguirlas. Si la ruta
+ * inferida llega justo hasta el penultimo nivel (el nodo cuyos hijos ya son las actividades finales, sin
+ * mas niveles debajo), esas actividades se devuelven listas para marcarse solas en `checkedIds` -- igual
+ * que si se hubiera tocado "Seleccionar Todos" a mano.
  */
-export function inferNodeIds(roots: MaintenanceTreeNode[], asset: Asset): string[] {
+export function inferPlanSelection(roots: MaintenanceTreeNode[], asset: Asset): InferredPlan {
   const haystacks = [asset.brand, asset.model, asset.name, assetTypeLabels[asset.type]].filter(Boolean).map(normalize);
   const matches = (name: string) => {
     const n = normalize(name);
@@ -116,13 +126,20 @@ export function inferNodeIds(roots: MaintenanceTreeNode[], asset: Asset): string
   let siblings = roots;
   for (;;) {
     const options = siblings.filter(n => n.children.length > 0);
-    if (options.length === 0) break;
+    if (options.length === 0) {
+      const checkedIds = nodeIds.length > 0 ? siblings.map(n => n.id) : [];
+      return { nodeIds, checkedIds };
+    }
     const found = options.filter(n => matches(n.name));
-    if (found.length !== 1) break;
+    if (found.length !== 1) return { nodeIds, checkedIds: [] };
     nodeIds.push(found[0].id);
     siblings = found[0].children;
   }
-  return nodeIds;
+}
+
+/** Solo la ruta de navegacion (sin las hojas a marcar); ver `inferPlanSelection` */
+export function inferNodeIds(roots: MaintenanceTreeNode[], asset: Asset): string[] {
+  return inferPlanSelection(roots, asset).nodeIds;
 }
 
 /** Reconstruye la seleccion de una linea ya creada buscando su ruta por nombre en el plan actual */

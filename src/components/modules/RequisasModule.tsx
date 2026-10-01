@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '@/store/AppContext';
+import { useConfirm } from '@/store/ConfirmContext';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Field, Select } from '@/components/ui/Field';
@@ -414,6 +415,7 @@ function OTRequisitionGroupModal({ otId, onClose }: { otId: string; onClose: () 
 
 function RequisitionModal({ otId, lineId, onClose }: { otId: string; lineId: string; onClose: () => void }) {
   const { workOrders, parts, hasPermission, currentUser, signRequisition } = useApp();
+  const confirm = useConfirm();
   const [error, setError] = useState<string | null>(null);
   const [showDocument, setShowDocument] = useState(false);
   const [delivery, setDelivery] = useState<Record<string, number>>({});
@@ -446,8 +448,9 @@ function RequisitionModal({ otId, lineId, onClose }: { otId: string; lineId: str
   const shortages = line.parts.filter(p => stockOf(p.partId) < p.quantity);
   const dispatchSignature = signatureFor(line, 'despacha');
 
-  const handleSign = () => {
+  const handleSign = async () => {
     if (!step) return;
+    if (!(await confirm({ title: 'Firmar requisa', message: `¿Estas seguro de firmar "${requisitionSignLabels[step]}"?`, confirmLabel: 'Firmar' }))) return;
     const result = signRequisition(ot.id, line.id, step, dispatching ? Object.fromEntries(line.parts.map(p => [p.partId, toDeliver(p)])) : undefined);
     if (result) setError(result);
     else onClose();

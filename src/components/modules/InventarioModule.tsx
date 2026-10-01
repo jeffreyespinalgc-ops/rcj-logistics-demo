@@ -1,4 +1,5 @@
 import { useApp } from '@/store/AppContext';
+import { useConfirm } from '@/store/ConfirmContext';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -48,6 +49,7 @@ export function InventarioModule() {
   // El alta manual de repuestos (permiso 'inventario.catalogo.editar') es solo
   // para la demo: el catalogo vendra automaticamente del inventario de SAP.
   const { parts, movements, workOrders, currentUser, hasPermission, addPart, updatePart, removePart } = useApp();
+  const confirm = useConfirm();
   const canEditCatalog = hasPermission('inventario.catalogo.editar');
   const canSeeRequisas = hasPermission('modulo.requisas');
   const canSeeAllOT = hasPermission('ot.ver.todas');
@@ -198,7 +200,9 @@ export function InventarioModule() {
                         {canEditCatalog && (
                           <td className="text-right">
                             <button
-                              onClick={() => removePart(part.id)}
+                              onClick={async () => {
+                                if (await confirm({ title: 'Eliminar repuesto', message: `¿Estas seguro de eliminar el repuesto "${part.description}"?`, confirmLabel: 'Eliminar', variant: 'danger' })) removePart(part.id);
+                              }}
                               className="text-stone-400 hover:text-red-600 transition-colors"
                               title="Eliminar repuesto"
                             >
@@ -280,9 +284,11 @@ function CreatePartModal({ open, onClose, onCreate }: {
     location: '',
     unit: 'UND',
   });
+  const confirm = useConfirm();
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.code || !form.description) return;
+    if (!(await confirm({ title: 'Crear repuesto', message: '¿Estas seguro de crear este repuesto?', confirmLabel: 'Crear repuesto' }))) return;
     onCreate(form);
     onClose();
     setForm({ code: '', description: '', category: '', currentStock: 0, minStock: 0, maxStock: 0, unitCost: 0, warehouse: '', location: '', unit: 'UND' });
@@ -318,6 +324,16 @@ function CreatePartModal({ open, onClose, onCreate }: {
           </Field>
           <Field label="Stock Maximo">
             <TextInput type="number" min={0} value={form.maxStock} onChange={e => setForm({ ...form, maxStock: Number(e.target.value) })} />
+          </Field>
+          <Field label="Unidad de Medida">
+            <Select value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })}>
+              <option value="UND">UND</option>
+              <option value="KG">KG</option>
+              <option value="LB">LB</option>
+              <option value="FARDO">FARDO</option>
+              <option value="GALONES">GALONES</option>
+              <option value="LITROS">LITROS</option>
+            </Select>
           </Field>
         </div>
         <div className="flex justify-end gap-2 pt-2">

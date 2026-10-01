@@ -1,4 +1,5 @@
 import { useApp } from '@/store/AppContext';
+import { useConfirm } from '@/store/ConfirmContext';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -29,6 +30,7 @@ import {
   UserPlus,
   ShieldAlert,
   Flag,
+  RotateCcw,
 } from 'lucide-react';
 import { useEffect, useState, useMemo } from 'react';
 import { WorkLinesSection } from './ordenes/WorkLines';
@@ -64,6 +66,7 @@ export function OrdenesModule() {
     submitForApproval, approveWorkOrder, rejectWorkOrder, approveEmergencyRetro,
     assignWorkOrder, finalizeWorkOrder, closeWorkOrder, signOTInventory,
   } = useApp();
+  const confirm = useConfirm();
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => (window.matchMedia('(max-width: 639px)').matches ? 'cuadricula' : 'lista'));
   const [selectedOTId, setSelectedOTId] = useState<string | null>(null);
@@ -128,7 +131,15 @@ export function OrdenesModule() {
           ot={selectedOT}
           currentUser={currentUser}
           onBack={() => setSelectedOTId(null)}
-          onSubmit={() => submitForApproval(selectedOT.id)}
+          onSubmit={async () => {
+            const reopening = selectedOT.status === 'rechazada';
+            const ok = await confirm({
+              title: reopening ? 'Reabrir OT' : 'Enviar a aprobacion',
+              message: reopening ? '¿Estas seguro de reabrir la OT?' : '¿Estas seguro de enviar esta OT a aprobacion?',
+              confirmLabel: reopening ? 'Reabrir OT' : 'Enviar',
+            });
+            if (ok) submitForApproval(selectedOT.id);
+          }}
           onApprove={() => setShowApproveModal(true)}
           onReject={() => setShowRejectModal(true)}
           onRetroApprove={() => setShowRetroModal(true)}
@@ -482,7 +493,9 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
   const canFinalizeNow = canFinalize && !blocked;
   const canClose = hasPermission('ot.cerrar') && ot.status === 'finalizada';
   const canSignInventory = hasPermission('ot.inventario.firmar') && ot.status === 'finalizada' && !ot.inventorySignedBy;
-  const hasActions = canSubmit || canApprove || canReject || canAssign || canRetro || canClose || canSignInventory;
+  // reabrir una OT rechazada: el Jefe de Taller (mismo permiso con el que la rechazo) o el tecnico que la creo
+  const canReopen = ot.status === 'rechazada' && (hasPermission('ot.rechazar') || isCreator);
+  const hasActions = canSubmit || canApprove || canReject || canAssign || canRetro || canClose || canSignInventory || canReopen;
   const showActionBar = hasActions || (canFinalize && Boolean(blocked));
 
   return (
@@ -577,6 +590,9 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
             {canReject && (
               <Button variant="danger" onClick={onReject}><XCircle size={16} /> Rechazar</Button>
             )}
+            {canReopen && (
+              <Button variant="outline" onClick={onSubmit}><RotateCcw size={16} /> Reabrir OT</Button>
+            )}
             {canRetro && (
               <Button variant="secondary" onClick={onRetroApprove}><ShieldAlert size={16} /> Aprobar retroactivamente</Button>
             )}
@@ -626,12 +642,14 @@ function SapCell({ label, children }: { label: string; children: React.ReactNode
 
 function EditOTModal({ ot, onClose }: { ot: WorkOrder; onClose: () => void }) {
   const { updateWorkOrder } = useApp();
+  const confirm = useConfirm();
   const [description, setDescription] = useState(ot.description);
   const [priority, setPriority] = useState<OTPriority>(ot.priority);
   const [error, setError] = useState<string | null>(null);
   const unchanged = description.trim() === ot.description && priority === ot.priority;
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!(await confirm({ title: 'Editar OT', message: '¿Estas seguro de guardar los cambios de esta OT?', confirmLabel: 'Guardar cambios' }))) return;
     const result = updateWorkOrder(ot.id, { description, priority });
     if (result) setError(result);
     else onClose();
@@ -666,12 +684,14 @@ function AssignModal({ open, onClose, ot, onAssign }: {
 }) {
   const [type, setType] = useState<'tecnico' | 'taller_externo'>('tecnico');
   const [externalShop, setExternalShop] = useState('');
+  const confirm = useConfirm();
 
   const inferredTechnician = ot.createdBy;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const who = type === 'tecnico' ? inferredTechnician : externalShop.trim();
     if (!who) return;
+    if (!(await confirm({ title: 'Asignar OT', message: `¿Estas seguro de asignar esta OT a ${who}?`, confirmLabel: 'Asignar' }))) return;
     onAssign(who, type);
     setExternalShop('');
   };

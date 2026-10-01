@@ -1,146 +1,52 @@
-import { createContext, useCallback, useContext, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '@/store/AppContext';
+import { useConfirm } from '@/store/ConfirmContext';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/Field';
 import type { MaintenanceTreeNode, OTWorkType } from '@/types';
-import { ChevronDown, ChevronRight, GripVertical, Plus, Trash2 } from 'lucide-react';
+import { CheckSquare, ChevronDown, ChevronRight, ChevronUp, Plus, Trash2 } from 'lucide-react';
 
-// ===== Planes de Mantenimiento (arbol personalizable por Tipo de Trabajo) =====
-// El arrastre usa eventos de puntero (no HTML5 drag & drop) para que funcione igual con
-// mouse, dedo y lapiz: el asa tiene touch-action: none y el destino se calcula con
-// elementFromPoint sobre los marcadores data-plan-row / data-plan-end.
-
-type DropPosition = 'before' | 'after' | 'inside';
-
-interface DropTarget {
-  targetId: string | null;
-  position: DropPosition;
-  /** 'row' = soltado sobre una fila; 'end' = sobre la fila "Agregar" que cierra una lista */
-  via: 'row' | 'end';
+interface Column {
+  depth: number;
+  /** Nombre de quien contiene estas opciones (el tipo de trabajo para la 1ra columna, el nodo elegido para las demas) */
+  parentName: string;
+  /** id a pasarle a `addMaintenanceNode`; null = raiz */
+  parentId: string | null;
+  nodes: MaintenanceTreeNode[];
 }
 
-interface DragState {
-  nodeId: string;
-  label: string;
-  x: number;
-  y: number;
-}
-
-interface PlanEditor {
-  workType: OTWorkType;
-  drag: DragState | null;
-  drop: DropTarget | null;
-  expanded: Set<string>;
-  toggle: (id: string) => void;
-  startDrag: (node: MaintenanceTreeNode, e: ReactPointerEvent) => void;
-}
-
-const PlanEditorContext = createContext<PlanEditor | null>(null);
-
-function usePlanEditor(): PlanEditor {
-  const ctx = useContext(PlanEditorContext);
-  if (!ctx) throw new Error('usePlanEditor must be used within PlansTab');
-  return ctx;
-}
-
-function computeDrop(x: number, y: number, dragId: string): DropTarget | null {
-  const el = document.elementFromPoint(x, y);
-  if (!el) return null;
-  const dragged = document.querySelector(`[data-plan-node="${dragId}"]`);
-
-  const row = el.closest<HTMLElement>('[data-plan-row]');
-  if (row) {
-    // sobre si mismo o sobre un descendiente: no es un destino valido
-    if (dragged?.contains(row)) return null;
-    const rect = row.getBoundingClientRect();
-    const rel = (y - rect.top) / rect.height;
-    const position: DropPosition = rel < 0.28 ? 'before' : rel > 0.72 ? 'after' : 'inside';
-    return { targetId: row.dataset.nodeId ?? null, position, via: 'row' };
+/** Arma una columna por nivel abierto, caminando `openPath` sobre el arbol real */
+function buildColumns(roots: MaintenanceTreeNode[], rootLabel: string, openPath: string[]): Column[] {
+  const cols: Column[] = [{ depth: 0, parentName: rootLabel, parentId: null, nodes: roots }];
+  let siblings = roots;
+  for (let i = 0; i < openPath.length; i++) {
+    const chosen = siblings.find(n => n.id === openPath[i]);
+    if (!chosen) break;
+    cols.push({ depth: i + 1, parentName: chosen.name, parentId: chosen.id, nodes: chosen.children });
+    siblings = chosen.children;
   }
-
-  const end = el.closest<HTMLElement>('[data-plan-end]');
-  if (end) {
-    if (dragged?.contains(end)) return null;
-    return { targetId: end.dataset.parentId || null, position: 'inside', via: 'end' };
-  }
-  return null;
+  return cols;
 }
 
-function findScrollParent(el: HTMLElement | null): HTMLElement | null {
-  let cur = el?.parentElement ?? null;
-  while (cur) {
-    const overflowY = getComputedStyle(cur).overflowY;
-    if ((overflowY === 'auto' || overflowY === 'scroll') && cur.scrollHeight > cur.clientHeight) return cur;
-    cur = cur.parentElement;
-  }
-  return null;
-}
-
-/** Desplaza el contenedor cuando el puntero se acerca a su borde superior o inferior */
-function autoScroll(scroller: HTMLElement | null, y: number) {
-  const edge = 56;
-  const step = 14;
-  const top = scroller ? scroller.getBoundingClientRect().top : 0;
-  const bottom = scroller ? scroller.getBoundingClientRect().bottom : window.innerHeight;
-  const dy = y < top + edge ? -step : y > bottom - edge ? step : 0;
-  if (dy === 0) return;
-  if (scroller) scroller.scrollBy(0, dy);
-  else window.scrollBy(0, dy);
-}
-
+/**
+ * Planes de Mantenimiento, en columnas (mismo estilo que el selector de Tipo de Trabajo de la OT): el
+ * administrador hace click en un elemento para abrir su columna de hijos a la derecha -- sin ocultar las
+ * anteriores, con scroll horizontal si no caben y un breadcrumb fijo arriba. Cada columna se edita en el
+ * lugar: renombrar (campo de texto), reordenar (flechas arriba/abajo entre hermanos), eliminar y agregar
+ * nuevos elementos al final. El administrador decide cuantos niveles tiene cada rama agregando o no hijos;
+ * un elemento sin hijos se marca con un icono de casilla, para recordar que asi es como el tecnico lo va a
+ * ver: como una actividad seleccionable, no como un nivel mas para seguir bajando.
+ */
 export function PlansTab() {
-  const { workTypes, maintenancePlans, moveMaintenanceNode } = useApp();
+  const { workTypes, maintenancePlans } = useApp();
   const activeTypes = workTypes.filter(w => w.active);
   const [selected, setSelected] = useState<OTWorkType>('');
   const workType = activeTypes.some(w => w.code === selected) ? selected : (activeTypes[0]?.code ?? '');
+  const [openPath, setOpenPath] = useState<string[]>([]);
 
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-  const [drag, setDrag] = useState<DragState | null>(null);
-  const [drop, setDrop] = useState<DropTarget | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const toggle = useCallback((id: string) => {
-    setExpanded(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const startDrag = (node: MaintenanceTreeNode, e: ReactPointerEvent) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    e.preventDefault();
-    const nodeId = node.id;
-    const scroller = findScrollParent(containerRef.current);
-    setDrag({ nodeId, label: node.name, x: e.clientX, y: e.clientY });
-
-    const cleanup = () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointercancel', onCancel);
-      setDrag(null);
-      setDrop(null);
-    };
-    const onMove = (ev: PointerEvent) => {
-      setDrag(d => (d ? { ...d, x: ev.clientX, y: ev.clientY } : d));
-      setDrop(computeDrop(ev.clientX, ev.clientY, nodeId));
-      autoScroll(scroller, ev.clientY);
-    };
-    const onUp = (ev: PointerEvent) => {
-      const target = computeDrop(ev.clientX, ev.clientY, nodeId);
-      cleanup();
-      if (!target) return;
-      moveMaintenanceNode(workType, nodeId, target.targetId, target.position);
-      // al volverlo hijo se expande el destino para que el elemento movido quede a la vista
-      const parentId = target.targetId;
-      if (target.position === 'inside' && parentId) setExpanded(prev => new Set(prev).add(parentId));
-    };
-    const onCancel = () => cleanup();
-
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onCancel);
+  const selectType = (code: OTWorkType) => {
+    setSelected(code);
+    setOpenPath([]);
   };
 
   if (activeTypes.length === 0) {
@@ -151,122 +57,208 @@ export function PlansTab() {
     );
   }
 
+  const typeLabel = activeTypes.find(w => w.code === workType)?.name ?? 'Tipo de trabajo';
+
   return (
-    <PlanEditorContext.Provider value={{ workType, drag, drop, expanded, toggle, startDrag }}>
+    <>
       <div className="flex overflow-x-auto border-b border-stone-100 bg-stone-50/50">
         {activeTypes.map(wt => (
           <button
             key={wt.code}
-            onClick={() => setSelected(wt.code)}
-            className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${workType === wt.code ? 'border-orange-500 text-orange-600' : 'border-transparent text-stone-500 hover:text-stone-700'}`}
+            onClick={() => selectType(wt.code)}
+            className={`px-4 py-2 text-content font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${workType === wt.code ? 'border-orange-500 text-orange-600' : 'border-transparent text-stone-500 hover:text-stone-700'}`}
           >
             {wt.name}
           </button>
         ))}
       </div>
-      <div className="p-4" ref={containerRef}>
-        <MaintenanceNodeList key={workType} parentId={null} nodes={maintenancePlans[workType] ?? []} depth={0} />
+      <div className="p-4">
+        <AdminPlanColumns
+          key={workType}
+          workType={workType}
+          roots={maintenancePlans[workType] ?? []}
+          rootLabel={typeLabel}
+          openPath={openPath}
+          setOpenPath={setOpenPath}
+        />
       </div>
-
-      {drag && (
-        <div
-          className="fixed z-[70] pointer-events-none px-2 py-1 rounded-md bg-white border border-orange-300 shadow-card-hover text-content font-medium text-stone-700 max-w-[14rem] truncate"
-          style={{ left: drag.x + 12, top: drag.y + 12 }}
-        >
-          {drag.label || 'Elemento'}
-        </div>
-      )}
-    </PlanEditorContext.Provider>
+    </>
   );
 }
 
-function MaintenanceNodeList({ parentId, nodes, depth }: {
-  parentId: string | null;
-  nodes: MaintenanceTreeNode[];
-  depth: number;
+function AdminPlanColumns({ workType, roots, rootLabel, openPath, setOpenPath }: {
+  workType: OTWorkType;
+  roots: MaintenanceTreeNode[];
+  rootLabel: string;
+  openPath: string[];
+  setOpenPath: (path: string[]) => void;
 }) {
-  const { addMaintenanceNode } = useApp();
-  const { workType, drop } = usePlanEditor();
-  const [newName, setNewName] = useState('');
+  const { addMaintenanceNode, renameMaintenanceNode, removeMaintenanceNode, moveMaintenanceNode } = useApp();
+  const confirm = useConfirm();
+  const rowRef = useRef<HTMLDivElement>(null);
+  const columnRefs = useRef(new Map<number, HTMLDivElement>());
+  const [newNameByDepth, setNewNameByDepth] = useState<Record<number, string>>({});
+  const columns = useMemo(() => buildColumns(roots, rootLabel, openPath), [roots, rootLabel, openPath]);
 
-  const handleAdd = () => {
-    if (!newName.trim()) return;
-    addMaintenanceNode(workType, parentId, newName.trim());
-    setNewName('');
+  useEffect(() => {
+    rowRef.current?.scrollTo({ left: rowRef.current.scrollWidth, behavior: 'smooth' });
+  }, [columns.length]);
+
+  const openAt = (depth: number, node: MaintenanceTreeNode) => {
+    setOpenPath([...openPath.slice(0, depth), node.id]);
   };
 
-  const endHighlighted = drop?.via === 'end' && drop.targetId === parentId;
+  const scrollToColumn = (depth: number) => {
+    columnRefs.current.get(depth)?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+  };
+
+  const handleDelete = async (depth: number, node: MaintenanceTreeNode) => {
+    if (!(await confirm({ title: 'Eliminar elemento', message: `¿Estas seguro de eliminar "${node.name}"? Se eliminaran tambien sus subelementos.`, confirmLabel: 'Eliminar', variant: 'danger' }))) return;
+    removeMaintenanceNode(workType, node.id);
+    // si se borra el elemento que estaba abierto en el camino, se recorta la navegacion hasta ahi
+    if (openPath[depth] === node.id) setOpenPath(openPath.slice(0, depth));
+  };
+
+  const handleAdd = (col: Column) => {
+    const name = (newNameByDepth[col.depth] ?? '').trim();
+    if (!name) return;
+    addMaintenanceNode(workType, col.parentId, name);
+    setNewNameByDepth(prev => ({ ...prev, [col.depth]: '' }));
+  };
+
+  const moveUp = (nodes: MaintenanceTreeNode[], index: number) => {
+    if (index === 0) return;
+    moveMaintenanceNode(workType, nodes[index].id, nodes[index - 1].id, 'before');
+  };
+
+  const moveDown = (nodes: MaintenanceTreeNode[], index: number) => {
+    if (index === nodes.length - 1) return;
+    moveMaintenanceNode(workType, nodes[index].id, nodes[index + 1].id, 'after');
+  };
 
   return (
-    <div className="space-y-1">
-      {nodes.map(node => (
-        <MaintenanceNodeRow key={node.id} node={node} depth={depth} />
-      ))}
-      <div
-        data-plan-end
-        data-parent-id={parentId ?? ''}
-        className={`flex items-center gap-2 rounded py-0.5 ${endHighlighted ? 'bg-orange-100 ring-1 ring-orange-300' : ''}`}
-        style={{ paddingLeft: depth * 20 }}
-      >
-        <TextInput
-          value={newName}
-          onChange={e => setNewName(e.target.value)}
-          placeholder={depth === 0 ? 'Nuevo elemento' : 'Nuevo subelemento'}
-          className="flex-1 max-w-xs !py-1 !text-content"
-        />
-        <Button size="sm" variant="outline" onClick={handleAdd}><Plus size={12} /> Agregar</Button>
-      </div>
-    </div>
-  );
-}
-
-function MaintenanceNodeRow({ node, depth }: {
-  node: MaintenanceTreeNode;
-  depth: number;
-}) {
-  const { renameMaintenanceNode, removeMaintenanceNode } = useApp();
-  const { workType, drag, drop, expanded, toggle, startDrag } = usePlanEditor();
-  const isExpanded = expanded.has(node.id);
-  const rowDrop = drop?.via === 'row' && drop.targetId === node.id ? drop.position : null;
-
-  return (
-    <div data-plan-node={node.id} className={drag?.nodeId === node.id ? 'opacity-40' : ''}>
-      <div
-        data-plan-row
-        data-node-id={node.id}
-        className={`relative flex items-center gap-1.5 py-1 rounded ${rowDrop === 'inside' ? 'bg-orange-100 ring-1 ring-orange-300' : 'hover:bg-stone-50'}`}
-        style={{ paddingLeft: depth * 20 }}
-      >
-        {rowDrop === 'before' && <span className="absolute left-0 right-0 top-0 h-0.5 bg-orange-500 pointer-events-none" />}
-        {rowDrop === 'after' && <span className="absolute left-0 right-0 bottom-0 h-0.5 bg-orange-500 pointer-events-none" />}
-        <button
-          type="button"
-          onPointerDown={e => startDrag(node, e)}
-          className="touch-none cursor-grab active:cursor-grabbing text-stone-300 hover:text-stone-500 flex-shrink-0 p-1.5"
-          title="Arrastrar para mover"
-          aria-label="Arrastrar para mover"
-        >
-          <GripVertical size={14} />
-        </button>
-        <button onClick={() => toggle(node.id)} className="text-stone-400 flex-shrink-0">
-          {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        </button>
-        <TextInput
-          value={node.name}
-          onChange={e => renameMaintenanceNode(workType, node.id, e.target.value)}
-          className="flex-1 max-w-sm !py-1 !text-content"
-        />
-        <button
-          onClick={() => removeMaintenanceNode(workType, node.id)}
-          className="text-stone-400 hover:text-red-600 transition-colors flex-shrink-0"
-          title="Eliminar"
-        >
-          <Trash2 size={13} />
-        </button>
-      </div>
-      {isExpanded && (
-        <MaintenanceNodeList parentId={node.id} nodes={node.children} depth={depth + 1} />
+    <div className="overflow-hidden rounded-md border border-stone-200 bg-white">
+      {/* breadcrumb fijo: ubica la rama que se esta editando aunque sus columnas hayan quedado fuera de vista por el scroll */}
+      {openPath.length > 0 && (
+        <nav aria-label="Ruta del plan" className="flex flex-wrap items-center gap-1 border-b border-stone-100 bg-stone-50/60 px-3 py-2">
+          <button
+            type="button"
+            onClick={() => scrollToColumn(0)}
+            className="rounded px-1.5 py-0.5 text-content font-bold text-stone-500 transition-colors hover:bg-white hover:text-orange-600"
+          >
+            {rootLabel}
+          </button>
+          {columns.slice(1).map((col, i) => (
+            <span key={col.depth} className="flex items-center gap-1">
+              <ChevronRight size={11} className="flex-shrink-0 text-stone-300" />
+              <button
+                type="button"
+                onClick={() => scrollToColumn(col.depth)}
+                className={`rounded px-1.5 py-0.5 text-content font-medium transition-colors hover:bg-white hover:text-orange-600 ${
+                  i === columns.length - 2 ? 'text-stone-800' : 'text-stone-500'
+                }`}
+              >
+                {col.parentName}
+              </button>
+            </span>
+          ))}
+        </nav>
       )}
+
+      {/* columnas lado a lado, una por nivel abierto; scroll horizontal si no caben en el ancho disponible */}
+      <div ref={rowRef} className="flex h-80 overflow-x-auto overflow-y-hidden scroll-smooth">
+        {columns.map(col => (
+          <div
+            key={col.depth}
+            ref={el => {
+              if (el) columnRefs.current.set(col.depth, el);
+              else columnRefs.current.delete(col.depth);
+            }}
+            className="flex h-full w-64 flex-shrink-0 flex-col border-r border-stone-100 last:border-r-0"
+          >
+            <div className="flex-shrink-0 border-b border-stone-100 bg-stone-50/80 px-2.5 py-1.5">
+              <p className="truncate text-content font-bold text-stone-500">{col.parentName}</p>
+            </div>
+
+            <div className="flex-1 space-y-1 overflow-y-auto p-1.5">
+              {col.nodes.length === 0 && (
+                <p className="px-2 py-4 text-center text-content text-stone-400"></p>
+              )}
+              {col.nodes.map((node, i) => {
+                const isLeafNow = node.children.length === 0;
+                return (
+                  <div key={node.id} className="flex min-w-0 items-center gap-0.5 rounded-md border border-stone-200 bg-white px-1 py-1">
+                    <div className="flex flex-shrink-0 flex-col">
+                      <button
+                        type="button"
+                        onClick={() => moveUp(col.nodes, i)}
+                        disabled={i === 0}
+                        title="Subir"
+                        aria-label={`Subir ${node.name}`}
+                        className="text-stone-300 transition-colors hover:text-stone-600 disabled:pointer-events-none disabled:opacity-20"
+                      >
+                        <ChevronUp size={11} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveDown(col.nodes, i)}
+                        disabled={i === col.nodes.length - 1}
+                        title="Bajar"
+                        aria-label={`Bajar ${node.name}`}
+                        className="text-stone-300 transition-colors hover:text-stone-600 disabled:pointer-events-none disabled:opacity-20"
+                      >
+                        <ChevronDown size={11} />
+                      </button>
+                    </div>
+                    <TextInput
+                      value={node.name}
+                      onChange={e => renameMaintenanceNode(workType, node.id, e.target.value)}
+                      aria-label={`Renombrar ${node.name}`}
+                      className="min-h-[36px] min-w-0 flex-1 !px-1.5 !py-1 !text-content"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => openAt(col.depth, node)}
+                      title={isLeafNow ? 'Vacio: se ve como actividad -- click para agregarle niveles' : 'Ver/editar sus elementos'}
+                      aria-label={isLeafNow ? `${node.name}: actividad, click para agregarle niveles` : `Ver elementos de ${node.name}`}
+                      className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md transition-colors ${
+                        isLeafNow ? 'text-stone-400 hover:bg-orange-50 hover:text-orange-600' : 'text-orange-500 hover:bg-orange-50'
+                      }`}
+                    >
+                      {isLeafNow ? <CheckSquare size={14} /> : <ChevronRight size={14} />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(col.depth, node)}
+                      title="Eliminar"
+                      aria-label={`Eliminar ${node.name}`}
+                      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-stone-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-shrink-0 items-center gap-1 border-t border-stone-100 bg-stone-50/50 p-1.5">
+              <TextInput
+                value={newNameByDepth[col.depth] ?? ''}
+                onChange={e => setNewNameByDepth(prev => ({ ...prev, [col.depth]: e.target.value }))}
+                onKeyDown={e => { if (e.key === 'Enter') handleAdd(col); }}
+                placeholder={col.depth === 0 ? 'Nuevo elemento' : 'Nuevo subelemento'}
+                aria-label="Nombre del nuevo elemento"
+                className="min-h-[36px] min-w-0 flex-1 !py-1 !text-content"
+              />
+              <Button size="sm" variant="outline" onClick={() => handleAdd(col)} title="Agregar">
+                <Plus size={12} />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
+
+

@@ -1,4 +1,5 @@
 import { useApp } from '@/store/AppContext';
+import { useConfirm } from '@/store/ConfirmContext';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -22,6 +23,8 @@ import {
   Camera,
   X,
   ImageIcon,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useState, useMemo, useRef } from 'react';
 
@@ -66,6 +69,7 @@ const assetSortGetters = {
 
 export function ActivosModule() {
   const { assets, assetHistory, addAsset, syncAssetsFromSAP, syncingAssets, lastAssetSync, hasPermission } = useApp();
+  const confirm = useConfirm();
   const canSync = hasPermission('activos.sap.vincular');
   const canCreateAsset = hasPermission('activos.crear');
   const [search, setSearch] = useState('');
@@ -108,7 +112,9 @@ export function ActivosModule() {
         onBack={() => { setSelectedAsset(null); setDetailTab('ficha'); }}
         detailTab={detailTab}
         setDetailTab={setDetailTab}
-        onSync={() => syncAssetsFromSAP(current.id)}
+        onSync={async () => {
+          if (await confirm({ title: 'Sincronizar con SAP', message: '¿Estas seguro de sincronizar este activo con SAP?', confirmLabel: 'Sincronizar' })) syncAssetsFromSAP(current.id);
+        }}
         syncing={syncingAssets}
         canSync={canSync}
       />
@@ -136,7 +142,12 @@ export function ActivosModule() {
               </Button>
             )}
             {canSync ? (
-              <Button onClick={() => syncAssetsFromSAP()} disabled={syncingAssets}>
+              <Button
+                onClick={async () => {
+                  if (await confirm({ title: 'Sincronizar con SAP', message: '¿Estas seguro de sincronizar todos los activos con SAP?', confirmLabel: 'Sincronizar' })) syncAssetsFromSAP();
+                }}
+                disabled={syncingAssets}
+              >
                 <RefreshCw size={16} className={syncingAssets ? 'animate-spin' : ''} />
                 {syncingAssets ? 'Sincronizando...' : 'Sincronizar'}
               </Button>
@@ -270,53 +281,55 @@ function AssetDetail({ asset, history, onBack, detailTab, setDetailTab, onSync, 
         </div>
 
         {detailTab === 'ficha' ? (
-          <div className="p-5 space-y-5">
-
-            <dl className="sap-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              <InfoField label="Marca" value={asset.brand} />
-              <InfoField label="Modelo" value={asset.model} />
-              <InfoField label="Año" value={String(asset.year)} />
-              <InfoField label="Patente" value={asset.plate} />
-              <InfoField label="Motor" value={asset.engine} />
-              <InfoField label="Chasis" value={asset.chassis} />
-              <InfoField label="Kilometraje" value={asset.odometer > 0 ? asset.odometer.toLocaleString() + (asset.type === 'maquinaria' || asset.type === 'equipo_auxiliar' ? ' hrs' : ' km') : 'N/A'} />
-              <InfoField label="Ubicacion" value={asset.location} />
-              <InfoField label="Tipo" value={typeLabels[asset.type]} />
-              <InfoField label="Fecha de Adquisicion" value={asset.acquisitionDate} />
-              <InfoField label="Costo de Adquisicion" value={formatCLP(asset.acquisitionCost)} />
-              <InfoField label="Ultimo Mantenimiento" value={asset.lastMaintenance} />
-            </dl>
-
-            <div className="border-t border-stone-200 pt-4">
-              <div className="flex items-center justify-between mb-3">
-                {/* <h4 className="font-heading text-sm font-bold text-stone-700 flex items-center gap-2">
-                  <Link2 size={16} className="text-blue-600" /> Vinculacion SAP
-                </h4> */}
-                {canSync && (
-                  <Button size="sm" variant="outline" onClick={onSync} disabled={syncing}>
-                    <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-                    {syncing ? 'Sincronizando...' : 'Sincronizar'}
-                  </Button>
-                )}
-              </div>
-              <dl className="sap-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                <InfoField label="Codigo SAP" value={asset.sapCode ?? 'No vinculado'} />
-                <div className="sap-cell">
-                  <dt>Estado de sincronizacion:</dt>
-                  <dd>
-                    {asset.sapSynced ? (
-                      <Badge variant="green"><Link2 size={10} className="mr-1 inline" /> Sincronizado</Badge>
-                    ) : (
-                      <Badge variant="orange">Pendiente</Badge>
-                    )}
-                  </dd>
-                </div>
-                <InfoField label="Ultima Sincronizacion" value={formatDateTime(asset.lastSyncAt)} />
+          <div className="grid grid-cols-1 gap-5 p-5 lg:grid-cols-2">
+            <div className="space-y-5">
+              <dl className="sap-grid grid-cols-1 sm:grid-cols-2">
+                <InfoField label="Marca" value={asset.brand} />
+                <InfoField label="Modelo" value={asset.model} />
+                <InfoField label="Año" value={String(asset.year)} />
+                <InfoField label="Patente" value={asset.plate} />
+                <InfoField label="Motor" value={asset.engine} />
+                <InfoField label="Chasis" value={asset.chassis} />
+                <InfoField label="Kilometraje" value={asset.odometer > 0 ? asset.odometer.toLocaleString() + (asset.type === 'maquinaria' || asset.type === 'equipo_auxiliar' ? ' hrs' : ' km') : 'N/A'} />
+                <InfoField label="Ubicacion" value={asset.location} />
+                <InfoField label="Tipo" value={typeLabels[asset.type]} />
+                <InfoField label="Fecha de Adquisicion" value={asset.acquisitionDate} />
+                <InfoField label="Costo de Adquisicion" value={formatCLP(asset.acquisitionCost)} />
+                <InfoField label="Ultimo Mantenimiento" value={asset.lastMaintenance} />
               </dl>
+
+              <div className="border-t border-stone-200 pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  {/* <h4 className="font-heading text-sm font-bold text-stone-700 flex items-center gap-2">
+                    <Link2 size={16} className="text-blue-600" /> Vinculacion SAP
+                  </h4> */}
+                  {canSync && (
+                    <Button size="sm" variant="outline" onClick={onSync} disabled={syncing}>
+                      <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+                      {syncing ? 'Sincronizando...' : 'Sincronizar'}
+                    </Button>
+                  )}
+                </div>
+                <dl className="sap-grid grid-cols-1 sm:grid-cols-2">
+                  <InfoField label="Codigo SAP" value={asset.sapCode ?? 'No vinculado'} />
+                  <div className="sap-cell">
+                    <dt>Estado de sincronizacion:</dt>
+                    <dd>
+                      {asset.sapSynced ? (
+                        <Badge variant="green"><Link2 size={10} className="mr-1 inline" /> Sincronizado</Badge>
+                      ) : (
+                        <Badge variant="orange">Pendiente</Badge>
+                      )}
+                    </dd>
+                  </div>
+                  <InfoField label="Ultima Sincronizacion" value={formatDateTime(asset.lastSyncAt)} />
+                </dl>
+              </div>
             </div>
 
-            <AssetPhotoGallery asset={asset} />
-            
+            <div>
+              <AssetPhotoGallery asset={asset} />
+            </div>
           </div>
         ) : (
           <div className="p-5">
@@ -350,20 +363,56 @@ function AssetDetail({ asset, history, onBack, detailTab, setDetailTab, onSync, 
   );
 }
 
-/**
- * Fotografias del estado actual del activo.
- * La mas reciente se muestra en grande; el resto quedan como miniaturas.
- */
+/** Fotografias del estado actual del activo, en un carrusel: todas se ven al mismo tamano, una a la vez. */
 function AssetPhotoGallery({ asset }: { asset: Asset }) {
   const { addAssetPhoto, removeAssetPhoto, hasPermission } = useApp();
+  const confirm = useConfirm();
   const canEdit = hasPermission('activos.fotos.gestionar');
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<AssetPhoto | null>(null);
+  const [index, setIndex] = useState(0);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragStartX = useRef(0);
+  const didDragRef = useRef(false);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
-  const photos = asset.photos;
-  const current = photos.length > 0 ? photos[photos.length - 1] : null;
+  // la mas reciente primero, como ya se ordenaba antes
+  const ordered = [...asset.photos].reverse();
+  const safeIndex = Math.min(index, Math.max(0, ordered.length - 1));
+  const current = ordered[safeIndex] ?? null;
+
+  const goPrev = () => setIndex(i => Math.max(0, Math.min(i, ordered.length - 1) - 1));
+  const goNext = () => setIndex(i => Math.min(ordered.length - 1, Math.min(i, ordered.length - 1) + 1));
+
+  const onDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (ordered.length <= 1) return;
+    dragStartX.current = e.clientX;
+    setDragging(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const onDragMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragging) return;
+    setDragOffset(e.clientX - dragStartX.current);
+  };
+
+  const onDragEnd = () => {
+    if (!dragging) return;
+    didDragRef.current = Math.abs(dragOffset) > 5;
+    const threshold = Math.min(60, (viewportRef.current?.clientWidth ?? 240) * 0.2);
+    if (dragOffset < -threshold) goNext();
+    else if (dragOffset > threshold) goPrev();
+    setDragging(false);
+    setDragOffset(0);
+  };
+
+  const handleTap = (photo: AssetPhoto) => {
+    if (didDragRef.current) { didDragRef.current = false; return; }
+    setPreview(photo);
+  };
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -377,6 +426,7 @@ function AssetPhotoGallery({ asset }: { asset: Asset }) {
       }
     }
     setBusy(false);
+    setIndex(0); // la nueva foto queda primera (mas reciente): se muestra de una vez
     if (fileRef.current) fileRef.current.value = '';
     if (cameraRef.current) cameraRef.current.value = '';
   };
@@ -388,7 +438,7 @@ function AssetPhotoGallery({ asset }: { asset: Asset }) {
         {canEdit && (
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => cameraRef.current?.click()} disabled={busy}>
-              <Camera size={14} /> 
+              <Camera size={14} />
             </Button>
             <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={busy}>
               <Plus size={14} /> {busy ? 'Cargando...' : ''}
@@ -400,50 +450,90 @@ function AssetPhotoGallery({ asset }: { asset: Asset }) {
       </div>
 
       {current ? (
-        <div className="flex flex-col sm:flex-row gap-3">
-          <button
-            onClick={() => setPreview(current)}
-            className="w-full sm:w-56 h-48 sm:h-40 rounded-md overflow-hidden border border-stone-300 bg-stone-100 flex-shrink-0 hover:border-orange-400 transition-colors"
-            title={`${current.name} - ${formatDateTime(current.addedAt)}`}
-          >
-            <img src={current.dataUrl} alt={asset.name} className="w-full h-full object-cover" />
-          </button>
-
-          <div className="flex-1 min-w-0">
-            <p className="text-content text-stone-500 mb-2">
-              <strong className="font-bold text-stone-600"></strong> <span className="font-normal text-stone-700"></span>
-            </p>
-            <div className="flex items-center gap-2 flex-wrap">
-              {photos.slice(0, -1).reverse().map(photo => (
-                <div key={photo.id} className="relative group w-16 h-16">
+        <div className="mx-auto flex max-w-sm flex-col gap-2">
+          <div className="relative">
+            <div
+              ref={viewportRef}
+              onPointerDown={onDragStart}
+              onPointerMove={onDragMove}
+              onPointerUp={onDragEnd}
+              onPointerCancel={onDragEnd}
+              className="aspect-[4/3] w-full touch-pan-y select-none overflow-hidden rounded-md border border-stone-300 bg-stone-100 cursor-grab active:cursor-grabbing"
+            >
+              <div
+                className="flex h-full"
+                style={{
+                  width: `${ordered.length * 100}%`,
+                  transform: `translateX(calc(${-safeIndex * (100 / ordered.length)}% + ${dragOffset}px))`,
+                  transition: dragging ? 'none' : 'transform 300ms ease-out',
+                }}
+              >
+                {ordered.map(photo => (
                   <button
-                    onClick={() => setPreview(photo)}
-                    className="w-16 h-16 rounded-md overflow-hidden border border-stone-300 bg-stone-100 hover:border-orange-400 transition-colors"
+                    key={photo.id}
+                    type="button"
+                    onClick={() => handleTap(photo)}
+                    className="h-full flex-shrink-0"
+                    style={{ width: `${100 / ordered.length}%` }}
                     title={`${photo.name} - ${formatDateTime(photo.addedAt)}`}
                   >
-                    <img src={photo.dataUrl} alt={photo.name} className="w-full h-full object-cover" />
+                    <img src={photo.dataUrl} alt={photo.name} draggable={false} className="w-full h-full object-cover" />
                   </button>
-                  {canEdit && (
-                    <button
-                      onClick={() => removeAssetPhoto(asset.id, photo.id)}
-                      className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity shadow-sm"
-                      title="Eliminar fotografia"
-                    >
-                      <X size={12} />
-                    </button>
-                  )}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
+
+            {ordered.length > 1 && (
+              <>
+                <button
+                  onClick={goPrev}
+                  disabled={safeIndex === 0}
+                  aria-label="Foto anterior"
+                  className="absolute left-1.5 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-stone-700 shadow-card transition-opacity hover:bg-white disabled:pointer-events-none disabled:opacity-0"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button
+                  onClick={goNext}
+                  disabled={safeIndex === ordered.length - 1}
+                  aria-label="Foto siguiente"
+                  className="absolute right-1.5 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-stone-700 shadow-card transition-opacity hover:bg-white disabled:pointer-events-none disabled:opacity-0"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </>
+            )}
+
             {canEdit && (
               <button
-                onClick={() => removeAssetPhoto(asset.id, current.id)}
-                className="text-content text-stone-400 hover:text-red-600 transition-colors mt-3 inline-flex items-center gap-1"
+                onClick={async () => {
+                  if (await confirm({ title: 'Eliminar fotografia', message: '¿Estas seguro de eliminar esta fotografia?', confirmLabel: 'Eliminar', variant: 'danger' })) removeAssetPhoto(asset.id, current.id);
+                }}
+                className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow-sm transition-colors hover:bg-red-600"
+                title="Eliminar fotografia"
+                aria-label={`Eliminar ${current.name}`}
               >
-                <X size={12} color='red'/>
+                <X size={12} />
               </button>
             )}
           </div>
+
+          {ordered.length > 1 && (
+            <div className="flex items-center justify-center gap-1.5">
+              {ordered.map((photo, i) => (
+                <button
+                  key={photo.id}
+                  onClick={() => setIndex(i)}
+                  aria-label={`Ver foto ${i + 1} de ${ordered.length}`}
+                  className={`h-1.5 rounded-full transition-all ${i === safeIndex ? 'w-5 bg-orange-500' : 'w-1.5 bg-stone-300 hover:bg-stone-400'}`}
+                />
+              ))}
+            </div>
+          )}
+
+          <p className="text-center text-content text-stone-400">
+            {formatDateTime(current.addedAt)}{ordered.length > 1 ? ` · ${safeIndex + 1}/${ordered.length}` : ''}
+          </p>
         </div>
       ) : (
         <div className="text-center py-6 border border-dashed border-stone-200 rounded-md">
@@ -507,9 +597,11 @@ function CreateAssetModal({ open, onClose, onCreate, locations }: {
     acquisitionDate: new Date().toISOString().slice(0, 10),
     acquisitionCost: 0,
   });
+  const confirm = useConfirm();
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.code || !form.name) return;
+    if (!(await confirm({ title: 'Crear activo', message: '¿Estas seguro de crear la ficha de este activo?', confirmLabel: 'Crear ficha' }))) return;
     onCreate({
       ...form,
       lastMaintenance: new Date().toISOString().slice(0, 10),

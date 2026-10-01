@@ -1,6 +1,7 @@
 import { useApp } from '@/store/AppContext';
 import type { ModuleKey } from '@/types';
 import { Bell, Menu, PenLine } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 const moduleTitles: Record<ModuleKey, { title: string; subtitle: string }> = {
   activos: { title: 'Activos', subtitle: '' },
@@ -21,6 +22,12 @@ export function Header({ onMenuClick, onSignatureClick, menuLabel = 'Abrir menu'
   const { activeModule, setActiveModule, notifications } = useApp();
   const { title, subtitle } = moduleTitles[activeModule];
   const unreadCount = notifications.filter(n => !n.read).length;
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <header className="bg-white border-b border-stone-200 px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3 flex-shrink-0">
@@ -41,7 +48,7 @@ export function Header({ onMenuClick, onSignatureClick, menuLabel = 'Abrir menu'
       <div className="flex items-center gap-4 flex-shrink-0">
         <div className="text-right hidden sm:block">
           <p className="text-xs text-stone-400">Fecha</p>
-          <p className="text-sm font-medium text-stone-700"> { new Intl.DateTimeFormat('es-ES', { weekday: 'long',  }).format(new Date()) + " " + new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString() }</p>
+          <p className="text-sm font-medium text-stone-700"> { new Intl.DateTimeFormat('es-ES', { weekday: 'long',  }).format(now) + " " + now.toLocaleDateString() + " " + now.toLocaleTimeString() }</p>
         </div>
         <button
           onClick={onSignatureClick}

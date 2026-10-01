@@ -253,9 +253,13 @@ function resolvedLineStatus(status: OTLineStatus): OTLineStatus {
 
 /** Llaves de localStorage. Subir la version de una llave descarta lo guardado de ese dominio. */
 const storageKeys = {
-  assets: 'rcj_v1_assets',
+  // v2: flota inicial de 20 vehiculos reales (Camion/Volqueta/Traileta/Vehiculo Ligero) precargada --
+  // antes arrancaba vacio (ver mockData.ts)
+  assets: 'rcj_v2_assets',
   assetHistory: 'rcj_v1_asset_history',
-  parts: 'rcj_v1_parts',
+  // v2 (parts): catalogo inicial de 20 repuestos (Bodega/Ubicacion iguales en todos) precargado -- antes
+  // arrancaba vacio (ver mockData.ts)
+  parts: 'rcj_v2_parts',
   movements: 'rcj_v1_movements',
   workOrders: 'rcj_v1_work_orders',
   fuelLoads: 'rcj_v1_fuel_loads',
@@ -263,8 +267,14 @@ const storageKeys = {
   // v3: catalogo de fabrica completo (Camion/Volqueta/Traileta/Vehiculo Ligero con modelos, intervalos y
   // tareas en Preventivo/Correctivo; Emergencia/Inspeccion con mas items) -- sube de version de nuevo para
   // que el default nuevo reemplace lo que hubiera en v2 (ver mockData.ts)
+  // v4 (solo maintenancePlans): Preventivo paso de intervalos por km/modelo generico a modelos con
+  // clasificacion por numero de ruedas (6R/10R/12R + variante especializada) y mantenimiento por horas de
+  // uso (800/1200/1600 Hrs), con todas las categorias completas -- antes solo Volqueta tenia este detalle
+  // v5 (solo maintenancePlans): Correctivo gano el mismo nivel de Categoria>Modelo especifico que
+  // Preventivo (antes saltaba directo a Categoria>Sistema); Emergencia e Inspeccion ganaron un nivel de
+  // acciones/puntos concretos bajo cada tipo (antes eran listas planas de un solo nivel)
   workTypes: 'rcj_v3_work_types',
-  maintenancePlans: 'rcj_v3_maintenance_plans',
+  maintenancePlans: 'rcj_v5_maintenance_plans',
   permissions: 'rcj_v9_permissions',
   requisitionRepair: 'rcj_requisition_repair_v1',
 } as const;

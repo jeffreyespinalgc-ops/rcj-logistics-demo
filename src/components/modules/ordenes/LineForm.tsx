@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useApp, type NewOTLine } from '@/store/AppContext';
 import { Button } from '@/components/ui/Button';
 import type { Asset, OTLinePart } from '@/types';
-import { emptyPlanSelection, inferNodeIds, planSelectionResult, type PlanSelection } from '@/lib/planSelection';
+import { emptyPlanSelection, inferPlanSelection, planSelectionResult, type PlanSelection } from '@/lib/planSelection';
 import { fileToCompressedDataUrl } from '@/lib/image';
 import { PlanPicker } from './PlanPicker';
 import { AlertTriangle, Camera, ChevronDown, Trash2, Upload, X } from 'lucide-react';
@@ -94,10 +94,6 @@ export function PartsEditor({ value, onChange }: { value: OTLinePart[]; onChange
   const nameOptions = (currentPartId: string | null) => inventory
     .filter(p => p.id === currentPartId || !usedIds.has(p.id))
     .map(p => ({ value: p.id, label: p.description }));
-
-  if (inventory.length === 0) {
-    return <p className="text-content text-stone-500">No hay repuestos en el inventario.</p>;
-  }
 
   const cell = 'border border-stone-300 px-2 py-1.5';
 
@@ -284,8 +280,8 @@ export function LineFields({ draft, asset }: { draft: LineDraft; asset?: Asset }
     if (!asset || !draft.selection.workTypeCode || draft.selection.nodeIds.length > 0) return;
     const type = workTypes.find(w => w.code === draft.selection.workTypeCode);
     if (!type) return;
-    const inferred = inferNodeIds(maintenancePlans[type.code] ?? [], asset);
-    if (inferred.length > 0) draft.setSelection({ ...draft.selection, nodeIds: inferred });
+    const inferred = inferPlanSelection(maintenancePlans[type.code] ?? [], asset);
+    if (inferred.nodeIds.length > 0) draft.setSelection({ ...draft.selection, nodeIds: inferred.nodeIds, checkedIds: inferred.checkedIds });
     // solo cuando cambia el vehiculo o el tipo de trabajo elegido: no queremos pelear con la navegacion manual
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asset?.id, draft.selection.workTypeCode]);
@@ -371,7 +367,7 @@ export function LineFields({ draft, asset }: { draft: LineDraft; asset?: Asset }
               disabled={busy}
               title="Tomar fotografia con la camara"
             >
-              <Camera size={14} /> Tomar foto
+              <Camera size={14} /> 
             </Button>
             <Button
               type="button"
@@ -382,7 +378,7 @@ export function LineFields({ draft, asset }: { draft: LineDraft; asset?: Asset }
               disabled={busy}
               title="Subir imagenes desde el dispositivo"
             >
-              <Upload size={14} /> Subir imagen
+              <Upload size={14} /> 
             </Button>
             <input
               ref={cameraRef}
