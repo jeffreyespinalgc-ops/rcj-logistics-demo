@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '@/store/AppContext';
 import { useConfirm } from '@/store/ConfirmContext';
+import { useToast } from '@/store/ToastContext';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Field, Select } from '@/components/ui/Field';
 import { SortableTh } from '@/components/ui/SortableTh';
 import { useSort } from '@/lib/useSort';
 import type { OTLine, OTLinePart, RequisitionStep, WorkOrder } from '@/types';
-import { AlertTriangle, ChevronRight, Eye, FileSignature, PenTool, Search, SlidersHorizontal, X } from 'lucide-react';
+import { AlertTriangle, ChevronRight, CircleChevronRight, Eye, FileSignature, PenBoxIcon, PenTool, Search, SlidersHorizontal, X } from 'lucide-react';
 import {
   isDelivered,
   isPartial,
@@ -295,7 +296,7 @@ export function RequisasTable() {
                           className="min-h-[44px] sm:min-h-0"
                           onClick={e => { e.stopPropagation(); setPreview({ otId: ot.id }); }}
                         >
-                          <Eye size={12} />
+                          <Eye size={12} /> Ver
                         </Button>
                         {mySteps.length > 0 ? (
                           <Button
@@ -303,10 +304,10 @@ export function RequisasTable() {
                             className="min-h-[44px] sm:min-h-0"
                             onClick={e => { e.stopPropagation(); open(); }}
                           >
-                            <PenTool size={12} />
+                            <PenBoxIcon size={12} /> Revisar
                           </Button>
                         ) : (
-                          <ChevronRight size={16} className="text-stone-400" aria-hidden="true" />
+                          <CircleChevronRight size={12} className="text-black" aria-hidden="true" />
                         )}
                       </span>
                     </td>
@@ -416,6 +417,7 @@ function OTRequisitionGroupModal({ otId, onClose }: { otId: string; onClose: () 
 function RequisitionModal({ otId, lineId, onClose }: { otId: string; lineId: string; onClose: () => void }) {
   const { workOrders, parts, hasPermission, currentUser, signRequisition } = useApp();
   const confirm = useConfirm();
+  const toast = useToast();
   const [error, setError] = useState<string | null>(null);
   const [showDocument, setShowDocument] = useState(false);
   const [delivery, setDelivery] = useState<Record<string, number>>({});
@@ -453,7 +455,7 @@ function RequisitionModal({ otId, lineId, onClose }: { otId: string; lineId: str
     if (!(await confirm({ title: 'Firmar requisa', message: `¿Estas seguro de firmar "${requisitionSignLabels[step]}"?`, confirmLabel: 'Firmar' }))) return;
     const result = signRequisition(ot.id, line.id, step, dispatching ? Object.fromEntries(line.parts.map(p => [p.partId, toDeliver(p)])) : undefined);
     if (result) setError(result);
-    else onClose();
+    else { toast('Firma registrada correctamente'); onClose(); }
   };
 
   const pending = missingSteps(line).map(s => requisitionStepLabels[s]);

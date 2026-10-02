@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '@/store/AppContext';
 import { useConfirm } from '@/store/ConfirmContext';
+import { useToast } from '@/store/ToastContext';
 import { Button } from '@/components/ui/Button';
 import { TextInput } from '@/components/ui/Field';
 import type { MaintenanceTreeNode, OTWorkType } from '@/types';
@@ -95,6 +96,7 @@ function AdminPlanColumns({ workType, roots, rootLabel, openPath, setOpenPath }:
 }) {
   const { addMaintenanceNode, renameMaintenanceNode, removeMaintenanceNode, moveMaintenanceNode } = useApp();
   const confirm = useConfirm();
+  const toast = useToast();
   const rowRef = useRef<HTMLDivElement>(null);
   const columnRefs = useRef(new Map<number, HTMLDivElement>());
   const [newNameByDepth, setNewNameByDepth] = useState<Record<number, string>>({});
@@ -115,6 +117,7 @@ function AdminPlanColumns({ workType, roots, rootLabel, openPath, setOpenPath }:
   const handleDelete = async (depth: number, node: MaintenanceTreeNode) => {
     if (!(await confirm({ title: 'Eliminar elemento', message: `¿Estas seguro de eliminar "${node.name}"? Se eliminaran tambien sus subelementos.`, confirmLabel: 'Eliminar', variant: 'danger' }))) return;
     removeMaintenanceNode(workType, node.id);
+    toast({ message: `"${node.name}" eliminado`, variant: 'info' });
     // si se borra el elemento que estaba abierto en el camino, se recorta la navegacion hasta ahi
     if (openPath[depth] === node.id) setOpenPath(openPath.slice(0, depth));
   };

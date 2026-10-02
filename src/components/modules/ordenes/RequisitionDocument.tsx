@@ -39,7 +39,7 @@ export function RequisitionDocumentButton({ ot, line, onView }: { ot: WorkOrder;
         <Eye size={14} /> 
       </Button>
       {open && !onView && (
-        <Modal open onClose={() => setOpen(false)} title={`Documento ${line.requisition?.code ?? ''}`} size="xl">
+        <Modal open onClose={() => setOpen(false)} title={`Documento ${line.requisition?.code ?? ''}`} size="lg">
           <RequisitionDocumentView ot={ot} line={line} onBack={() => setOpen(false)} backLabel="Cerrar" />
         </Modal>
       )}

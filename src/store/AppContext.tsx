@@ -54,7 +54,7 @@ export type PhotoGroup = 'before' | 'after';
 
 type NewWorkOrder = Omit<
   WorkOrder,
-  'id' | 'lines' | 'closedAt' | 'approvedBy' | 'signedBy' | 'inventorySignedBy' | 'inventorySignedAt'
+  'id' | 'lines' | 'closedAt' | 'approvedBy' | 'signedBy' | 'inventorySignedBy' | 'inventorySignedAt' | 'sapSentAt'
   | 'rejectedReason' | 'estimatedCost' | 'history' | 'createdBy' | 'status'
 >;
 
@@ -72,6 +72,10 @@ interface AppState {
   pendingOTId: string | null;
   openWorkOrder: (otId: string) => void;
   clearPendingOT: () => void;
+  /** Activo que otro modulo pidio abrir (p. ej. el vehiculo de una OT); Activos lo abre y lo limpia */
+  pendingAssetId: string | null;
+  openAsset: (assetId: string) => void;
+  clearPendingAsset: () => void;
 
   // Sesion activa (viene del login)
   currentRole: UserRole;
@@ -318,6 +322,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const { session, users } = useAuth();
   const [requestedModule, setActiveModule] = useState<ModuleKey>('activos');
   const [pendingOTId, setPendingOTId] = useState<string | null>(null);
+  const [pendingAssetId, setPendingAssetId] = useState<string | null>(null);
   const [assets, setAssets] = useState<Asset[]>(() => loadJSON(storageKeys.assets, initialAssets));
   const [assetHistory, setAssetHistory] = useState<AssetHistoryEntry[]>(() => loadJSON(storageKeys.assetHistory, initialAssetHistory));
   const [parts, setParts] = useState<Part[]>(() => loadJSON(storageKeys.parts, initialParts));
@@ -354,6 +359,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPendingOTId(otId);
   }, []);
   const clearPendingOT = useCallback(() => setPendingOTId(null), []);
+
+  const openAsset = useCallback((assetId: string) => {
+    setActiveModule('activos');
+    setPendingAssetId(assetId);
+  }, []);
+  const clearPendingAsset = useCallback(() => setPendingAssetId(null), []);
 
   const hasPermission = useCallback(
     (p: Permission) => permissions[currentRole]?.includes(p) ?? false,
@@ -588,6 +599,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       signedBy: null,
       inventorySignedBy: null,
       inventorySignedAt: null,
+      sapSentAt: null,
       rejectedReason: null,
       estimatedCost: 0,
       history: [
@@ -738,7 +750,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [transition, workOrders, pushNotification]);
 
   const closeWorkOrder = useCallback((id: string) => {
-    transition(id, 'cerrada', { closedAt: today() });
+    // "Enviado a SAP" es la ultima etapa de la linea de tiempo: se simula automatica e instantanea al
+    // cerrar (siempre exitosa), no requiere una accion aparte del usuario.
+    transition(id, 'cerrada', { closedAt: today(), sapSentAt: now() });
     const ot = workOrders.find(o => o.id === id);
     if (ot) {
       pushAssetHistory({ assetId: ot.assetId, date: today(), type: 'ot', description: ot.description, reference: ot.code });
@@ -1082,6 +1096,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AppState>(() => ({
     activeModule, setActiveModule, pendingOTId, openWorkOrder, clearPendingOT,
+    pendingAssetId, openAsset, clearPendingAsset,
     currentRole, currentUser,
     permissions, hasPermission, setRolePermission, resetPermissions,
     assets, assetHistory, addAsset, syncingAssets, lastAssetSync, syncAssetsFromSAP,
@@ -1097,7 +1112,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     workTypes, addWorkType, updateWorkType, removeWorkType,
     maintenancePlans, addMaintenanceNode, renameMaintenanceNode, removeMaintenanceNode, moveMaintenanceNode,
   }), [
-    activeModule, pendingOTId, openWorkOrder, clearPendingOT, currentRole, currentUser, permissions, hasPermission, setRolePermission, resetPermissions,
+    activeModule, pendingOTId, openWorkOrder, clearPendingOT, pendingAssetId, openAsset, clearPendingAsset, currentRole, currentUser, permissions, hasPermission, setRolePermission, resetPermissions,
     assets, assetHistory, addAsset, syncingAssets, lastAssetSync, syncAssetsFromSAP, addAssetPhoto,
     removeAssetPhoto, parts, addPart, updatePart, removePart, movements, workOrders, addWorkOrder, updateWorkOrder,
     updateWorkOrderStatus, submitForApproval,

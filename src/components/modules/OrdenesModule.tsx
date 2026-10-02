@@ -1,5 +1,6 @@
 import { useApp } from '@/store/AppContext';
 import { useConfirm } from '@/store/ConfirmContext';
+import { useToast } from '@/store/ToastContext';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -67,6 +68,7 @@ export function OrdenesModule() {
     assignWorkOrder, finalizeWorkOrder, closeWorkOrder, signOTInventory,
   } = useApp();
   const confirm = useConfirm();
+  const toast = useToast();
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => (window.matchMedia('(max-width: 639px)').matches ? 'cuadricula' : 'lista'));
   const [selectedOTId, setSelectedOTId] = useState<string | null>(null);
@@ -138,7 +140,10 @@ export function OrdenesModule() {
               message: reopening ? '¿Estas seguro de reabrir la OT?' : '¿Estas seguro de enviar esta OT a aprobacion?',
               confirmLabel: reopening ? 'Reabrir OT' : 'Enviar',
             });
-            if (ok) submitForApproval(selectedOT.id);
+            if (ok) {
+              submitForApproval(selectedOT.id);
+              toast(reopening ? `${selectedOT.code} reabierta correctamente` : `${selectedOT.code} enviada a aprobacion`);
+            }
           }}
           onApprove={() => setShowApproveModal(true)}
           onReject={() => setShowRejectModal(true)}
@@ -160,6 +165,7 @@ export function OrdenesModule() {
           onConfirm={() => {
             approveWorkOrder(selectedOT.id, currentUser);
             setShowApproveModal(false);
+            toast(`${selectedOT.code} aprobada correctamente`);
           }}
         />
 
@@ -180,6 +186,7 @@ export function OrdenesModule() {
               rejectWorkOrder(selectedOT.id, rejectReason);
               setShowRejectModal(false);
               setRejectReason('');
+              toast({ message: `${selectedOT.code} rechazada`, variant: 'info' });
             }
           }}
         />
@@ -194,6 +201,7 @@ export function OrdenesModule() {
           onConfirm={() => {
             finalizeWorkOrder(selectedOT.id, currentUser);
             setShowFinalizeModal(false);
+            toast(`${selectedOT.code} finalizada correctamente`);
           }}
         />
 
@@ -207,6 +215,7 @@ export function OrdenesModule() {
           onConfirm={() => {
             signOTInventory(selectedOT.id, currentUser);
             setShowSignInventoryModal(false);
+            toast(`Documento de ${selectedOT.code} firmado correctamente`);
           }}
         />
 
@@ -220,6 +229,7 @@ export function OrdenesModule() {
           onConfirm={() => {
             closeWorkOrder(selectedOT.id);
             setShowCloseModal(false);
+            toast(`${selectedOT.code} cerrada y enviada a SAP correctamente`);
           }}
         />
 
@@ -233,6 +243,7 @@ export function OrdenesModule() {
           onConfirm={() => {
             approveEmergencyRetro(selectedOT.id, currentUser);
             setShowRetroModal(false);
+            toast(`${selectedOT.code} aprobada retroactivamente`);
           }}
         />
 
@@ -243,6 +254,7 @@ export function OrdenesModule() {
           onAssign={(who, type) => {
             assignWorkOrder(selectedOT.id, who, type);
             setShowAssignModal(false);
+            toast(`${selectedOT.code} asignada correctamente`);
           }}
         />
       </>
@@ -288,7 +300,7 @@ export function OrdenesModule() {
             )} */}
             {canCreate && (
               <Button onClick={() => setCreating(true)}>
-                <Plus size={16} />
+                <Plus size={16} /> Crear Orden de Trabajo
               </Button>
             )}
           </div>
@@ -344,6 +356,7 @@ const otSortGetters = {
 };
 
 function OTTable({ orders, onSelect }: { orders: WorkOrder[]; onSelect: (id: string) => void }) {
+  const { openAsset } = useApp();
   const { sorted, sort, toggle } = useSort(orders, otSortGetters);
 
   return (
@@ -369,7 +382,13 @@ function OTTable({ orders, onSelect }: { orders: WorkOrder[]; onSelect: (id: str
               <tr key={ot.id} className="cursor-pointer" onClick={() => onSelect(ot.id)}>
                 <td className="text-stone-600 font-semibold">{ot.code}</td>
                 <td className="text-stone-600">
-                  <span className="block text-stone-700">{ot.assetName}</span>
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); openAsset(ot.assetId); }}
+                    className="block text-left text-blue-700 hover:underline"
+                  >
+                    {ot.assetName}
+                  </button>
                 </td>
                 <td className="font-medium text-stone-800 max-w-[280px] truncate">{ot.description}</td>
                 <td><Badge variant={priorityVariants[ot.priority]}>{priorityLabels[ot.priority]}</Badge></td>
@@ -398,6 +417,7 @@ function OTTable({ orders, onSelect }: { orders: WorkOrder[]; onSelect: (id: str
 }
 
 function OTCard({ ot, onClick }: { ot: WorkOrder; onClick: () => void }) {
+  const { openAsset } = useApp();
   const progress = otProgress(ot);
   const photos = ot.lines.reduce((s, l) => s + l.photosBefore.length + l.photosAfter.length, 0);
 
@@ -412,9 +432,13 @@ function OTCard({ ot, onClick }: { ot: WorkOrder; onClick: () => void }) {
       </div>
 
       <p className="text-content font-normal text-stone-800 mb-1 line-clamp-2">{ot.description}</p>
-      <p className="text-content text-stone-500 mb-2">
+      <button
+        type="button"
+        onClick={e => { e.stopPropagation(); openAsset(ot.assetId); }}
+        className="mb-2 block text-content text-blue-700 hover:underline"
+      >
         {ot.assetCode} · {ot.assetName}
-      </p>
+      </button>
 
       <div className="flex items-center gap-1.5 flex-wrap mb-2">
         <Badge variant={priorityVariants[ot.priority]}>{priorityLabels[ot.priority]}</Badge>
@@ -492,7 +516,9 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
   const canFinalize = hasPermission('ot.finalizar') && (isAssigned || canSeeAllOTs) && ot.status === 'en_ejecucion';
   const canFinalizeNow = canFinalize && !blocked;
   const canClose = hasPermission('ot.cerrar') && ot.status === 'finalizada';
-  const canSignInventory = hasPermission('ot.inventario.firmar') && ot.status === 'finalizada' && !ot.inventorySignedBy;
+  // Revision de Inventario va ANTES de Finalizar en la linea de tiempo: Control de Inventario firma
+  // mientras la OT sigue en ejecucion, y esa firma es requisito para poder finalizar (ver blockingReason)
+  const canSignInventory = hasPermission('ot.inventario.firmar') && ot.status === 'en_ejecucion' && !ot.inventorySignedBy;
   // reabrir una OT rechazada: el Jefe de Taller (mismo permiso con el que la rechazo) o el tecnico que la creo
   const canReopen = ot.status === 'rechazada' && (hasPermission('ot.rechazar') || isCreator);
   const hasActions = canSubmit || canApprove || canReject || canAssign || canRetro || canClose || canSignInventory || canReopen;
@@ -643,6 +669,7 @@ function SapCell({ label, children }: { label: string; children: React.ReactNode
 function EditOTModal({ ot, onClose }: { ot: WorkOrder; onClose: () => void }) {
   const { updateWorkOrder } = useApp();
   const confirm = useConfirm();
+  const toast = useToast();
   const [description, setDescription] = useState(ot.description);
   const [priority, setPriority] = useState<OTPriority>(ot.priority);
   const [error, setError] = useState<string | null>(null);
@@ -652,7 +679,7 @@ function EditOTModal({ ot, onClose }: { ot: WorkOrder; onClose: () => void }) {
     if (!(await confirm({ title: 'Editar OT', message: '¿Estas seguro de guardar los cambios de esta OT?', confirmLabel: 'Guardar cambios' }))) return;
     const result = updateWorkOrder(ot.id, { description, priority });
     if (result) setError(result);
-    else onClose();
+    else { toast(`${ot.code} actualizada correctamente`); onClose(); }
   };
 
   return (

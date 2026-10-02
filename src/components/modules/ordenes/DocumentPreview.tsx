@@ -44,7 +44,7 @@ export function DocumentPreview({ buildDoc, documentKey, altPrefix, canDownload,
 
   return (
     <div className="space-y-4">
-      <div className="max-h-[65dvh] space-y-3 overflow-auto rounded-md border border-stone-200 bg-stone-100 p-2 sm:p-3">
+      <div className="flex max-h-[75dvh] flex-col items-center space-y-3 overflow-auto rounded-md border border-stone-200 bg-stone-100 p-2 sm:p-3">
         {preview.status === 'loading' && (
           <p role="status" className="py-16 text-center text-content text-stone-500">Generando documento...</p>
         )}
@@ -59,7 +59,7 @@ export function DocumentPreview({ buildDoc, documentKey, altPrefix, canDownload,
             key={i}
             src={src}
             alt={`${altPrefix}, hoja ${i + 1} de ${preview.pages.length}`}
-            className="h-auto w-full rounded bg-white shadow-card"
+            className="h-auto max-h-[70dvh] w-auto max-w-full flex-shrink-0 rounded bg-white shadow-card"
           />
         ))}
       </div>

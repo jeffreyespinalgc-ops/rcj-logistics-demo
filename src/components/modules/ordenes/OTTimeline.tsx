@@ -1,5 +1,6 @@
 import type { WorkOrder } from '@/types';
 import { Check } from 'lucide-react';
+import { requiresRequisition, requisitionStatus } from '@/lib/requisition';
 import { formatDateTime, otFlow, statusLabels, statusOwnerLabels } from './otMeta';
 
 interface TimelineStep {
@@ -14,41 +15,66 @@ interface TimelineStep {
 
 /**
  * Linea de tiempo del flujo de la OT:
- * Creada -> Pendiente de aprobacion -> Aprobada -> En ejecucion -> Finalizada -> Revision de Inventario
- * El ultimo paso ya NO es el estado "cerrada" de la OT (ese estado sigue existiendo para el cierre del
- * Jefe de Taller en el resto de la app, solo se dejo de representar aqui): muestra en su lugar la firma
- * de Control de Inventario sobre el documento de la OT (`ot.inventorySignedAt`), que puede llegar antes
- * o despues de que el Jefe cierre la OT.
+ * Creada -> Pendiente de aprobacion -> Aprobada -> Revision de Inventario -> En ejecucion -> Finalizada -> Enviado a SAP
+ * "Revision de Inventario" y "Enviado a SAP" no son estados reales de la OT (`OTStatus`), son hitos.
+ * "Revision de Inventario" representa la CADENA DE FIRMAS de la requisa de repuestos (Tecnico solicita ->
+ * Jefe de Taller autoriza -> Control de Inventario entrega -> Tecnico recibe): esta "pendiente" mientras
+ * cualquier linea con repuestos tenga alguna de esas firmas sin completar, y "lista" cuando todas las
+ * requisas de la OT ya estan completas (o si ninguna linea necesita repuestos). Va justo despues de
+ * "Aprobada" porque es ahi, con la OT ya aprobada, cuando esas firmas empiezan a pedirse. OJO: esto es
+ * independiente del boton "Firmar como Control de Inventario" (`ot.inventorySignedAt`, una sola firma
+ * de Control sobre el documento completo de la OT) -- ese sigue existiendo aparte, sin paso propio aqui.
+ * "Enviado a SAP" depende de `ot.sapSentAt`, que se simula automaticamente (siempre exitoso) al cerrar la
+ * OT. El estado real "cerrada" no tiene su propio paso visual: "Enviado a SAP" ocurre en el mismo momento
+ * y lo reemplaza como hito final.
  */
 export function OTTimeline({ ot }: { ot: WorkOrder }) {
   // "rechazada" no forma parte de otFlow: se muestra el flujo detenido en "Pendiente de aprobacion",
   // que es la etapa desde la que se rechaza (el banner rojo de abajo explica el motivo)
-  const displaySteps = otFlow.slice(0, -1);
   const currentIndex = ot.status === 'rechazada' ? otFlow.indexOf('pendiente_aprobacion') : otFlow.indexOf(ot.status);
-  const inventoryDone = Boolean(ot.inventorySignedAt);
-  const inventoryActive = !inventoryDone && currentIndex >= displaySteps.length;
+  const earlySteps = otFlow.slice(0, otFlow.indexOf('aprobada') + 1);
+  const lateSteps = otFlow.slice(otFlow.indexOf('en_ejecucion'), otFlow.indexOf('finalizada') + 1);
+  const reachedAprobada = currentIndex >= otFlow.indexOf('aprobada');
+  const requisitionPending = ot.lines.some(l => requiresRequisition(l) && requisitionStatus(l) !== 'completa');
+  const requisitionDone = reachedAprobada && !requisitionPending;
+  const requisitionActive = reachedAprobada && requisitionPending;
+  const sapDone = Boolean(ot.sapSentAt);
+  const sapActive = !sapDone && ot.status === 'cerrada';
+
+  const statusStep = (status: typeof otFlow[number]): TimelineStep => {
+    const idx = otFlow.indexOf(status);
+    const entry = [...ot.history].reverse().find(h => h.status === status);
+    return {
+      key: status,
+      label: statusLabels[status],
+      owner: statusOwnerLabels[status],
+      done: idx < currentIndex,
+      active: idx === currentIndex,
+      at: entry?.at ?? null,
+      by: entry?.by ?? null,
+    };
+  };
 
   const steps: TimelineStep[] = [
-    ...displaySteps.map((status, idx) => {
-      const entry = [...ot.history].reverse().find(h => h.status === status);
-      return {
-        key: status,
-        label: statusLabels[status],
-        owner: statusOwnerLabels[status],
-        done: idx < currentIndex,
-        active: idx === currentIndex,
-        at: entry?.at ?? null,
-        by: entry?.by ?? null,
-      };
-    }),
+    ...earlySteps.map(statusStep),
     {
       key: 'revision_inventario',
       label: 'Revision de Inventario',
-      owner: 'Control de Inventario',
-      done: inventoryDone,
-      active: inventoryActive,
-      at: ot.inventorySignedAt,
-      by: ot.inventorySignedBy,
+      owner: 'Tecnico / Jefe de Taller / Control de Inventario',
+      done: requisitionDone,
+      active: requisitionActive,
+      at: null,
+      by: null,
+    },
+    ...lateSteps.map(statusStep),
+    {
+      key: 'enviado_sap',
+      label: 'Enviado a SAP',
+      owner: 'Sistema',
+      done: sapDone,
+      active: sapActive,
+      at: ot.sapSentAt,
+      by: sapDone ? 'SAP' : null,
     },
   ];
 

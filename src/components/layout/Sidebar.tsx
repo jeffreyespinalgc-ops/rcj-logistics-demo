@@ -36,7 +36,7 @@ const navItems: NavItem[] = [
   { key: 'activos', label: 'Vehiculos', icon: Truck },
   { key: 'inventario', label: 'Repuestos e Inventario', icon: Package },
   { key: 'ordenes', label: 'Ordenes de Trabajo', icon: ClipboardList },
-  { key: 'combustible', label: 'Combustible', icon: Fuel },
+  // { key: 'combustible', label: 'Combustible', icon: Fuel },
   { key: 'reportes', label: 'Reportes TCO', icon: BarChart3 },
   { key: 'notificaciones', label: 'Notificaciones', icon: Bell },
   { key: 'administracion', label: 'Administracion', icon: Settings },
@@ -46,6 +46,9 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
   const { activeModule, setActiveModule, notifications, hasPermission, currentRole, workOrders, currentUser } = useApp();
   const { session, logout } = useAuth();
   const unreadCount = notifications.filter(n => !n.read).length;
+  // cambios de estado, firmas y hallazgos de una OT avisan en el propio modulo de Ordenes de Trabajo,
+  // no solo en Notificaciones (bajo_stock es de Repuestos e Inventario; la sincronizacion SAP no es de una OT)
+  const unreadOTNotifications = notifications.filter(n => !n.read && n.type !== 'bajo_stock' && n.reference !== 'SAP').length;
   const mini = mode === 'mini';
   // minimizado: solo quedan los iconos, en cualquier tamano de pantalla
   const hideText = mini ? 'hidden' : '';
@@ -62,6 +65,7 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
   const badgeCounts: Partial<Record<ModuleKey, number>> = {
     notificaciones: unreadCount,
     inventario: pendingRequisitions,
+    ordenes: unreadOTNotifications,
   };
 
   return (

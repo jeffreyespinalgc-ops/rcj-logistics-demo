@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { AppProvider, useApp } from '@/store/AppContext';
 import { AuthProvider, useAuth } from '@/store/AuthContext';
 import { ConfirmProvider } from '@/store/ConfirmContext';
+import { ToastProvider } from '@/store/ToastContext';
 import { LoginScreen } from '@/components/auth/LoginScreen';
 import { Sidebar, type SidebarMode } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
@@ -107,11 +108,13 @@ function AuthGate() {
 
 function App() {
   return (
-    <ConfirmProvider>
-      <AuthProvider>
-        <AuthGate />
-      </AuthProvider>
-    </ConfirmProvider>
+    <ToastProvider>
+      <ConfirmProvider>
+        <AuthProvider>
+          <AuthGate />
+        </AuthProvider>
+      </ConfirmProvider>
+    </ToastProvider>
   );
 }
 

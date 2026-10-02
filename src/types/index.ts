@@ -216,9 +216,11 @@ export interface WorkOrder {
   closedAt: string | null;
   approvedBy: string | null;
   signedBy: string | null;
-  /** Firma de Control de Inventario sobre el documento completo de la OT; no bloquea ni depende de "Firmar y cerrar OT" */
+  /** Firma de Control de Inventario sobre el documento completo de la OT; etapa previa obligatoria a Finalizar */
   inventorySignedBy: string | null;
   inventorySignedAt: string | null;
+  /** Envio a SAP: automatico y simulado al cerrar la OT (ultima etapa de la linea de tiempo) */
+  sapSentAt: string | null;
   rejectedReason: string | null;
   lines: OTLine[];
   estimatedCost: number;

@@ -1,5 +1,6 @@
 import { useApp } from '@/store/AppContext';
 import { useConfirm } from '@/store/ConfirmContext';
+import { useToast } from '@/store/ToastContext';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -26,7 +27,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 
 const statusLabels: Record<AssetStatus, string> = {
   operativo: 'Operativo',
@@ -68,7 +69,7 @@ const assetSortGetters = {
 };
 
 export function ActivosModule() {
-  const { assets, assetHistory, addAsset, syncAssetsFromSAP, syncingAssets, lastAssetSync, hasPermission } = useApp();
+  const { assets, assetHistory, addAsset, syncAssetsFromSAP, syncingAssets, lastAssetSync, hasPermission, pendingAssetId, clearPendingAsset } = useApp();
   const confirm = useConfirm();
   const canSync = hasPermission('activos.sap.vincular');
   const canCreateAsset = hasPermission('activos.crear');
@@ -79,6 +80,14 @@ export function ActivosModule() {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [detailTab, setDetailTab] = useState<'ficha' | 'historial'>('ficha');
+
+  // otro modulo (p. ej. Ordenes de Trabajo) puede pedir abrir un activo concreto
+  useEffect(() => {
+    if (!pendingAssetId) return;
+    const asset = assets.find(a => a.id === pendingAssetId);
+    if (asset) { setSelectedAsset(asset); setDetailTab('ficha'); }
+    clearPendingAsset();
+  }, [pendingAssetId, assets, clearPendingAsset]);
 
   const locations = useMemo(() => [...new Set(assets.map(a => a.location))], [assets]);
 
@@ -113,6 +122,8 @@ export function ActivosModule() {
         detailTab={detailTab}
         setDetailTab={setDetailTab}
         onSync={async () => {
+          // syncAssetsFromSAP simula la demora con setTimeout y avisa sola por notificacion al terminar
+          // de verdad (no es awaitable): un toast aqui mismo saldria antes de que la sincronizacion termine.
           if (await confirm({ title: 'Sincronizar con SAP', message: '¿Estas seguro de sincronizar este activo con SAP?', confirmLabel: 'Sincronizar' })) syncAssetsFromSAP(current.id);
         }}
         syncing={syncingAssets}
@@ -137,7 +148,7 @@ export function ActivosModule() {
           </div>
           <div className="flex items-center gap-2">
             {canCreateAsset && (
-              <Button variant="outline" onClick={() => setShowCreateModal(true)}>
+              <Button variant="primary" onClick={() => setShowCreateModal(true)}>
                 <Plus size={16} /> CREAR FICHA
               </Button>
             )}
@@ -367,6 +378,7 @@ function AssetDetail({ asset, history, onBack, detailTab, setDetailTab, onSync, 
 function AssetPhotoGallery({ asset }: { asset: Asset }) {
   const { addAssetPhoto, removeAssetPhoto, hasPermission } = useApp();
   const confirm = useConfirm();
+  const toast = useToast();
   const canEdit = hasPermission('activos.fotos.gestionar');
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<AssetPhoto | null>(null);
@@ -507,7 +519,10 @@ function AssetPhotoGallery({ asset }: { asset: Asset }) {
             {canEdit && (
               <button
                 onClick={async () => {
-                  if (await confirm({ title: 'Eliminar fotografia', message: '¿Estas seguro de eliminar esta fotografia?', confirmLabel: 'Eliminar', variant: 'danger' })) removeAssetPhoto(asset.id, current.id);
+                  if (await confirm({ title: 'Eliminar fotografia', message: '¿Estas seguro de eliminar esta fotografia?', confirmLabel: 'Eliminar', variant: 'danger' })) {
+                    removeAssetPhoto(asset.id, current.id);
+                    toast({ message: 'Fotografia eliminada', variant: 'info' });
+                  }
                 }}
                 className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow-sm transition-colors hover:bg-red-600"
                 title="Eliminar fotografia"
@@ -568,10 +583,12 @@ function AssetPhotoGallery({ asset }: { asset: Asset }) {
 /** Dato de la ficha: etiqueta en negrita y valor en peso normal (formato de ficha, como SAP) */
 function InfoField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="sap-cell">
-      <dt>{label}:</dt>
-      <dd>{value}</dd>
-    </div>
+    <>
+      <div className="sap-cell">
+        <dt>{label}:</dt>
+        <dd>{value}</dd>
+      </div>
+    </>
   );
 }
 
@@ -598,6 +615,7 @@ function CreateAssetModal({ open, onClose, onCreate, locations }: {
     acquisitionCost: 0,
   });
   const confirm = useConfirm();
+  const toast = useToast();
 
   const handleSubmit = async () => {
     if (!form.code || !form.name) return;
@@ -610,6 +628,7 @@ function CreateAssetModal({ open, onClose, onCreate, locations }: {
       lastSyncAt: null,
       photos: [],
     });
+    toast(`${form.name} creado correctamente`);
     onClose();
     setForm({ ...form, code: '', name: '', brand: '', model: '', plate: '', engine: '', chassis: '' });
   };
@@ -634,7 +653,7 @@ function CreateAssetModal({ open, onClose, onCreate, locations }: {
           </Field>
           <Field label="Ubicacion">
             <Select value={form.location} onChange={e => setForm({ ...form, location: e.target.value })}>
-              <option value="">Seleccionar...</option>
+              <option value=""> --- Seleccionar ---</option>
               {locations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
               <option value="Nueva">Otra (especificar en notas)</option>
             </Select>

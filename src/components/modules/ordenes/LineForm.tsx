@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp, type NewOTLine } from '@/store/AppContext';
 import { Button } from '@/components/ui/Button';
+import { Combobox } from '@/components/ui/Combobox';
 import type { Asset, OTLinePart } from '@/types';
 import { emptyPlanSelection, inferPlanSelection, planSelectionResult, type PlanSelection } from '@/lib/planSelection';
 import { fileToCompressedDataUrl } from '@/lib/image';
 import { PlanPicker } from './PlanPicker';
-import { AlertTriangle, Camera, ChevronDown, Trash2, Upload, X } from 'lucide-react';
+import { AlertTriangle, Camera, Trash2, Upload, X } from 'lucide-react';
 
 /** Cantidad editable: mientras se escribe puede quedar vacia; al salir del campo vuelve al ultimo valor valido */
 function QuantityInput({ value, onChange, label }: { value: number; onChange: (n: number) => void; label: string }) {
@@ -30,7 +31,7 @@ function QuantityInput({ value, onChange, label }: { value: number; onChange: (n
   );
 }
 
-/** Desplegable de una celda de la tabla, con el icono de flecha a la derecha (estilo "celda de SAP") */
+/** Desplegable de una celda de la tabla ("estilo SAP"), con buscador: escribir filtra la lista */
 function CellSelect({ value, options, placeholder, onChange, ariaLabel }: {
   value: string;
   options: { value: string; label: string }[];
@@ -39,18 +40,13 @@ function CellSelect({ value, options, placeholder, onChange, ariaLabel }: {
   ariaLabel: string;
 }) {
   return (
-    <div className="relative">
-      <select
-        value={value}
-        aria-label={ariaLabel}
-        onChange={e => { if (e.target.value) onChange(e.target.value); }}
-        className="w-full min-h-[44px] appearance-none rounded-md border border-stone-300 bg-white py-1.5 pl-2 pr-7 text-content text-stone-800 transition-colors focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-300 sm:min-h-0"
-      >
-        <option value="">{placeholder}</option>
-        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-      <ChevronDown size={12} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-stone-400" />
-    </div>
+    <Combobox
+      value={value}
+      options={options}
+      placeholder={placeholder}
+      ariaLabel={ariaLabel}
+      onChange={v => { if (v) onChange(v); }}
+    />
   );
 }
 
@@ -131,7 +127,7 @@ export function PartsEditor({ value, onChange }: { value: OTLinePart[]; onChange
                     <CellSelect
                       value={p.partId}
                       options={nameOptions(p.partId)}
-                      placeholder="Seleccionar..."
+                      placeholder=" --- Seleccionar ---"
                       ariaLabel={`Repuesto (${p.partCode})`}
                       onChange={newId => pick(p.partId, newId)}
                     />
@@ -275,13 +271,19 @@ export function LineFields({ draft, asset }: { draft: LineDraft; asset?: Asset }
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const prevAssetId = useRef(asset?.id);
 
   useEffect(() => {
-    if (!asset || !draft.selection.workTypeCode || draft.selection.nodeIds.length > 0) return;
+    // si cambio el vehiculo, la ruta ya elegida (manual o inferida) quedo apuntando al arbol del vehiculo
+    // anterior y hay que recalcularla; si no cambio, se respeta una seleccion manual ya hecha
+    const assetChanged = prevAssetId.current !== asset?.id;
+    prevAssetId.current = asset?.id;
+    if (!asset || !draft.selection.workTypeCode) return;
+    if (!assetChanged && draft.selection.nodeIds.length > 0) return;
     const type = workTypes.find(w => w.code === draft.selection.workTypeCode);
     if (!type) return;
     const inferred = inferPlanSelection(maintenancePlans[type.code] ?? [], asset);
-    if (inferred.nodeIds.length > 0) draft.setSelection({ ...draft.selection, nodeIds: inferred.nodeIds, checkedIds: inferred.checkedIds });
+    draft.setSelection({ ...draft.selection, nodeIds: inferred.nodeIds, checkedIds: inferred.checkedIds });
     // solo cuando cambia el vehiculo o el tipo de trabajo elegido: no queremos pelear con la navegacion manual
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asset?.id, draft.selection.workTypeCode]);
@@ -328,6 +330,7 @@ export function LineFields({ draft, asset }: { draft: LineDraft; asset?: Asset }
             onChange={draft.setSelection}
             freeText={draft.freeText}
             onFreeTextChange={draft.setFreeText}
+            asset={asset}
           />
 
           {canPickParts ? (

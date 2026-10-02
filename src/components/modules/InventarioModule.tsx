@@ -1,5 +1,6 @@
 import { useApp } from '@/store/AppContext';
 import { useConfirm } from '@/store/ConfirmContext';
+import { useToast } from '@/store/ToastContext';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -50,6 +51,7 @@ export function InventarioModule() {
   // para la demo: el catalogo vendra automaticamente del inventario de SAP.
   const { parts, movements, workOrders, currentUser, hasPermission, addPart, updatePart, removePart } = useApp();
   const confirm = useConfirm();
+  const toast = useToast();
   const canEditCatalog = hasPermission('inventario.catalogo.editar');
   const canSeeRequisas = hasPermission('modulo.requisas');
   const canSeeAllOT = hasPermission('ot.ver.todas');
@@ -201,7 +203,10 @@ export function InventarioModule() {
                           <td className="text-right">
                             <button
                               onClick={async () => {
-                                if (await confirm({ title: 'Eliminar repuesto', message: `¿Estas seguro de eliminar el repuesto "${part.description}"?`, confirmLabel: 'Eliminar', variant: 'danger' })) removePart(part.id);
+                                if (await confirm({ title: 'Eliminar repuesto', message: `¿Estas seguro de eliminar el repuesto "${part.description}"?`, confirmLabel: 'Eliminar', variant: 'danger' })) {
+                                  removePart(part.id);
+                                  toast({ message: `${part.description} eliminado`, variant: 'info' });
+                                }
                               }}
                               className="text-stone-400 hover:text-red-600 transition-colors"
                               title="Eliminar repuesto"
@@ -285,11 +290,13 @@ function CreatePartModal({ open, onClose, onCreate }: {
     unit: 'UND',
   });
   const confirm = useConfirm();
+  const toast = useToast();
 
   const handleSubmit = async () => {
     if (!form.code || !form.description) return;
     if (!(await confirm({ title: 'Crear repuesto', message: '¿Estas seguro de crear este repuesto?', confirmLabel: 'Crear repuesto' }))) return;
     onCreate(form);
+    toast(`${form.description} creado correctamente`);
     onClose();
     setForm({ code: '', description: '', category: '', currentStock: 0, minStock: 0, maxStock: 0, unitCost: 0, warehouse: '', location: '', unit: 'UND' });
   };

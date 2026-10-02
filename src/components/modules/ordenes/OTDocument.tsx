@@ -35,7 +35,7 @@ export function OTDocumentButton({ ot }: { ot: WorkOrder }) {
         <FileText size={14} /> Ver Documento
       </Button>
       {open && (
-        <Modal open onClose={() => setOpen(false)} title={`Documento ${ot.code}`} size="xl">
+        <Modal open onClose={() => setOpen(false)} title={`Documento ${ot.code}`} size="lg">
           <OTDocumentView ot={ot} onBack={() => setOpen(false)} backLabel="Cerrar" />
         </Modal>
       )}

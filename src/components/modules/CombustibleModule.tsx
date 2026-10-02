@@ -1,5 +1,6 @@
 import { useApp } from '@/store/AppContext';
 import { useConfirm } from '@/store/ConfirmContext';
+import { useToast } from '@/store/ToastContext';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Field, TextInput, Select } from '@/components/ui/Field';
@@ -235,6 +236,7 @@ function FuelLoadModal({ open, onClose, assets, onCreate }: {
   const [odometer, setOdometer] = useState(0);
   const [provider, setProvider] = useState('Copec');
   const confirm = useConfirm();
+  const toast = useToast();
 
   const cost = liters * unitPrice;
 
@@ -254,6 +256,7 @@ function FuelLoadModal({ open, onClose, assets, onCreate }: {
       provider,
       unitPrice,
     });
+    toast('Carga de combustible registrada correctamente');
     onClose();
     setAssetId('');
     setLiters(0);

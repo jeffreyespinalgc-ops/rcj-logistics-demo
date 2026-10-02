@@ -2,6 +2,7 @@ import { Fragment, useState } from 'react';
 import { useApp } from '@/store/AppContext';
 import { useAuth } from '@/store/AuthContext';
 import { useConfirm } from '@/store/ConfirmContext';
+import { useToast } from '@/store/ToastContext';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -65,6 +66,7 @@ const userSortGetters = {
 function UsersTab() {
   const { users, addUser, updateUser, removeUser, session } = useAuth();
   const confirm = useConfirm();
+  const toast = useToast();
   const [showModal, setShowModal] = useState(false);
   const { sorted, sort, toggle } = useSort(users, userSortGetters);
 
@@ -111,7 +113,10 @@ function UsersTab() {
                     <button
                       onClick={async () => {
                         const willActivate = !u.active;
-                        if (await confirm({ title: willActivate ? 'Activar usuario' : 'Desactivar usuario', message: `¿Estas seguro de ${willActivate ? 'activar' : 'desactivar'} a ${u.name}?`, confirmLabel: willActivate ? 'Activar' : 'Desactivar' })) updateUser(u.id, { active: willActivate });
+                        if (await confirm({ title: willActivate ? 'Activar usuario' : 'Desactivar usuario', message: `¿Estas seguro de ${willActivate ? 'activar' : 'desactivar'} a ${u.name}?`, confirmLabel: willActivate ? 'Activar' : 'Desactivar' })) {
+                          updateUser(u.id, { active: willActivate });
+                          toast(`${u.name} ${willActivate ? 'activado' : 'desactivado'} correctamente`);
+                        }
                       }}
                     >
                       <Badge variant={u.active ? 'green' : 'gray'}>{u.active ? 'Activo' : 'Inactivo'}</Badge>
@@ -120,7 +125,10 @@ function UsersTab() {
                   <td className="text-right">
                     <button
                       onClick={async () => {
-                        if (await confirm({ title: 'Eliminar usuario', message: `¿Estas seguro de eliminar a ${u.name}?`, confirmLabel: 'Eliminar', variant: 'danger' })) removeUser(u.id);
+                        if (await confirm({ title: 'Eliminar usuario', message: `¿Estas seguro de eliminar a ${u.name}?`, confirmLabel: 'Eliminar', variant: 'danger' })) {
+                          removeUser(u.id);
+                          toast({ message: `${u.name} eliminado`, variant: 'info' });
+                        }
                       }}
                       disabled={isSelf}
                       title={isSelf ? 'No puedes eliminar tu propio usuario' : 'Eliminar usuario'}
@@ -148,11 +156,13 @@ function NewUserModal({ open, onClose, onCreate }: {
 }) {
   const [form, setForm] = useState({ name: '', username: '', password: '', role: 'tecnico' as UserRole });
   const confirm = useConfirm();
+  const toast = useToast();
 
   const handleSubmit = async () => {
     if (!form.name || !form.username || !form.password) return;
     if (!(await confirm({ title: 'Crear usuario', message: '¿Estas seguro de crear este usuario?', confirmLabel: 'Crear usuario' }))) return;
     onCreate({ ...form, active: true });
+    toast(`${form.name} creado correctamente`);
     onClose();
     setForm({ name: '', username: '', password: '', role: 'tecnico' });
   };
@@ -200,6 +210,7 @@ function slugifyWorkTypeCode(name: string): string {
 function WorkTypesTab() {
   const { workTypes, addWorkType, updateWorkType, removeWorkType } = useApp();
   const confirm = useConfirm();
+  const toast = useToast();
   const [name, setName] = useState('');
 
   const handleAdd = () => {
@@ -229,14 +240,20 @@ function WorkTypesTab() {
               <button
                 onClick={async () => {
                   const willActivate = !item.active;
-                  if (await confirm({ title: willActivate ? 'Activar tipo de trabajo' : 'Desactivar tipo de trabajo', message: `¿Estas seguro de ${willActivate ? 'activar' : 'desactivar'} "${item.name}"?`, confirmLabel: willActivate ? 'Activar' : 'Desactivar' })) updateWorkType(item.id, { active: willActivate });
+                  if (await confirm({ title: willActivate ? 'Activar tipo de trabajo' : 'Desactivar tipo de trabajo', message: `¿Estas seguro de ${willActivate ? 'activar' : 'desactivar'} "${item.name}"?`, confirmLabel: willActivate ? 'Activar' : 'Desactivar' })) {
+                    updateWorkType(item.id, { active: willActivate });
+                    toast(`"${item.name}" ${willActivate ? 'activado' : 'desactivado'} correctamente`);
+                  }
                 }}
               >
                 <Badge variant={item.active ? 'green' : 'gray'}>{item.active ? 'Activo' : 'Inactivo'}</Badge>
               </button>
               <button
                 onClick={async () => {
-                  if (await confirm({ title: 'Eliminar tipo de trabajo', message: `¿Estas seguro de eliminar "${item.name}"?`, confirmLabel: 'Eliminar', variant: 'danger' })) removeWorkType(item.id);
+                  if (await confirm({ title: 'Eliminar tipo de trabajo', message: `¿Estas seguro de eliminar "${item.name}"?`, confirmLabel: 'Eliminar', variant: 'danger' })) {
+                    removeWorkType(item.id);
+                    toast({ message: `"${item.name}" eliminado`, variant: 'info' });
+                  }
                 }}
                 className="text-stone-400 hover:text-red-600 transition-colors flex-shrink-0"
                 title="Eliminar"
@@ -264,6 +281,7 @@ function WorkTypesTab() {
 function PermissionsTab() {
   const { permissions, setRolePermission, resetPermissions } = useApp();
   const confirm = useConfirm();
+  const toast = useToast();
 
   return (
     <>
@@ -272,7 +290,10 @@ function PermissionsTab() {
           size="sm"
           variant="outline"
           onClick={async () => {
-            if (await confirm({ title: 'Restaurar permisos', message: '¿Estas seguro de restaurar los permisos a los valores por defecto? Se perderan los cambios personalizados.', confirmLabel: 'Restaurar', variant: 'danger' })) resetPermissions();
+            if (await confirm({ title: 'Restaurar permisos', message: '¿Estas seguro de restaurar los permisos a los valores por defecto? Se perderan los cambios personalizados.', confirmLabel: 'Restaurar', variant: 'danger' })) {
+              resetPermissions();
+              toast('Permisos restaurados correctamente');
+            }
           }}
         >
           <RotateCcw size={14} /> Restaurar por defecto

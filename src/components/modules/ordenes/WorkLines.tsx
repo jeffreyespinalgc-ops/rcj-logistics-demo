@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp, type NewOTLine, type PhotoGroup } from '@/store/AppContext';
 import { useConfirm } from '@/store/ConfirmContext';
+import { useToast } from '@/store/ToastContext';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -25,10 +26,10 @@ import {
   PenTool,
 } from 'lucide-react';
 import {
+  deliveredQuantity,
   isDelivered,
   isPartial,
   isRequisitionRequester,
-  quantityLabel,
   requiresRequisition,
   requisitionSignLabels,
   signableSteps,
@@ -148,6 +149,7 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
 }) {
   const { updateOTLine, deleteOTLine, reviewFinding, signRequisition, hasPermission, currentUser } = useApp();
   const confirm = useConfirm();
+  const toast = useToast();
   const [editingLine, setEditingLine] = useState(false);
   const [signError, setSignError] = useState<string | null>(null);
   const canReviewFinding = hasPermission('ot.lineas.aprobarHallazgo') && line.isFinding && line.findingStatus === 'pendiente'
@@ -190,7 +192,10 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
                   size="sm"
                   variant="primary"
                   onClick={async () => {
-                    if (await confirm({ title: 'Aprobar hallazgo', message: '¿Estas seguro de aprobar este hallazgo?', confirmLabel: 'Aprobar' })) reviewFinding(ot.id, line.id, true);
+                    if (await confirm({ title: 'Aprobar hallazgo', message: '¿Estas seguro de aprobar este hallazgo?', confirmLabel: 'Aprobar' })) {
+                      reviewFinding(ot.id, line.id, true);
+                      toast('Hallazgo aprobado correctamente');
+                    }
                   }}
                 >
                   <CheckCircle size={12} /> Aprobar hallazgo
@@ -199,7 +204,10 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
                   size="sm"
                   variant="danger"
                   onClick={async () => {
-                    if (await confirm({ title: 'Rechazar hallazgo', message: '¿Estas seguro de rechazar este hallazgo?', confirmLabel: 'Rechazar', variant: 'danger' })) reviewFinding(ot.id, line.id, false);
+                    if (await confirm({ title: 'Rechazar hallazgo', message: '¿Estas seguro de rechazar este hallazgo?', confirmLabel: 'Rechazar', variant: 'danger' })) {
+                      reviewFinding(ot.id, line.id, false);
+                      toast({ message: 'Hallazgo rechazado', variant: 'info' });
+                    }
                   }}
                 >
                   <XCircle size={12} /> Rechazar
@@ -227,7 +235,9 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
                             className="min-h-[44px] sm:min-h-0"
                             onClick={async () => {
                               if (!(await confirm({ title: 'Firmar requisa', message: `¿Estas seguro de firmar "${requisitionSignLabels[signStep]}"?`, confirmLabel: 'Firmar' }))) return;
-                              setSignError(signRequisition(ot.id, line.id, signStep));
+                              const result = signRequisition(ot.id, line.id, signStep);
+                              setSignError(result);
+                              if (!result) toast('Firma registrada correctamente');
                             }}
                           >
                             <PenTool size={12} /> {requisitionSignLabels[signStep]}
@@ -270,26 +280,30 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
                     {line.parts.length === 0 ? (
                       <p className="text-stone-500">Sin repuestos.</p>
                     ) : (
-                      <table className="w-full text-content">
-                        <thead>
-                          <tr className="text-left text-xs text-stone-600">
-                            <th className="pb-1 text-right font-bold">{delivered ? 'Entregado / Solicitado' : 'Cantidad Solicitada'}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {line.parts.map(p => (
-                            <tr key={p.partId} className="border-t border-stone-100">
-                              <td className="py-1 pr-2 font-normal">
-                                {p.partDescription} <span className="text-stone-500"> - UND </span>
-                                {/* <span className="block text-stone-500">{p.partCode}</span> */}
-                              </td>
-                              <td className={`py-1 text-right ${isPartial(line, p) ? 'font-bold text-orange-700' : 'font-normal'}`}>
-                                {quantityLabel(line, p)}
-                              </td>
+                      <div className="overflow-x-auto rounded-md">
+                        <table className="border-collapse text-content">
+                          <thead>
+                            <tr className="bg-stone-100 text-left text-stone-600">
+                              <th className="border border-stone-300 px-2 py-1.5 whitespace-nowrap text-left font-bold">Solicitado</th>
+                              <th className="border border-stone-300 px-2 py-1.5 whitespace-nowrap text-left font-bold">Unidad</th>
+                              <th className="border border-stone-300 px-2 py-1.5 text-left font-bold ">Producto</th>
+                              <th className="border border-stone-300 px-2 py-1.5 whitespace-nowrap text-left font-bold">Entregado</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {line.parts.map(p => (
+                              <tr key={p.partId}>s
+                                <td className="border border-stone-300 px-2 py-1.5 text-left font-normal">{p.quantity}</td>
+                                <td className="border border-stone-300 px-2 py-1.5 text-left whitespace-nowrap text-stone-600">{p.unit}</td>
+                                <td className="border border-stone-300 px-2 py-1.5 text-left font-normal">{p.partDescription}</td>
+                                <td className={`border border-stone-300 px-2 py-1.5 text-left ${isPartial(line, p) ? 'font-bold text-orange-700' : 'font-normal'}`}>
+                                  {delivered ? deliveredQuantity(line, p) : '--'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     )}
                     {canEdit && (
                       <div className="mt-2 flex justify-end">
@@ -359,7 +373,10 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
                 variant="danger"
                 className="min-h-[44px] sm:min-h-0"
                 onClick={async () => {
-                  if (await confirm({ title: 'Eliminar linea', message: '¿Estas seguro de eliminar esta linea de trabajo?', confirmLabel: 'Eliminar', variant: 'danger' })) deleteOTLine(ot.id, line.id);
+                  if (await confirm({ title: 'Eliminar linea', message: '¿Estas seguro de eliminar esta linea de trabajo?', confirmLabel: 'Eliminar', variant: 'danger' })) {
+                    deleteOTLine(ot.id, line.id);
+                    toast({ message: 'Linea eliminada', variant: 'info' });
+                  }
                 }}
               >
                 <Trash2 size={12} />
@@ -382,6 +399,7 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
 function EditLineModal({ ot, line, onClose }: { ot: WorkOrder; line: OTLine; onClose: () => void }) {
   const { assets, workTypes, maintenancePlans, updateOTLine, setLineParts } = useApp();
   const confirm = useConfirm();
+  const toast = useToast();
   const draft = useLineDraft(line.technician);
   const asset = assets.find(a => a.id === ot.assetId);
   const [error, setError] = useState<string | null>(null);
@@ -404,6 +422,7 @@ function EditLineModal({ ot, line, onClose }: { ot: WorkOrder; line: OTLine; onC
       if (result) { setError(result); return; }
     }
     updateOTLine(ot.id, line.id, { work: work.work, workPath: work.workPath, activities: work.activities, notes: draft.notes.trim() });
+    toast('Linea actualizada correctamente');
     onClose();
   };
 
@@ -433,6 +452,7 @@ function EvidenceGroup({ ot, line, canEdit, onOpenPhoto }: {
 }) {
   const { addLinePhoto, removeLinePhoto } = useApp();
   const confirm = useConfirm();
+  const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -473,7 +493,10 @@ function EvidenceGroup({ ot, line, canEdit, onOpenPhoto }: {
             {canEdit && (
               <button
                 onClick={async () => {
-                  if (await confirm({ title: 'Eliminar fotografia', message: '¿Estas seguro de eliminar esta fotografia?', confirmLabel: 'Eliminar', variant: 'danger' })) removeLinePhoto(ot.id, line.id, group, photo.id);
+                  if (await confirm({ title: 'Eliminar fotografia', message: '¿Estas seguro de eliminar esta fotografia?', confirmLabel: 'Eliminar', variant: 'danger' })) {
+                    removeLinePhoto(ot.id, line.id, group, photo.id);
+                    toast({ message: 'Fotografia eliminada', variant: 'info' });
+                  }
                 }}
                 className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity shadow-sm"
                 title="Eliminar fotografia"
@@ -539,6 +562,7 @@ function AddLineModal({ open, onClose, onAdd, defaultTechnician, ot }: {
 }) {
   const { assets } = useApp();
   const confirm = useConfirm();
+  const toast = useToast();
   const draft = useLineDraft(defaultTechnician);
   const asset = assets.find(a => a.id === ot.assetId);
 
@@ -553,6 +577,7 @@ function AddLineModal({ open, onClose, onAdd, defaultTechnician, ot }: {
     if (!(await confirm({ title: 'Agregar linea', message: '¿Estas seguro de agregar esta linea de trabajo?', confirmLabel: 'Agregar' }))) return;
     onAdd(line);
     draft.reset();
+    toast('Linea agregada correctamente');
     onClose();
   };
 

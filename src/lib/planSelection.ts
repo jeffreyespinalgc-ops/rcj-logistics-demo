@@ -98,8 +98,9 @@ const normalize = (s: string) => s.trim().toLowerCase().normalize('NFD').replace
 
 interface InferredPlan {
   nodeIds: string[];
-  /** Hojas a marcar solas: solo se llenan si la ruta inferida llega de verdad hasta el penultimo nivel
-   * (el nodo cuyos hijos ya son las actividades/puntos de trabajo finales, sin mas niveles debajo) */
+  /** Las actividades del ultimo nivel nunca se marcan solas, ni siquiera cuando la ruta se infirio del
+   * vehiculo: el usuario las marca a mano (o usa "Seleccionar Todos"). Se deja el campo para no romper
+   * quien ya desestructura `{ nodeIds, checkedIds }`, pero siempre llega vacio. */
   checkedIds: string[];
 }
 
@@ -110,10 +111,7 @@ interface InferredPlan {
  * elija a mano. El tipo de vehiculo (Vehiculo Ligero/Pesado/Maquinaria/Equipo Auxiliar) es una categoria
  * amplia: si el arbol usa categorias mas finas (p. ej. "Camion"/"Volqueta"/"Traileta", todas serian el
  * mismo "Vehiculo Pesado"), esas solo se infieren si esa palabra tambien aparece en el nombre/marca/modelo
- * del vehiculo -- no hay en el sistema un campo mas fino que el tipo para distinguirlas. Si la ruta
- * inferida llega justo hasta el penultimo nivel (el nodo cuyos hijos ya son las actividades finales, sin
- * mas niveles debajo), esas actividades se devuelven listas para marcarse solas en `checkedIds` -- igual
- * que si se hubiera tocado "Seleccionar Todos" a mano.
+ * del vehiculo -- no hay en el sistema un campo mas fino que el tipo para distinguirlas.
  */
 export function inferPlanSelection(roots: MaintenanceTreeNode[], asset: Asset): InferredPlan {
   const haystacks = [asset.brand, asset.model, asset.name, assetTypeLabels[asset.type]].filter(Boolean).map(normalize);
@@ -126,10 +124,7 @@ export function inferPlanSelection(roots: MaintenanceTreeNode[], asset: Asset): 
   let siblings = roots;
   for (;;) {
     const options = siblings.filter(n => n.children.length > 0);
-    if (options.length === 0) {
-      const checkedIds = nodeIds.length > 0 ? siblings.map(n => n.id) : [];
-      return { nodeIds, checkedIds };
-    }
+    if (options.length === 0) return { nodeIds, checkedIds: [] };
     const found = options.filter(n => matches(n.name));
     if (found.length !== 1) return { nodeIds, checkedIds: [] };
     nodeIds.push(found[0].id);

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useApp } from '@/store/AppContext';
 import { Field, Select, TextInput } from '@/components/ui/Field';
-import type { MaintenanceTreeNode } from '@/types';
+import type { Asset, MaintenanceTreeNode } from '@/types';
 import { ChevronRight } from 'lucide-react';
-import { type PlanSelection } from '@/lib/planSelection';
+import { inferPlanSelection, type PlanSelection } from '@/lib/planSelection';
 
 const isLeaf = (node: MaintenanceTreeNode) => node.children.length === 0;
 
@@ -14,14 +14,22 @@ interface Column {
   nodes: MaintenanceTreeNode[];
 }
 
-/** Arma una columna por nivel alcanzado, caminando `nodeIds` sobre el arbol real */
-function buildColumns(roots: MaintenanceTreeNode[], rootLabel: string, nodeIds: string[]): Column[] {
-  const cols: Column[] = [{ depth: 0, parentName: rootLabel, nodes: roots }];
+/**
+ * Arma una columna por nivel alcanzado, caminando `nodeIds` sobre el arbol real. `lockedIds` es el tramo
+ * inicial que ya se infirio solo del vehiculo elegido (ver `inferPlanSelection`): en esos niveles la
+ * columna solo muestra la opcion que coincide con el vehiculo, no todos los hermanos -- por ejemplo, si el
+ * vehiculo es una Volqueta, el primer nivel ya no ofrece Camion/Traileta/Vehiculo Ligero para elegir.
+ */
+function buildColumns(roots: MaintenanceTreeNode[], rootLabel: string, nodeIds: string[], lockedIds: string[] = []): Column[] {
+  const visibleAt = (depth: number, nodes: MaintenanceTreeNode[]) =>
+    depth < lockedIds.length ? nodes.filter(n => n.id === lockedIds[depth]) : nodes;
+
+  const cols: Column[] = [{ depth: 0, parentName: rootLabel, nodes: visibleAt(0, roots) }];
   let siblings = roots;
   for (let i = 0; i < nodeIds.length; i++) {
     const chosen = siblings.find(n => n.id === nodeIds[i]);
     if (!chosen) break;
-    cols.push({ depth: i + 1, parentName: chosen.name, nodes: chosen.children });
+    cols.push({ depth: i + 1, parentName: chosen.name, nodes: visibleAt(i + 1, chosen.children) });
     siblings = chosen.children;
   }
   return cols;
@@ -36,25 +44,25 @@ function buildColumns(roots: MaintenanceTreeNode[], rootLabel: string, nodeIds: 
  * a desplazarse hasta esa columna; elegir ahi una opcion DISTINTA recorta y rearma las columnas siguientes.
  * El ultimo nivel de cada rama (nodos sin hijos) es una lista de seleccion multiple con casillas.
  */
-function PlanColumns({ roots, rootLabel, value, onChange }: {
+function PlanColumns({ roots, rootLabel, value, onChange, asset }: {
   roots: MaintenanceTreeNode[];
   rootLabel: string;
   value: PlanSelection;
   onChange: (next: PlanSelection) => void;
+  asset?: Asset;
 }) {
   const rowRef = useRef<HTMLDivElement>(null);
   const columnRefs = useRef(new Map<number, HTMLDivElement>());
-  const columns = useMemo(() => buildColumns(roots, rootLabel, value.nodeIds), [roots, rootLabel, value.nodeIds]);
+  const lockedIds = useMemo(() => (asset ? inferPlanSelection(roots, asset).nodeIds : []), [roots, asset]);
+  const columns = useMemo(() => buildColumns(roots, rootLabel, value.nodeIds, lockedIds), [roots, rootLabel, value.nodeIds, lockedIds]);
 
   useEffect(() => {
     rowRef.current?.scrollTo({ left: rowRef.current.scrollWidth, behavior: 'smooth' });
   }, [columns.length]);
 
   const selectAt = (depth: number, node: MaintenanceTreeNode) => {
-    // si el nodo elegido ya es el penultimo nivel (sus hijos son las actividades finales, sin mas niveles
-    // debajo), se marcan todas solas -- igual que si se hubiera tocado "Seleccionar Todos"
-    const autoChecked = node.children.length > 0 && node.children.every(isLeaf) ? node.children.map(c => c.id) : [];
-    onChange({ ...value, nodeIds: [...value.nodeIds.slice(0, depth), node.id], checkedIds: autoChecked });
+    // las actividades del ultimo nivel arrancan deseleccionadas: el usuario las marca a mano (o usa "Seleccionar Todos")
+    onChange({ ...value, nodeIds: [...value.nodeIds.slice(0, depth), node.id], checkedIds: [] });
   };
 
   const toggleLeaf = (id: string) => {
@@ -84,6 +92,7 @@ function PlanColumns({ roots, rootLabel, value, onChange }: {
           >
             {rootLabel}
           </button>
+
           {columns.slice(1).map((col, i) => (
             <span key={col.depth} className="flex items-center gap-1">
               <ChevronRight size={11} className="flex-shrink-0 text-stone-300" />
@@ -182,15 +191,12 @@ function PlanColumns({ roots, rootLabel, value, onChange }: {
   );
 }
 
-/**
- * Selector del Tipo de Trabajo y, debajo, su plan de mantenimiento en columnas. Si el tipo elegido aun no
- * tiene plan, se ofrece un texto libre como respaldo.
- */
-export function PlanPicker({ value, onChange, freeText, onFreeTextChange }: {
+export function PlanPicker({ value, onChange, freeText, onFreeTextChange, asset }: {
   value: PlanSelection;
   onChange: (next: PlanSelection) => void;
   freeText: string;
   onFreeTextChange: (text: string) => void;
+  asset?: Asset;
 }) {
   const { workTypes, maintenancePlans } = useApp();
   const activeTypes = workTypes.filter(w => w.active);
@@ -205,7 +211,7 @@ export function PlanPicker({ value, onChange, freeText, onFreeTextChange }: {
           value={type ? type.code : ''}
           onChange={e => onChange({ workTypeCode: e.target.value, nodeIds: [], checkedIds: [] })}
         >
-          <option value="">Seleccionar...</option>
+          <option value=""> ---Seleccionar ---</option>
           {activeTypes.map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
         </Select>
       </Field>
@@ -215,8 +221,9 @@ export function PlanPicker({ value, onChange, freeText, onFreeTextChange }: {
           <TextInput value={freeText} onChange={e => onFreeTextChange(e.target.value)} placeholder="Ej: Cambio de llanta" />
         </Field>
       ) : type && roots.length > 0 && (
-        <PlanColumns roots={roots} rootLabel={type.name} value={value} onChange={onChange} />
+        <PlanColumns roots={roots} rootLabel={type.name} value={value} onChange={onChange} asset={asset} />
       )}
     </div>
   );
 }
+

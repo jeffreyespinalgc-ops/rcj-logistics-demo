@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useApp, type NewOTLine } from '@/store/AppContext';
 import { useConfirm } from '@/store/ConfirmContext';
+import { useToast } from '@/store/ToastContext';
 import { Button } from '@/components/ui/Button';
 import { Field, Select, TextArea } from '@/components/ui/Field';
 import type { OTPriority } from '@/types';
@@ -17,6 +18,7 @@ const priorityOrder: OTPriority[] = ['baja', 'media', 'alta', 'critica'];
 export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCreated: () => void }) {
   const { assets, workOrders, currentRole, currentUser, addWorkOrder, addNotification } = useApp();
   const confirm = useConfirm();
+  const toast = useToast();
   const [assetId, setAssetId] = useState('');
   const [priority, setPriority] = useState<OTPriority>('media');
   const [description, setDescription] = useState('');
@@ -77,6 +79,7 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
       priority: priority === 'critica' ? 'alta' : 'media',
     });
     draft.reset();
+    toast(`${nextCode} creada correctamente`);
     onCreated();
   };
 
@@ -123,7 +126,7 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
             <LineFields draft={draft} asset={assets.find(a => a.id === assetId)} />
             <div className="flex flex-wrap items-center justify-end gap-2">
               <Button variant="primary" className="min-h-[44px] sm:min-h-0" onClick={addLine} disabled={!draft.valid} title="Agregar linea de trabajo">
-                <Plus size={16} />
+                <Plus size={16} /> Agregar linea de trabajo
               </Button>
             </div>
           </div>
