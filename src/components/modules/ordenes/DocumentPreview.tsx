@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { FileDown } from 'lucide-react';
+import { FileDown, Printer, X } from 'lucide-react';
 import { renderPdfPages, type BuiltPdf } from '@/lib/pdfShared';
 
 type Preview =
@@ -42,6 +42,35 @@ export function DocumentPreview({ buildDoc, documentKey, altPrefix, canDownload,
     return () => { cancelled = true; };
   }, [documentKey, attempt]);
 
+  // imprime el PDF real (no las imagenes rasterizadas de la vista previa) en un iframe oculto: al cargar,
+  // dispara el dialogo nativo de impresion del navegador; "afterprint" (se dispara al imprimir o al
+  // cancelar) limpia el iframe y libera el blob
+  const handlePrint = () => {
+    if (preview.status !== 'ready') return;
+    // los tipos de jsPDF declaran que "bloburl" devuelve un URL, pero en tiempo de ejecucion es el string
+    // que devuelve URL.createObjectURL (se ve en su propio codigo fuente) -- .href rompe (queda "undefined")
+    const blobUrl = preview.built.doc.output('bloburl') as unknown as string;
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.src = blobUrl;
+    document.body.appendChild(iframe);
+    iframe.onload = () => {
+      const win = iframe.contentWindow;
+      if (!win) return;
+      win.focus();
+      win.print();
+      win.addEventListener('afterprint', () => {
+        document.body.removeChild(iframe);
+        URL.revokeObjectURL(blobUrl);
+      });
+    };
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex max-h-[75dvh] flex-col items-center space-y-3 overflow-auto rounded-md border border-stone-200 bg-stone-100 p-2 sm:p-3">
@@ -68,14 +97,19 @@ export function DocumentPreview({ buildDoc, documentKey, altPrefix, canDownload,
         {!canDownload && preview.status === 'ready' && (
           <span className="mr-auto text-content text-stone-500"></span>
         )}
-        <Button variant="outline" className="min-h-[44px]" onClick={onBack}>{backLabel}</Button>
+        <Button variant="outline" className="min-h-[44px]" onClick={onBack}><X size={12}/>{backLabel}</Button>
         {canDownload && (
           <Button
             className="min-h-[44px]"
             disabled={preview.status !== 'ready'}
             onClick={() => { if (preview.status === 'ready') preview.built.doc.save(preview.built.filename); }}
           >
-            <FileDown size={14} />
+            <FileDown size={14} /> Descargar
+          </Button>
+        )}
+        {canDownload && (
+          <Button variant="secondary" className="min-h-[44px]" disabled={preview.status !== 'ready'} onClick={handlePrint}>
+            <Printer size={12} /> Imprimir
           </Button>
         )}
       </div>

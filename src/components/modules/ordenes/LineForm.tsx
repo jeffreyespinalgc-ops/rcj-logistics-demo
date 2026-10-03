@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp, type NewOTLine } from '@/store/AppContext';
-import { Button } from '@/components/ui/Button';
 import { Combobox } from '@/components/ui/Combobox';
 import type { Asset, OTLinePart } from '@/types';
 import { emptyPlanSelection, inferPlanSelection, planSelectionResult, type PlanSelection } from '@/lib/planSelection';
-import { fileToCompressedDataUrl } from '@/lib/image';
 import { PlanPicker } from './PlanPicker';
-import { AlertTriangle, Camera, Trash2, Upload, X } from 'lucide-react';
+import { AlertTriangle, Trash2 } from 'lucide-react';
 
 /** Cantidad editable: mientras se escribe puede quedar vacia; al salir del campo vuelve al ultimo valor valido */
 function QuantityInput({ value, onChange, label }: { value: number; onChange: (n: number) => void; label: string }) {
@@ -217,18 +215,15 @@ export function useLineDraft(defaultTechnician: string) {
   const [freeText, setFreeText] = useState('');
   const [parts, setParts] = useState<OTLinePart[]>([]);
   const [notes, setNotes] = useState('');
-  const [photosBefore, setPhotosBefore] = useState<{ dataUrl: string; name: string }[]>([]);
 
   const work = planSelectionResult(workTypes, maintenancePlans, selection, freeText);
-  const dirty = work.valid || selection.workTypeCode !== '' || freeText.trim() !== '' || parts.length > 0
-    || notes.trim() !== '' || photosBefore.length > 0;
+  const dirty = work.valid || selection.workTypeCode !== '' || freeText.trim() !== '' || parts.length > 0 || notes.trim() !== '';
 
   const reset = () => {
     setSelection(emptyPlanSelection());
     setFreeText('');
     setParts([]);
     setNotes('');
-    setPhotosBefore([]);
   };
 
   /** La linea lista para guardar; null si aun falta elegir el trabajo */
@@ -245,13 +240,11 @@ export function useLineDraft(defaultTechnician: string) {
         needsPart: parts.length > 0,
         isFinding: false,
         parts,
-        photosBefore,
       }
     : null);
 
   return {
     selection, setSelection, freeText, setFreeText, parts, setParts, notes, setNotes,
-    photosBefore, setPhotosBefore,
     valid: work.valid, dirty, reset, build,
   };
 }
@@ -259,18 +252,13 @@ export function useLineDraft(defaultTechnician: string) {
 export type LineDraft = ReturnType<typeof useLineDraft>;
 
 /**
- * Campos de la linea, en dos pestanas como una ficha SAP: "Detalle" (tipo de trabajo, tabla de repuestos y
- * observaciones) y "Anexos" (evidencia fotografica, opcional desde que se crea la linea). Si se pasa `asset`
- * (el vehiculo ya elegido para la OT), al escoger el tipo de trabajo se intenta bajar sola por el arbol de
- * planes segun la marca/modelo del vehiculo -- solo cuando hay una sola coincidencia posible por nivel.
+ * Campos de la linea: tipo de trabajo, tabla de repuestos y observaciones. Si se pasa `asset` (el vehiculo ya
+ * elegido para la OT), al escoger el tipo de trabajo se intenta bajar sola por el arbol de planes segun la
+ * marca/modelo del vehiculo -- solo cuando hay una sola coincidencia posible por nivel.
  */
 export function LineFields({ draft, asset }: { draft: LineDraft; asset?: Asset }) {
   const { hasPermission, workTypes, maintenancePlans } = useApp();
   const canPickParts = hasPermission('repuestos.consumir');
-  const [tab, setTab] = useState<'detalle' | 'anexos'>('detalle');
-  const fileRef = useRef<HTMLInputElement>(null);
-  const cameraRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
   const prevAssetId = useRef(asset?.id);
 
   useEffect(() => {
@@ -288,119 +276,20 @@ export function LineFields({ draft, asset }: { draft: LineDraft; asset?: Asset }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asset?.id, draft.selection.workTypeCode]);
 
-  const handleFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setBusy(true);
-    for (const file of Array.from(files)) {
-      try {
-        const dataUrl = await fileToCompressedDataUrl(file);
-        draft.setPhotosBefore(prev => [...prev, { dataUrl, name: file.name }]);
-      } catch {
-        // una imagen que no se pudo leer se omite; las demas se siguen guardando
-      }
-    }
-    setBusy(false);
-    if (fileRef.current) fileRef.current.value = '';
-    if (cameraRef.current) cameraRef.current.value = '';
-  };
-
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-1 border-b border-stone-200">
-        <button
-          type="button"
-          onClick={() => setTab('detalle')}
-          className={`min-h-[44px] px-3 text-content font-bold transition-colors sm:min-h-0 sm:py-2 ${tab === 'detalle' ? 'border-b-2 border-orange-500 text-orange-600' : 'border-b-2 border-transparent text-stone-500 hover:text-stone-700'}`}
-        >
-          Detalle
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab('anexos')}
-          className={`min-h-[44px] px-3 text-content font-bold transition-colors sm:min-h-0 sm:py-2 ${tab === 'anexos' ? 'border-b-2 border-orange-500 text-orange-600' : 'border-b-2 border-transparent text-stone-500 hover:text-stone-700'}`}
-        >
-          Anexos
-        </button>
-      </div>
+      <PlanPicker
+        value={draft.selection}
+        onChange={draft.setSelection}
+        freeText={draft.freeText}
+        onFreeTextChange={draft.setFreeText}
+        asset={asset}
+      />
 
-      {tab === 'detalle' ? (
-        <div className="space-y-3">
-          <PlanPicker
-            value={draft.selection}
-            onChange={draft.setSelection}
-            freeText={draft.freeText}
-            onFreeTextChange={draft.setFreeText}
-            asset={asset}
-          />
-
-          {canPickParts ? (
-            <PartsEditor value={draft.parts} onChange={draft.setParts} />
-          ) : (
-            <p className="text-content text-stone-500">No tienes permiso para seleccionar repuestos.</p>
-          )}
-        </div>
+      {canPickParts ? (
+        <PartsEditor value={draft.parts} onChange={draft.setParts} />
       ) : (
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            {draft.photosBefore.map((photo, index) => (
-              <div key={`${photo.name}-${index}`} className="relative w-16 h-16 group">
-                <div className="w-16 h-16 rounded-md overflow-hidden border border-stone-300 bg-stone-100">
-                  <img src={photo.dataUrl} alt={photo.name} className="w-full h-full object-cover" />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => draft.setPhotosBefore(prev => prev.filter((_, i) => i !== index))}
-                  className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity shadow-sm"
-                  title="Eliminar fotografia"
-                  aria-label={`Eliminar ${photo.name}`}
-                >
-                  <X size={12} />
-                </button>
-              </div>
-            ))}
-            {draft.photosBefore.length === 0 && <p className="text-content text-stone-500">Sin fotografias adjuntas.</p>}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="min-h-[44px] sm:min-h-0"
-              onClick={() => cameraRef.current?.click()}
-              disabled={busy}
-              title="Tomar fotografia con la camara"
-            >
-              <Camera size={14} /> 
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="min-h-[44px] sm:min-h-0"
-              onClick={() => fileRef.current?.click()}
-              disabled={busy}
-              title="Subir imagenes desde el dispositivo"
-            >
-              <Upload size={14} /> 
-            </Button>
-            <input
-              ref={cameraRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={e => { void handleFiles(e.target.files); }}
-            />
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={e => { void handleFiles(e.target.files); }}
-            />
-          </div>
-        </div>
+        <p className="text-content text-stone-500">No tienes permiso para seleccionar repuestos.</p>
       )}
     </div>
   );

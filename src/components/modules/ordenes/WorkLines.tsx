@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Field, Select, TextArea } from '@/components/ui/Field';
-import type { OTLine, OTLinePhoto, OTPriority, WorkOrder } from '@/types';
+import { PhotoCarousel } from '@/components/ui/PhotoCarousel';
+import type { AssetPhoto, OTLine, OTLinePhoto, OTPriority, WorkOrder } from '@/types';
 import { fileToCompressedDataUrl } from '@/lib/image';
 import { selectionFromLine } from '@/lib/planSelection';
 import { LineFields, useLineDraft } from './LineForm';
@@ -82,7 +83,7 @@ export function WorkLinesSection({ ot, canAdd, canEdit, canExecute, canFinalize,
               title={finalizeBlockedReason ?? undefined}
               onClick={onFinalize}
             >
-              <PenTool size={14} /> Finalizar OT
+              <PenTool size={14} /> Finalizar Orden de Trabajo
             </Button>
           )}
           {requisitionLine && <RequisitionDocumentButton ot={ot} line={requisitionLine} />}
@@ -292,7 +293,7 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
                           </thead>
                           <tbody>
                             {line.parts.map(p => (
-                              <tr key={p.partId}>s
+                              <tr key={p.partId}>
                                 <td className="border border-stone-300 px-2 py-1.5 text-left font-normal">{p.quantity}</td>
                                 <td className="border border-stone-300 px-2 py-1.5 text-left whitespace-nowrap text-stone-600">{p.unit}</td>
                                 <td className="border border-stone-300 px-2 py-1.5 text-left font-normal">{p.partDescription}</td>
@@ -560,11 +561,12 @@ function AddLineModal({ open, onClose, onAdd, defaultTechnician, ot }: {
   defaultTechnician: string;
   ot: WorkOrder;
 }) {
-  const { assets } = useApp();
+  const { assets, addOTPhoto, removeOTPhoto } = useApp();
   const confirm = useConfirm();
   const toast = useToast();
   const draft = useLineDraft(defaultTechnician);
   const asset = assets.find(a => a.id === ot.assetId);
+  const [photosBusy, setPhotosBusy] = useState(false);
 
   const handleClose = () => {
     draft.reset();
@@ -581,23 +583,59 @@ function AddLineModal({ open, onClose, onAdd, defaultTechnician, ot }: {
     onClose();
   };
 
+  const handleAddPhotos = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setPhotosBusy(true);
+    for (const file of Array.from(files)) {
+      try {
+        const dataUrl = await fileToCompressedDataUrl(file);
+        addOTPhoto(ot.id, { dataUrl, name: file.name });
+      } catch {
+        // archivo invalido: se omite
+      }
+    }
+    setPhotosBusy(false);
+  };
+
+  const handleRemovePhoto = async (photo: AssetPhoto) => {
+    if (await confirm({ title: 'Eliminar fotografia', message: '¿Estas seguro de eliminar esta fotografia?', confirmLabel: 'Eliminar', variant: 'danger' })) {
+      removeOTPhoto(ot.id, photo.id);
+      toast({ message: 'Fotografia eliminada', variant: 'info' });
+    }
+  };
+
   return (
     <Modal open={open} onClose={handleClose} title="Agregar linea de trabajo" size="lg">
       <div className="space-y-4">
         {/* misma ficha que "Nueva Orden de Trabajo": estos datos ya existen en la OT, se muestran deshabilitados */}
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <Field label="Vehiculo">
-            <Select value={ot.assetId} disabled>
-              <option value={ot.assetId}>{ot.assetCode} - {ot.assetName}</option>
-            </Select>
-          </Field>
-          <Field label="Prioridad">
-            <Select value={ot.priority} disabled>
-              {priorityOrder.map(p => <option key={p} value={p}>{priorityLabels[p]}</option>)}
-            </Select>
-          </Field>
-          <Field label="Descripcion" className="md:col-span-2">
-            <TextArea value={ot.description} rows={3} disabled />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Vehiculo">
+                <Select value={ot.assetId} disabled>
+                  <option value={ot.assetId}>{ot.assetCode} - {ot.assetName}</option>
+                </Select>
+              </Field>
+              <Field label="Prioridad">
+                <Select value={ot.priority} disabled>
+                  {priorityOrder.map(p => <option key={p} value={p}>{priorityLabels[p]}</option>)}
+                </Select>
+              </Field>
+            </div>
+            <Field label="Descripcion">
+              <TextArea value={ot.description} rows={3} disabled />
+            </Field>
+          </div>
+
+          <Field label="Evidencia de la OT">
+            <PhotoCarousel
+              photos={ot.photos ?? []}
+              canEdit
+              busy={photosBusy}
+              onAddFiles={files => { void handleAddPhotos(files); }}
+              onRemove={photo => { void handleRemovePhoto(photo); }}
+              emptyEditableLabel="Sin fotografias. Sube evidencia general de la OT (no de una linea especifica)."
+            />
           </Field>
         </div>
 

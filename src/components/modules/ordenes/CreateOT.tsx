@@ -4,12 +4,16 @@ import { useConfirm } from '@/store/ConfirmContext';
 import { useToast } from '@/store/ToastContext';
 import { Button } from '@/components/ui/Button';
 import { Field, Select, TextArea } from '@/components/ui/Field';
-import type { OTPriority } from '@/types';
+import { PhotoCarousel } from '@/components/ui/PhotoCarousel';
+import { fileToCompressedDataUrl } from '@/lib/image';
+import type { AssetPhoto, OTPriority } from '@/types';
 import { AlertTriangle, ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { LineFields, useLineDraft } from './LineForm';
 import { priorityLabels } from './otMeta';
 
 const priorityOrder: OTPriority[] = ['baja', 'media', 'alta', 'critica'];
+/** Id/fecha solo para distinguir fotos en el carrusel mientras la OT no existe (aun no hay id/fecha reales) */
+const draftPhotoId = () => `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 /**
  * Nueva OT en una sola pagina: los datos de la OT, sus lineas de trabajo y los repuestos que pide cada una. Al crearla
@@ -23,6 +27,8 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
   const [priority, setPriority] = useState<OTPriority>('media');
   const [description, setDescription] = useState('');
   const [lines, setLines] = useState<NewOTLine[]>([]);
+  const [photos, setPhotos] = useState<AssetPhoto[]>([]);
+  const [photosBusy, setPhotosBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // el tecnico que crea la OT es quien solicita los repuestos y quien hace las lineas
   const draft = useLineDraft(currentRole === 'tecnico' ? currentUser : '');
@@ -50,12 +56,33 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
     setError(null);
   };
 
+  // evidencia a nivel de OT: se junta local (la OT todavia no existe) y se manda junto con addWorkOrder
+  const handleAddPhotos = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setPhotosBusy(true);
+    for (const file of Array.from(files)) {
+      try {
+        const dataUrl = await fileToCompressedDataUrl(file);
+        setPhotos(prev => [...prev, { id: draftPhotoId(), dataUrl, name: file.name, addedAt: new Date().toISOString().slice(0, 19) }]);
+      } catch {
+        // archivo invalido: se omite
+      }
+    }
+    setPhotosBusy(false);
+  };
+
+  const handleRemovePhoto = async (photo: AssetPhoto) => {
+    if (await confirm({ title: 'Eliminar fotografia', message: '¿Estas seguro de eliminar esta fotografia?', confirmLabel: 'Eliminar', variant: 'danger' })) {
+      setPhotos(prev => prev.filter(p => p.id !== photo.id));
+    }
+  };
+
   const handleCreate = async () => {
     const asset = assets.find(a => a.id === assetId);
     if (!asset) return setError('Selecciona el vehiculo de la OT.');
     if (!description.trim()) return setError('Escribe la descripcion de la OT.');
     if (draft.dirty && !pending) return setError('La linea en curso esta incompleta: elige el trabajo o limpiala antes de crear la OT.');
-    if (!(await confirm({ title: 'Crear OT', message: '¿Estas realmente seguro de crear la OT?', confirmLabel: 'Crear OT' }))) return;
+    if (!(await confirm({ title: 'Crear OT', message: '¿Estas seguro de crear la orden de trabajo?', confirmLabel: 'Crear Orden de Trabajo' }))) return;
 
     const date = new Date().toISOString().slice(0, 10);
     addWorkOrder({
@@ -66,9 +93,9 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
       priority,
       description: description.trim(),
       createdAt: date,
-      // la asignacion la hace el Jefe de Taller despues de aprobar
       assignedTo: null,
       assignedToType: null,
+      photos,
     }, allLines);
     addNotification({
       type: 'aprobacion',
@@ -98,24 +125,39 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
         </div>
 
         <section className="space-y-3 border-b border-stone-200 px-4 py-3 sm:px-5" aria-labelledby="ot-data">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-            <Field label="Vehiculo *" className="md:col-span-1">
-              <Select value={assetId} onChange={e => { setAssetId(e.target.value); setError(null); }}>
-                <option value="">Seleccionar vehiculo...</option>
-                {assets.map(a => <option key={a.id} value={a.id}>{a.code} - {a.name}</option>)}
-              </Select>
-            </Field>
-            <Field label="Prioridad *" className="md:col-span-1">
-              <Select value={priority} onChange={e => setPriority(e.target.value as OTPriority)}>
-                {priorityOrder.map(p => <option key={p} value={p}>{priorityLabels[p]}</option>)}
-              </Select>
-            </Field>
-            <Field label="Descripcion *" className="md:col-span-2">
-              <TextArea
-                value={description}
-                onChange={e => { setDescription(e.target.value); setError(null); }}
-                rows={1}
-                placeholder="Describe el trabajo a realizar..."
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Vehiculo *">
+                  <Select value={assetId} onChange={e => { setAssetId(e.target.value); setError(null); }}>
+                    <option value="">Seleccionar vehiculo...</option>
+                    {assets.map(a => <option key={a.id} value={a.id}>{a.code} - {a.name}</option>)}
+                  </Select>
+                </Field>
+                <Field label="Prioridad *">
+                  <Select value={priority} onChange={e => setPriority(e.target.value as OTPriority)}>
+                    {priorityOrder.map(p => <option key={p} value={p}>{priorityLabels[p]}</option>)}
+                  </Select>
+                </Field>
+              </div>
+              <Field label="Descripcion *">
+                <TextArea
+                  value={description}
+                  onChange={e => { setDescription(e.target.value); setError(null); }}
+                  rows={3}
+                  placeholder="Describe el trabajo a realizar..."
+                />
+              </Field>
+            </div>
+
+            <Field label="Evidencia de la OT">
+              <PhotoCarousel
+                photos={photos}
+                canEdit
+                busy={photosBusy}
+                onAddFiles={files => { void handleAddPhotos(files); }}
+                onRemove={photo => { void handleRemovePhoto(photo); }}
+                emptyEditableLabel="Sin fotografias. Sube evidencia general de la OT (no de una linea especifica)."
               />
             </Field>
           </div>

@@ -122,6 +122,10 @@ interface AppState {
   finalizeWorkOrder: (id: string, signer: string) => void;
   closeWorkOrder: (id: string) => void;
   signOTInventory: (id: string, signer: string) => void;
+  /** Evidencia a nivel de OT (no por linea): "Nueva OT" la junta local y la manda junto con `addWorkOrder`;
+   * una vez creada, se sigue agregando desde "Agregar linea de trabajo" con estas 2 acciones */
+  addOTPhoto: (otId: string, photo: Omit<AssetPhoto, 'id' | 'addedAt'>) => void;
+  removeOTPhoto: (otId: string, photoId: string) => void;
 
   // Lineas de trabajo
   /** `parts` son una solicitud (el stock sale al entregarse); `photosBefore` entran como la evidencia de la linea */
@@ -610,6 +614,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWorkOrders(prev => [newOT, ...prev]);
     built.forEach(b => { if (b.requested) notifyRequisitionRequested(newOT.code, b.line); });
   }, [currentRole, currentUser, currentSignature, workOrders, buildLine, notifyRequisitionRequested]);
+
+  const addOTPhoto = useCallback((otId: string, photo: Omit<AssetPhoto, 'id' | 'addedAt'>) => {
+    const entry: AssetPhoto = { ...photo, id: genId(), addedAt: now() };
+    setWorkOrders(prev => prev.map(o => (o.id === otId ? { ...o, photos: [...o.photos, entry] } : o)));
+  }, []);
+
+  const removeOTPhoto = useCallback((otId: string, photoId: string) => {
+    setWorkOrders(prev => prev.map(o => (o.id === otId ? { ...o, photos: o.photos.filter(p => p.id !== photoId) } : o)));
+  }, []);
 
   const updateWorkOrder = useCallback<AppState['updateWorkOrder']>((id, patch) => {
     if (!hasPermission('ot.lineas.editar')) return 'Tu rol no puede editar la OT.';
@@ -1104,6 +1117,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     parts, addPart, updatePart, removePart, movements,
     workOrders, addWorkOrder, updateWorkOrder, updateWorkOrderStatus, submitForApproval, approveWorkOrder,
     rejectWorkOrder, approveEmergencyRetro, assignWorkOrder, startExecution, finalizeWorkOrder, closeWorkOrder, signOTInventory,
+    addOTPhoto, removeOTPhoto,
     addOTLine, updateOTLine, deleteOTLine, startLine, finishLine,
     addLinePhoto, removeLinePhoto, setLineParts, signRequisition, reviewFinding,
     storageWarning, dismissStorageWarning,
@@ -1117,7 +1131,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     removeAssetPhoto, parts, addPart, updatePart, removePart, movements, workOrders, addWorkOrder, updateWorkOrder,
     updateWorkOrderStatus, submitForApproval,
     approveWorkOrder, rejectWorkOrder, approveEmergencyRetro, assignWorkOrder, startExecution,
-    finalizeWorkOrder, closeWorkOrder, signOTInventory, addOTLine, updateOTLine, deleteOTLine, startLine, finishLine,
+    finalizeWorkOrder, closeWorkOrder, signOTInventory, addOTPhoto, removeOTPhoto,
+    addOTLine, updateOTLine, deleteOTLine, startLine, finishLine,
     addLinePhoto, removeLinePhoto, setLineParts, signRequisition, reviewFinding, storageWarning,
     dismissStorageWarning, fuelLoads, addFuelLoad, notifications, markNotificationRead,
     markAllNotificationsRead, pushNotification, workTypes, addWorkType, updateWorkType, removeWorkType,

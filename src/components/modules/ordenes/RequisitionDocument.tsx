@@ -36,7 +36,7 @@ export function RequisitionDocumentButton({ ot, line, onView }: { ot: WorkOrder;
   return (
     <>
       <Button size="sm" variant="primary" className="min-h-[44px] sm:min-h-0" onClick={() => (onView ? onView() : setOpen(true))}>
-        <Eye size={14} /> 
+        <Eye size={14} /> Revisar
       </Button>
       {open && !onView && (
         <Modal open onClose={() => setOpen(false)} title={`Documento ${line.requisition?.code ?? ''}`} size="lg">
@@ -46,3 +46,4 @@ export function RequisitionDocumentButton({ ot, line, onView }: { ot: WorkOrder;
     </>
   );
 }
+

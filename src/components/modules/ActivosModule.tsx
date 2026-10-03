@@ -8,6 +8,7 @@ import { Field, TextInput, Select } from '@/components/ui/Field';
 import { StatCard } from '@/components/ui/StatCard';
 import { IndicatorCards } from '@/components/ui/IndicatorCards';
 import { SortableTh } from '@/components/ui/SortableTh';
+import { PhotoCarousel } from '@/components/ui/PhotoCarousel';
 import type { Asset, AssetPhoto, AssetStatus, AssetType } from '@/types';
 import { fileToCompressedDataUrl } from '@/lib/image';
 import { useSort } from '@/lib/useSort';
@@ -21,13 +22,8 @@ import {
   Wrench,
   Link2,
   RefreshCw,
-  Camera,
-  X,
-  ImageIcon,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-react';
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 
 const statusLabels: Record<AssetStatus, string> = {
   operativo: 'Operativo',
@@ -381,52 +377,8 @@ function AssetPhotoGallery({ asset }: { asset: Asset }) {
   const toast = useToast();
   const canEdit = hasPermission('activos.fotos.gestionar');
   const [busy, setBusy] = useState(false);
-  const [preview, setPreview] = useState<AssetPhoto | null>(null);
-  const [index, setIndex] = useState(0);
-  const [dragOffset, setDragOffset] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const dragStartX = useRef(0);
-  const didDragRef = useRef(false);
-  const viewportRef = useRef<HTMLDivElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const cameraRef = useRef<HTMLInputElement>(null);
 
-  // la mas reciente primero, como ya se ordenaba antes
-  const ordered = [...asset.photos].reverse();
-  const safeIndex = Math.min(index, Math.max(0, ordered.length - 1));
-  const current = ordered[safeIndex] ?? null;
-
-  const goPrev = () => setIndex(i => Math.max(0, Math.min(i, ordered.length - 1) - 1));
-  const goNext = () => setIndex(i => Math.min(ordered.length - 1, Math.min(i, ordered.length - 1) + 1));
-
-  const onDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (ordered.length <= 1) return;
-    dragStartX.current = e.clientX;
-    setDragging(true);
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-
-  const onDragMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragging) return;
-    setDragOffset(e.clientX - dragStartX.current);
-  };
-
-  const onDragEnd = () => {
-    if (!dragging) return;
-    didDragRef.current = Math.abs(dragOffset) > 5;
-    const threshold = Math.min(60, (viewportRef.current?.clientWidth ?? 240) * 0.2);
-    if (dragOffset < -threshold) goNext();
-    else if (dragOffset > threshold) goPrev();
-    setDragging(false);
-    setDragOffset(0);
-  };
-
-  const handleTap = (photo: AssetPhoto) => {
-    if (didDragRef.current) { didDragRef.current = false; return; }
-    setPreview(photo);
-  };
-
-  const handleFiles = async (files: FileList | null) => {
+  const handleAddFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setBusy(true);
     for (const file of Array.from(files)) {
@@ -438,145 +390,24 @@ function AssetPhotoGallery({ asset }: { asset: Asset }) {
       }
     }
     setBusy(false);
-    setIndex(0); // la nueva foto queda primera (mas reciente): se muestra de una vez
-    if (fileRef.current) fileRef.current.value = '';
-    if (cameraRef.current) cameraRef.current.value = '';
+  };
+
+  const handleRemove = async (photo: AssetPhoto) => {
+    if (await confirm({ title: 'Eliminar fotografia', message: '¿Estas seguro de eliminar esta fotografia?', confirmLabel: 'Eliminar', variant: 'danger' })) {
+      removeAssetPhoto(asset.id, photo.id);
+      toast({ message: 'Fotografia eliminada', variant: 'info' });
+    }
   };
 
   return (
-    <div className="border border-stone-200 rounded-md p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-
-        {canEdit && (
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => cameraRef.current?.click()} disabled={busy}>
-              <Camera size={14} />
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={busy}>
-              <Plus size={14} /> {busy ? 'Cargando...' : ''}
-            </Button>
-            <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { void handleFiles(e.target.files); }} />
-            <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={e => { void handleFiles(e.target.files); }} />
-          </div>
-        )}
-      </div>
-
-      {current ? (
-        <div className="mx-auto flex max-w-sm flex-col gap-2">
-          <div className="relative">
-            <div
-              ref={viewportRef}
-              onPointerDown={onDragStart}
-              onPointerMove={onDragMove}
-              onPointerUp={onDragEnd}
-              onPointerCancel={onDragEnd}
-              className="aspect-[4/3] w-full touch-pan-y select-none overflow-hidden rounded-md border border-stone-300 bg-stone-100 cursor-grab active:cursor-grabbing"
-            >
-              <div
-                className="flex h-full"
-                style={{
-                  width: `${ordered.length * 100}%`,
-                  transform: `translateX(calc(${-safeIndex * (100 / ordered.length)}% + ${dragOffset}px))`,
-                  transition: dragging ? 'none' : 'transform 300ms ease-out',
-                }}
-              >
-                {ordered.map(photo => (
-                  <button
-                    key={photo.id}
-                    type="button"
-                    onClick={() => handleTap(photo)}
-                    className="h-full flex-shrink-0"
-                    style={{ width: `${100 / ordered.length}%` }}
-                    title={`${photo.name} - ${formatDateTime(photo.addedAt)}`}
-                  >
-                    <img src={photo.dataUrl} alt={photo.name} draggable={false} className="w-full h-full object-cover" />
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {ordered.length > 1 && (
-              <>
-                <button
-                  onClick={goPrev}
-                  disabled={safeIndex === 0}
-                  aria-label="Foto anterior"
-                  className="absolute left-1.5 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-stone-700 shadow-card transition-opacity hover:bg-white disabled:pointer-events-none disabled:opacity-0"
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                <button
-                  onClick={goNext}
-                  disabled={safeIndex === ordered.length - 1}
-                  aria-label="Foto siguiente"
-                  className="absolute right-1.5 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-stone-700 shadow-card transition-opacity hover:bg-white disabled:pointer-events-none disabled:opacity-0"
-                >
-                  <ChevronRight size={18} />
-                </button>
-              </>
-            )}
-
-            {canEdit && (
-              <button
-                onClick={async () => {
-                  if (await confirm({ title: 'Eliminar fotografia', message: '¿Estas seguro de eliminar esta fotografia?', confirmLabel: 'Eliminar', variant: 'danger' })) {
-                    removeAssetPhoto(asset.id, current.id);
-                    toast({ message: 'Fotografia eliminada', variant: 'info' });
-                  }
-                }}
-                className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow-sm transition-colors hover:bg-red-600"
-                title="Eliminar fotografia"
-                aria-label={`Eliminar ${current.name}`}
-              >
-                <X size={12} />
-              </button>
-            )}
-          </div>
-
-          {ordered.length > 1 && (
-            <div className="flex items-center justify-center gap-1.5">
-              {ordered.map((photo, i) => (
-                <button
-                  key={photo.id}
-                  onClick={() => setIndex(i)}
-                  aria-label={`Ver foto ${i + 1} de ${ordered.length}`}
-                  className={`h-1.5 rounded-full transition-all ${i === safeIndex ? 'w-5 bg-orange-500' : 'w-1.5 bg-stone-300 hover:bg-stone-400'}`}
-                />
-              ))}
-            </div>
-          )}
-
-          <p className="text-center text-content text-stone-400">
-            {formatDateTime(current.addedAt)}{ordered.length > 1 ? ` · ${safeIndex + 1}/${ordered.length}` : ''}
-          </p>
-        </div>
-      ) : (
-        <div className="text-center py-6 border border-dashed border-stone-200 rounded-md">
-          <ImageIcon size={22} className="text-stone-300 mx-auto mb-1" />
-          <p className="text-content text-stone-400">
-            {canEdit ? 'Sin fotografias. Sube una imagen del estado actual del activo.' : 'Sin fotografias registradas.'}
-          </p>
-        </div>
-      )}
-
-      {preview && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-stone-900/70 backdrop-blur-sm" onClick={() => setPreview(null)} />
-          <div className="relative max-w-3xl max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-white">
-                <p className="text-content font-medium">{preview.name}</p>
-                <p className="text-content text-stone-300">{formatDateTime(preview.addedAt)}</p>
-              </div>
-              <button onClick={() => setPreview(null)} className="text-white/80 hover:text-white transition-colors">
-                <X size={22} />
-              </button>
-            </div>
-            <img src={preview.dataUrl} alt={preview.name} className="rounded-lg max-h-[75vh] object-contain bg-stone-900" />
-          </div>
-        </div>
-      )}
-    </div>
+    <PhotoCarousel
+      photos={asset.photos}
+      canEdit={canEdit}
+      busy={busy}
+      onAddFiles={files => { void handleAddFiles(files); }}
+      onRemove={photo => { void handleRemove(photo); }}
+      emptyEditableLabel="Sin fotografias. Sube una imagen del estado actual del activo."
+    />
   );
 }
 
@@ -619,7 +450,7 @@ function CreateAssetModal({ open, onClose, onCreate, locations }: {
 
   const handleSubmit = async () => {
     if (!form.code || !form.name) return;
-    if (!(await confirm({ title: 'Crear activo', message: '¿Estas seguro de crear la ficha de este activo?', confirmLabel: 'Crear ficha' }))) return;
+    if (!(await confirm({ title: 'Crear activo', message: '¿Estas seguro de crear la ficha de este vehiculo?', confirmLabel: 'Crear ficha' }))) return;
     onCreate({
       ...form,
       lastMaintenance: new Date().toISOString().slice(0, 10),

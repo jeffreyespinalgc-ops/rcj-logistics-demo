@@ -225,6 +225,8 @@ export interface WorkOrder {
   lines: OTLine[];
   estimatedCost: number;
   history: OTHistoryEntry[];
+  /** Evidencia a nivel de OT (no por linea): se agrega desde "Nueva OT" o desde "Agregar linea de trabajo" */
+  photos: AssetPhoto[];
 }
 
 // ===== Fuel Types =====

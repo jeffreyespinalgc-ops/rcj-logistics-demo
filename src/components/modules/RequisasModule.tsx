@@ -265,14 +265,12 @@ export function RequisasTable() {
               </tr>
             </thead>
             <tbody>
-              {pageRows.map((row, i) => {
+              {pageRows.map(row => {
                 const { ot, lines, code, mySteps } = row;
-                // 2 colores alternados: una fila es una OT, asi que ya alterna solo por fila
-                const rowBg = i % 2 === 0 ? 'bg-white' : 'bg-orange-100';
                 const open = () => setSelected({ otId: ot.id });
                 const completeCount = lines.filter(l => requisitionStatus(l) === 'completa').length;
                 return (
-                  <tr key={ot.id} className={`cursor-pointer ${rowBg}`} onClick={open}>
+                  <tr key={ot.id} className="cursor-pointer bg-white" onClick={open}>
                     <td className="whitespace-nowrap">
                       <button onClick={open} className="block font-normal text-blue-700 hover:underline">
                         {code ?? <span className="text-stone-500">Sin solicitar</span>}
@@ -288,7 +286,7 @@ export function RequisasTable() {
                       </span>
                     </td>
                     <td className="whitespace-nowrap text-stone-700">{completeCount} / {lines.length} completas</td>
-                    <td className={`sticky right-0 ${rowBg} text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)]`}>
+                    <td className="sticky right-0 bg-white text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)]">
                       <span className="inline-flex items-center justify-end gap-2">
                         <Button
                           size="sm"

@@ -63,8 +63,8 @@ export function buildRequisitionPdfData(ot: WorkOrder, line: OTLine): Requisitio
       description: p.partDescription,
       code: p.partCode,
       unit: p.unit,
-      // que linea de trabajo pidio este repuesto (la OT ya es una sola para todo el documento)
-      notes: l.work,
+      // observacion propia del repuesto (la que el usuario escribe en "Observaciones" al elegirlo), vacia si no se escribio nada
+      notes: p.notes ?? '',
     }))),
     signers: [
       fromStep('solicitante', 'Solicitado por', 'Tecnico'),
