@@ -211,7 +211,5 @@ export function blockingReason(ot: WorkOrder): string | null {
   if (pending.length > 0) {
     return `Hay ${pending.length} hallazgo${pending.length !== 1 ? 's' : ''} pendiente${pending.length !== 1 ? 's' : ''} de aprobacion.`;
   }
-  // Revision de Inventario ahora es una etapa previa a Finalizar: Control de Inventario debe firmar antes
-  if (!ot.inventorySignedAt) return 'Falta la firma de Revision de Inventario.';
   return null;
 }

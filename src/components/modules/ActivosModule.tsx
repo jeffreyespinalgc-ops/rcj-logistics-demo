@@ -164,13 +164,13 @@ export function ActivosModule() {
 
         <div className="flex items-center gap-3 px-4 py-3 border-b border-stone-100 bg-stone-50/50 flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-            <TextInput
-              placeholder="Buscar por codigo, nombre o patente..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9"
-            />
+              <Search size={16} className="absolute left-3 top-1/2 text-stone-400" />
+              <TextInput
+                placeholder="Buscar por codigo, nombre o patente..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full pl-9"
+              />
           </div>
           <Select value={filterType} onChange={e => setFilterType(e.target.value)} className="w-full sm:w-auto">
             <option value="">TIPOS</option>
@@ -406,7 +406,6 @@ function AssetPhotoGallery({ asset }: { asset: Asset }) {
       busy={busy}
       onAddFiles={files => { void handleAddFiles(files); }}
       onRemove={photo => { void handleRemove(photo); }}
-      emptyEditableLabel="Sin fotografias. Sube una imagen del estado actual del activo."
     />
   );
 }

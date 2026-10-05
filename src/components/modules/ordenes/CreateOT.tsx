@@ -1,13 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApp, type NewOTLine } from '@/store/AppContext';
 import { useConfirm } from '@/store/ConfirmContext';
 import { useToast } from '@/store/ToastContext';
 import { Button } from '@/components/ui/Button';
 import { Field, Select, TextArea } from '@/components/ui/Field';
+import { Modal } from '@/components/ui/Modal';
 import { PhotoCarousel } from '@/components/ui/PhotoCarousel';
 import { fileToCompressedDataUrl } from '@/lib/image';
-import type { AssetPhoto, OTPriority } from '@/types';
-import { AlertTriangle, ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { selectionFromLine } from '@/lib/planSelection';
+import type { Asset, AssetPhoto, OTPriority } from '@/types';
+import { AlertTriangle, ArrowLeft, Check, Edit, FileIcon, Pencil, Plus, SaveAll, SaveAllIcon, SaveOff, SaveOffIcon, Trash2, X } from 'lucide-react';
 import { LineFields, useLineDraft } from './LineForm';
 import { priorityLabels } from './otMeta';
 
@@ -27,6 +29,7 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
   const [priority, setPriority] = useState<OTPriority>('media');
   const [description, setDescription] = useState('');
   const [lines, setLines] = useState<NewOTLine[]>([]);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [photos, setPhotos] = useState<AssetPhoto[]>([]);
   const [photosBusy, setPhotosBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -125,9 +128,9 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
         </div>
 
         <section className="space-y-3 border-b border-stone-200 px-4 py-3 sm:px-5" aria-labelledby="ot-data">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 ">
             <div className="space-y-3">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-1">
                 <Field label="Vehiculo *">
                   <Select value={assetId} onChange={e => { setAssetId(e.target.value); setError(null); }}>
                     <option value="">Seleccionar vehiculo...</option>
@@ -150,14 +153,13 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
               </Field>
             </div>
 
-            <Field label="Evidencia de la OT">
+            <Field label="Archivos">
               <PhotoCarousel
                 photos={photos}
                 canEdit
                 busy={photosBusy}
                 onAddFiles={files => { void handleAddPhotos(files); }}
                 onRemove={photo => { void handleRemovePhoto(photo); }}
-                emptyEditableLabel="Sin fotografias. Sube evidencia general de la OT (no de una linea especifica)."
               />
             </Field>
           </div>
@@ -182,45 +184,74 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
                 <thead>
                   <tr>
                     <th className="w-10">#</th>
-                    <th>Linea de trabajo</th>
-                    <th>Repuestos</th>
-                    {/* relative: el texto sr-only (absolute) queda recortado por el scroll de la tabla y no agranda la pagina */}
-                    <th className="relative w-12"><span className="sr-only">Quitar</span></th>
+                    <th className="min-w-[220px]">Linea de trabajo</th>
+                    <th className="whitespace-nowrap text-right">Cantidad</th>
+                    <th className="whitespace-nowrap">Unidad</th>
+                    <th>Producto</th>
+                    <th>Observaciones</th>
+                    <th className="w-48 whitespace-nowrap text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {lines.map((line, index) => (
-                    <tr key={`${index}-${line.work}`}>
-                      <td>{index + 1}</td>
-                      <td className="min-w-[220px]">
-                        <span className="block font-normal text-stone-800">{line.work}</span>
+                  {/* una fila por repuesto: la linea, su numero y sus acciones ocupan todas las filas de sus repuestos */}
+                  {lines.map((line, index) => {
+                    const parts = line.parts ?? [];
+                    const span = Math.max(parts.length, 1);
+                    const actions = (
+                      <td rowSpan={span} className="align-middle text-right">
+                        <div className="flex flex-row items-center justify-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            className="min-h-[44px] sm:min-h-0"
+                            onClick={() => setEditingIndex(index)}
+                            title="Editar linea"
+                            aria-label={`Editar la linea ${line.work}`}
+                          >
+                            <Edit size={14} /> Editar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            className="min-h-[44px] sm:min-h-0"
+                            onClick={() => setLines(prev => prev.filter((_, i) => i !== index))}
+                            title="Quitar linea"
+                            aria-label={`Quitar la linea ${line.work}`}
+                          >
+                            <Trash2 size={14} /> Eliminar
+                          </Button>
+                        </div>
                       </td>
-                      <td className="min-w-[180px]">
-                        {(line.parts?.length ?? 0) === 0 ? (
-                          <span className="text-stone-500">{line.needsPart ? 'Sin repuestos elegidos' : '--'}</span>
-                        ) : (
-                          <ul className="space-y-0.5">
-                            {line.parts?.map(p => (
-                              <li key={p.partId} className="font-normal text-stone-800">
-                                {p.partDescription} <span className="text-stone-500">x{p.quantity}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </td>
-                      <td className="text-right">
-                        <button
-                          type="button"
-                          onClick={() => setLines(prev => prev.filter((_, i) => i !== index))}
-                          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-stone-400 transition-colors hover:bg-red-50 hover:text-red-600 sm:min-h-0 sm:min-w-0 sm:p-1.5"
-                          title="Quitar linea"
-                          aria-label={`Quitar la linea ${line.work}`}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                    );
+                    const lineCells = (
+                      <>
+                        <td rowSpan={span} className="align-middle">{index + 1}</td>
+                        <td rowSpan={span} className="align-middle">
+                          <span className="block font-normal text-stone-800">{line.work}</span>
+                        </td>
+                      </>
+                    );
+
+                    if (parts.length === 0) {
+                      return (
+                        <tr key={`${index}-${line.work}`}>
+                          {lineCells}
+                          <td colSpan={4} className="text-stone-500">{line.needsPart ? 'Sin repuestos elegidos' : '--'}</td>
+                          {actions}
+                        </tr>
+                      );
+                    }
+                    return parts.map((p, i) => (
+                      <tr key={`${index}-${p.partId}`}>
+                        {i === 0 && lineCells}
+                        <td className="text-right font-normal">{p.quantity}</td>
+                        <td className="whitespace-nowrap text-stone-600">{p.unit}</td>
+                        <td className="font-normal">{p.partDescription}</td>
+                        <td className="font-normal">{p.notes ?? ''}</td>
+                        {i === 0 && actions}
+                      </tr>
+                    ));
+                  })}
                 </tbody>
               </table>
             </div>
@@ -235,10 +266,70 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
               </p>
             )}
           </div>
-          <Button variant="outline" className="min-h-[44px] sm:min-h-0" onClick={onBack}>Cancelar</Button>
-          <Button className="min-h-[44px] sm:min-h-0" onClick={handleCreate}><Plus size={16} /> Crear OT</Button>
+          <Button variant="danger" className="min-h-[44px] sm:min-h-0" onClick={onBack}><X size={16} />Cancelar</Button>
+          <Button className="min-h-[44px] sm:min-h-0" onClick={handleCreate}><Plus size={16} /> Crear</Button>
         </div>
       </div>
+
+      {editingIndex !== null && lines[editingIndex] && (
+        <EditDraftLineModal
+          line={lines[editingIndex]}
+          asset={assets.find(a => a.id === assetId)}
+          onSave={updated => setLines(prev => prev.map((l, i) => (i === editingIndex ? updated : l)))}
+          onClose={() => setEditingIndex(null)}
+        />
+      )}
     </div>
+  );
+}
+
+/**
+ * Editar una linea de la OT que se esta creando: el mismo formulario completo de "Agregar linea" (tipo de trabajo,
+ * columnas del plan, repuestos y observaciones). La OT todavia no existe, asi que solo cambia la lista de esta pagina.
+ */
+function EditDraftLineModal({ line, asset, onSave, onClose }: {
+  line: NewOTLine;
+  asset?: Asset;
+  onSave: (updated: NewOTLine) => void;
+  onClose: () => void;
+}) {
+  const { workTypes, maintenancePlans } = useApp();
+  const confirm = useConfirm();
+  const toast = useToast();
+  // la linea conserva a su tecnico: el formulario solo arma de nuevo el trabajo, los repuestos y las observaciones
+  const draft = useLineDraft(line.technician);
+
+  useEffect(() => {
+    draft.setSelection(selectionFromLine(workTypes, maintenancePlans, line));
+    // una linea de texto libre no tiene ruta en el plan: lo que se guardo como trabajo es el texto mismo
+    draft.setFreeText(line.workPath.length === 0 ? line.work : '');
+    draft.setNotes(line.notes);
+    draft.setParts(line.parts ?? []);
+  }, []);
+
+  const handleSave = async () => {
+    const updated = draft.build();
+    if (!updated) return;
+    if (!(await confirm({ title: 'Editar linea', message: '¿Estas seguro de guardar los cambios de esta linea de trabajo?', confirmLabel: 'Guardar cambios' }))) return;
+    onSave(updated);
+    toast('Linea actualizada correctamente');
+    onClose();
+  };
+
+  return (
+    <Modal open onClose={onClose} title="Editar linea de trabajo" size="xl">
+      <div className="space-y-4">
+        <LineFields draft={draft} asset={asset} />
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="danger" className="min-h-[44px] sm:min-h-0" onClick={onClose}>
+            <X size={14} />
+            Cancelar
+          </Button>
+          <Button className="min-h-[44px] sm:min-h-0" onClick={handleSave} disabled={!draft.valid}>
+            <SaveAllIcon className="w-4 h-4" /> Guardar cambios
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }

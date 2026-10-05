@@ -199,6 +199,31 @@ export interface OTHistoryEntry {
   signature?: string | null;
 }
 
+/** Parte de la OT que cambio: una fila del log de modificaciones */
+export type OTLogEntity = 'ot' | 'linea' | 'repuesto' | 'requisa' | 'evidencia' | 'hallazgo' | 'sap';
+
+/** Una modificacion de una OT. Las filas solo se agregan: nunca se editan ni se borran. */
+export interface OTLogEntry {
+  id: string;
+  otId: string;
+  otCode: string;
+  /** Linea afectada; null si el cambio es de la OT completa */
+  lineId: string | null;
+  at: string;
+  /** Usuario que hizo el cambio (o el firmante, en las firmas de la requisa) */
+  by: string;
+  role: UserRole | 'sistema';
+  entity: OTLogEntity;
+  action: string;
+  field: string | null;
+  oldValue: string | null;
+  newValue: string | null;
+  /** Frase legible del cambio */
+  summary: string;
+  reason: string | null;
+  signatureStep: RequisitionStep | null;
+}
+
 export interface WorkOrder {
   id: string;
   code: string;
@@ -213,6 +238,8 @@ export interface WorkOrder {
   /** Tecnico de taller o taller externo responsable de la ejecucion */
   assignedTo: string | null;
   assignedToType: 'tecnico' | 'taller_externo' | null;
+  /** Equipo de tecnicos asignados (el principal es `assignedTo`); vacio si la OT va a un taller externo */
+  assignedTeam: string[];
   closedAt: string | null;
   approvedBy: string | null;
   signedBy: string | null;

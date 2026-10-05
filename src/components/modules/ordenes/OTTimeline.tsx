@@ -1,82 +1,58 @@
-import type { WorkOrder } from '@/types';
+import type { OTStatus, WorkOrder } from '@/types';
 import { Check } from 'lucide-react';
-import { requiresRequisition, requisitionStatus } from '@/lib/requisition';
-import { formatDateTime, otFlow, statusLabels, statusOwnerLabels } from './otMeta';
-
-interface TimelineStep {
-  key: string;
-  label: string;
-  owner: string;
-  done: boolean;
-  active: boolean;
-  at: string | null;
-  by: string | null;
-}
+import { requisitionRevisionPending } from '@/lib/requisition';
+import { formatDateTime, statusLabels, statusOwnerLabels } from './otMeta';
 
 /**
- * Linea de tiempo del flujo de la OT:
- * Creada -> Pendiente de aprobacion -> Aprobada -> Revision de Inventario -> En ejecucion -> Finalizada -> Enviado a SAP
- * "Revision de Inventario" y "Enviado a SAP" no son estados reales de la OT (`OTStatus`), son hitos.
- * "Revision de Inventario" representa la CADENA DE FIRMAS de la requisa de repuestos (Tecnico solicita ->
- * Jefe de Taller autoriza -> Control de Inventario entrega -> Tecnico recibe): esta "pendiente" mientras
- * cualquier linea con repuestos tenga alguna de esas firmas sin completar, y "lista" cuando todas las
- * requisas de la OT ya estan completas (o si ninguna linea necesita repuestos). Va justo despues de
- * "Aprobada" porque es ahi, con la OT ya aprobada, cuando esas firmas empiezan a pedirse. OJO: esto es
- * independiente del boton "Firmar como Control de Inventario" (`ot.inventorySignedAt`, una sola firma
- * de Control sobre el documento completo de la OT) -- ese sigue existiendo aparte, sin paso propio aqui.
- * "Enviado a SAP" depende de `ot.sapSentAt`, que se simula automaticamente (siempre exitoso) al cerrar la
- * OT. El estado real "cerrada" no tiene su propio paso visual: "Enviado a SAP" ocurre en el mismo momento
- * y lo reemplaza como hito final.
+ * Etapas en orden estricto, con una sola activa a la vez:
+ * Creada -> Pendiente de aprobacion -> Aprobada -> Revision de Inventario -> En ejecucion -> Finalizada -> Enviado a SAP.
+ * "Revision de Inventario" es la cadena de firmas de las requisas (tecnico, Jefe de Taller, Control de Inventario y
+ * tecnico que recibe): mientras falte alguna firma, la OT espera en esa etapa. "Enviado a SAP" queda pendiente
+ * (naranja) hasta que SAP confirma el envio.
  */
+const phases: { key: string; status?: OTStatus; label: string; owner: string }[] = [
+  { key: 'creada', status: 'creada', label: statusLabels.creada, owner: statusOwnerLabels.creada },
+  { key: 'pendiente_aprobacion', label: statusLabels.pendiente_aprobacion, owner: statusOwnerLabels.pendiente_aprobacion },
+  { key: 'aprobada', status: 'aprobada', label: statusLabels.aprobada, owner: statusOwnerLabels.aprobada },
+  { key: 'revision_inventario', label: 'Revision de Inventario', owner: 'Tecnico / Jefe de Taller / Control de Inventario' },
+  { key: 'en_ejecucion', status: 'en_ejecucion', label: statusLabels.en_ejecucion, owner: statusOwnerLabels.en_ejecucion },
+  { key: 'finalizada', status: 'finalizada', label: statusLabels.finalizada, owner: statusOwnerLabels.finalizada },
+  { key: 'enviado_sap', label: 'Enviado a SAP', owner: 'Sistema' },
+];
+
+/** Indice de la etapa en curso (la activa); todas las anteriores estan hechas y las siguientes pendientes */
+function currentPhaseIndex(ot: WorkOrder): number {
+  switch (ot.status) {
+    case 'creada':
+    case 'pendiente_aprobacion':
+    case 'rechazada':
+      return 1;
+    case 'aprobada':
+      return requisitionRevisionPending(ot.lines) ? 3 : 2;
+    case 'en_ejecucion':
+      return 4;
+    case 'finalizada':
+      return ot.sapSentAt ? 7 : 6;
+    case 'cerrada':
+      return 7;
+  }
+}
+
 export function OTTimeline({ ot }: { ot: WorkOrder }) {
-  // "rechazada" no forma parte de otFlow: se muestra el flujo detenido en "Pendiente de aprobacion",
-  // que es la etapa desde la que se rechaza (el banner rojo de abajo explica el motivo)
-  const currentIndex = ot.status === 'rechazada' ? otFlow.indexOf('pendiente_aprobacion') : otFlow.indexOf(ot.status);
-  const earlySteps = otFlow.slice(0, otFlow.indexOf('aprobada') + 1);
-  const lateSteps = otFlow.slice(otFlow.indexOf('en_ejecucion'), otFlow.indexOf('finalizada') + 1);
-  const reachedAprobada = currentIndex >= otFlow.indexOf('aprobada');
-  const requisitionPending = ot.lines.some(l => requiresRequisition(l) && requisitionStatus(l) !== 'completa');
-  const requisitionDone = reachedAprobada && !requisitionPending;
-  const requisitionActive = reachedAprobada && requisitionPending;
-  const sapDone = Boolean(ot.sapSentAt);
-  const sapActive = !sapDone && ot.status === 'cerrada';
+  const current = currentPhaseIndex(ot);
+  const entryOf = (status: OTStatus) => [...ot.history].reverse().find(h => h.status === status) ?? null;
 
-  const statusStep = (status: typeof otFlow[number]): TimelineStep => {
-    const idx = otFlow.indexOf(status);
-    const entry = [...ot.history].reverse().find(h => h.status === status);
+  const steps = phases.map((phase, idx) => {
+    const entry = phase.status ? entryOf(phase.status) : null;
+    const isSap = phase.key === 'enviado_sap';
     return {
-      key: status,
-      label: statusLabels[status],
-      owner: statusOwnerLabels[status],
-      done: idx < currentIndex,
-      active: idx === currentIndex,
-      at: entry?.at ?? null,
-      by: entry?.by ?? null,
+      ...phase,
+      done: idx < current,
+      active: idx === current,
+      at: isSap ? ot.sapSentAt : entry?.at ?? null,
+      by: isSap ? (ot.sapSentAt ? 'SAP' : null) : entry?.by ?? null,
     };
-  };
-
-  const steps: TimelineStep[] = [
-    ...earlySteps.map(statusStep),
-    {
-      key: 'revision_inventario',
-      label: 'Revision de Inventario',
-      owner: 'Tecnico / Jefe de Taller / Control de Inventario',
-      done: requisitionDone,
-      active: requisitionActive,
-      at: null,
-      by: null,
-    },
-    ...lateSteps.map(statusStep),
-    {
-      key: 'enviado_sap',
-      label: 'Enviado a SAP',
-      owner: 'Sistema',
-      done: sapDone,
-      active: sapActive,
-      at: ot.sapSentAt,
-      by: sapDone ? 'SAP' : null,
-    },
-  ];
+  });
 
   return (
     <div className="flex items-start overflow-x-auto pb-1">

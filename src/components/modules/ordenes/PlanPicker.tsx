@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useApp } from '@/store/AppContext';
 import { Field, Select, TextInput } from '@/components/ui/Field';
 import type { Asset, MaintenanceTreeNode } from '@/types';
-import { ChevronRight } from 'lucide-react';
+import { CheckCheck, ChevronRight, MousePointer2 } from 'lucide-react';
 import { inferPlanSelection, type PlanSelection } from '@/lib/planSelection';
 
 const isLeaf = (node: MaintenanceTreeNode) => node.children.length === 0;
@@ -133,8 +133,19 @@ function PlanColumns({ roots, rootLabel, value, onChange, asset }: {
                 ) : columnIsLeaf ? (
                   <>
                     <div className="flex justify-end border-b border-stone-100 px-2 py-1">
-                      <button type="button" onClick={() => toggleAll(col.nodes)} className="text-content font-medium text-orange-600 hover:text-orange-700">
-                        Seleccionar Todos
+                      <button
+                        type="button"
+                        onClick={() => toggleAll(col.nodes)}
+                        aria-label="Seleccionar todos"
+                        className="group relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-orange-600 transition-colors hover:bg-orange-50 sm:min-h-0 sm:min-w-0 sm:p-1.5"
+                      >
+                        <CheckCheck size={16} />
+                        <span
+                          role="tooltip"
+                          className="pointer-events-none absolute right-0 top-full z-50 mt-1 hidden whitespace-nowrap rounded-md bg-orange-600 px-2 py-1 text-content font-normal text-white shadow-md group-focus-visible:block [@media(hover:hover)]:group-hover:block"
+                        >
+                          Seleccionar todos
+                        </span>
                       </button>
                     </div>
                     <ul className="divide-y divide-stone-100">

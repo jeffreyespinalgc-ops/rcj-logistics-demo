@@ -7,6 +7,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Field, Select } from '@/components/ui/Field';
 import { SortableTh } from '@/components/ui/SortableTh';
 import { useSort } from '@/lib/useSort';
+import { isOTAssignedTo } from '@/lib/otTeam';
 import type { OTLine, OTLinePart, RequisitionStep, WorkOrder } from '@/types';
 import { AlertTriangle, ChevronRight, CircleChevronRight, Eye, FileSignature, PenBoxIcon, PenTool, Search, SlidersHorizontal, X } from 'lucide-react';
 import {
@@ -112,7 +113,7 @@ export function RequisasTable() {
 
   // orden por defecto: actividad mas reciente primero. Una fila por OT (una sola requisa por OT)
   const rows = useMemo<Row[]>(() => workOrders
-    .filter(ot => canSeeAll || ot.assignedTo === currentUser)
+    .filter(ot => canSeeAll || isOTAssignedTo(ot, currentUser))
     .map(ot => ({ ot, lines: ot.lines.filter(requiresRequisition) }))
     .filter(({ lines }) => lines.length > 0)
     .map(({ ot, lines }) => {
@@ -187,7 +188,7 @@ export function RequisasTable() {
             aria-label="Buscar requisas"
             className="w-full min-h-[44px] rounded-md border border-stone-300 bg-white pl-9 pr-9 text-content text-stone-800 transition-colors focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-300"
           />
-          <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-stone-200 bg-stone-50 px-1.5 text-content text-stone-400 sm:block">/</kbd>
+          {/* <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-stone-200 bg-stone-50 px-1.5 text-content text-stone-400 sm:block">/</kbd> */}
         </div>
         <Button
           variant="outline"
@@ -396,7 +397,7 @@ function OTRequisitionGroupModal({ otId, onClose }: { otId: string; onClose: () 
                       className="min-h-[44px] sm:min-h-0"
                       onClick={() => setLineId(line.id)}
                     >
-                      <PenTool size={12} /> {requisitionSignLabels[mySteps[0]]}
+                      <PenTool size={12} /> {requisitionSignLabels[mySteps[0]]} Aprobar
                     </Button>
                   )}
                 </span>
@@ -432,7 +433,7 @@ function RequisitionModal({ otId, lineId, onClose }: { otId: string; lineId: str
 
   const step = otAcceptsSignatures(ot)
     ? signableSteps(line, {
-        requester: hasPermission('requisa.solicitar') && isRequisitionRequester(line, ot.assignedTo, currentUser),
+        requester: hasPermission('requisa.solicitar') && isRequisitionRequester(line, ot, currentUser),
         autoriza: hasPermission('requisa.autorizar'),
         despacha: hasPermission('requisa.despachar'),
       })[0]
@@ -450,7 +451,7 @@ function RequisitionModal({ otId, lineId, onClose }: { otId: string; lineId: str
 
   const handleSign = async () => {
     if (!step) return;
-    if (!(await confirm({ title: 'Firmar requisa', message: `¿Estas seguro de firmar "${requisitionSignLabels[step]}"?`, confirmLabel: 'Firmar' }))) return;
+    if (!(await confirm({ title: 'Firmar requisa', message: `¿Estas seguro de firmar?`, confirmLabel: 'Firmar' }))) return;
     const result = signRequisition(ot.id, line.id, step, dispatching ? Object.fromEntries(line.parts.map(p => [p.partId, toDeliver(p)])) : undefined);
     if (result) setError(result);
     else { toast('Firma registrada correctamente'); onClose(); }
@@ -563,10 +564,10 @@ function RequisitionModal({ otId, lineId, onClose }: { otId: string; lineId: str
           {/* {step && <p className="text-content text-stone-500">Firmaras como "{requisitionFieldLabels[step]}" ({requisitionStepRoles[step]}).</p>} */}
           <div className="flex flex-wrap items-center justify-end gap-2">
             <span className="mr-auto"><RequisitionDocumentButton ot={ot} line={line} onView={() => setShowDocument(true)} /></span>
-            <Button variant="outline" className="min-h-[44px]" onClick={onClose}>{step ? 'Cancelar' : 'Cerrar'}</Button>
+            <Button variant="danger" className="" onClick={onClose}><X size={12} />{step ? 'Cancelar' : 'Cerrar'}</Button>
             {step && (
-              <Button className="min-h-[44px]" disabled={dispatching && totalToDeliver === 0} onClick={handleSign}>
-                <PenTool size={14} /> {requisitionSignLabels[step]}
+              <Button className="" disabled={dispatching && totalToDeliver === 0} onClick={handleSign}>
+                <PenTool size={12} /> {requisitionSignLabels[step]} Aprobar
               </Button>
             )}
           </div>

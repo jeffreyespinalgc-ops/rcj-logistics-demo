@@ -8,7 +8,10 @@ import { Field, TextInput, Select, TextArea } from '@/components/ui/Field';
 import { StatCard } from '@/components/ui/StatCard';
 import { IndicatorCards } from '@/components/ui/IndicatorCards';
 import { SortableTh } from '@/components/ui/SortableTh';
+import { PhotoCarousel } from '@/components/ui/PhotoCarousel';
 import { useSort } from '@/lib/useSort';
+import { isOTAssignedTo, otResponsibles } from '@/lib/otTeam';
+import { useAuth } from '@/store/AuthContext';
 import type { WorkOrder, OTPriority } from '@/types';
 import {
   Plus,
@@ -24,7 +27,6 @@ import {
   Play,
   PenTool,
   Pencil,
-  Send,
   Camera,
   Package,
   Clock,
@@ -64,8 +66,8 @@ type ViewMode = 'lista' | 'cuadricula';
 export function OrdenesModule() {
   const {
     workOrders, currentUser, hasPermission, pendingOTId, clearPendingOT,
-    submitForApproval, approveWorkOrder, rejectWorkOrder, approveEmergencyRetro,
-    assignWorkOrder, finalizeWorkOrder, closeWorkOrder, signOTInventory,
+    reopenWorkOrder, approveWorkOrder, rejectWorkOrder, approveEmergencyRetro,
+    assignWorkOrder, finalizeWorkOrder, closeWorkOrder,
   } = useApp();
   const confirm = useConfirm();
   const toast = useToast();
@@ -79,7 +81,6 @@ export function OrdenesModule() {
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showRetroModal, setShowRetroModal] = useState(false);
-  const [showSignInventoryModal, setShowSignInventoryModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -87,13 +88,13 @@ export function OrdenesModule() {
   // sin permiso para ver todas, el tecnico solo ve las OTs asignadas a el
   const canSeeAll = hasPermission('ot.ver.todas');
   const visibleOrders = useMemo(
-    () => (canSeeAll ? workOrders : workOrders.filter(ot => ot.assignedTo === currentUser || ot.createdBy === currentUser)),
+    () => (canSeeAll ? workOrders : workOrders.filter(ot => isOTAssignedTo(ot, currentUser) || ot.createdBy === currentUser)),
     [workOrders, canSeeAll, currentUser]
   );
 
   const stats = useMemo(() => ({
     total: visibleOrders.length,
-    porAprobar: visibleOrders.filter(o => o.status === 'pendiente_aprobacion').length,
+    porAprobar: visibleOrders.filter(o => o.status === 'creada' || o.status === 'pendiente_aprobacion').length,
     enEjecucion: visibleOrders.filter(o => o.status === 'en_ejecucion').length,
     cerradas: visibleOrders.filter(o => o.status === 'cerrada').length,
   }), [visibleOrders]);
@@ -122,6 +123,13 @@ export function OrdenesModule() {
   const selectedOT = selectedOTId ? visibleOrders.find(o => o.id === selectedOTId) ?? null : null;
   const canCreate = hasPermission('ot.crear');
 
+  // al aprobar, el Jefe asigna el responsable antes de que la OT pueda empezar; si la pagina se recargo antes de
+  // asignar, el modal vuelve a aparecer solo (la OT no tiene otro boton para asignar)
+  const needsAssignment = selectedOT?.status === 'aprobada' && !selectedOT.assignedTo && hasPermission('ot.asignar');
+  useEffect(() => {
+    if (needsAssignment) setShowAssignModal(true);
+  }, [needsAssignment]);
+
   if (creating && canCreate) {
     return <CreateOTPage onBack={() => setCreating(false)} onCreated={() => setCreating(false)} />;
   }
@@ -133,25 +141,18 @@ export function OrdenesModule() {
           ot={selectedOT}
           currentUser={currentUser}
           onBack={() => setSelectedOTId(null)}
-          onSubmit={async () => {
-            const reopening = selectedOT.status === 'rechazada';
-            const ok = await confirm({
-              title: reopening ? 'Reabrir OT' : 'Enviar a aprobacion',
-              message: reopening ? '¿Estas seguro de reabrir la OT?' : '¿Estas seguro de enviar esta OT a aprobacion?',
-              confirmLabel: reopening ? 'Reabrir OT' : 'Enviar',
-            });
+          onReopen={async () => {
+            const ok = await confirm({ title: 'Reabrir OT', message: '¿Estas seguro de reabrir la OT?', confirmLabel: 'Reabrir OT' });
             if (ok) {
-              submitForApproval(selectedOT.id);
-              toast(reopening ? `${selectedOT.code} reabierta correctamente` : `${selectedOT.code} enviada a aprobacion`);
+              reopenWorkOrder(selectedOT.id);
+              toast(`${selectedOT.code} reabierta correctamente`);
             }
           }}
           onApprove={() => setShowApproveModal(true)}
           onReject={() => setShowRejectModal(true)}
           onRetroApprove={() => setShowRetroModal(true)}
-          onAssign={() => setShowAssignModal(true)}
           onFinalize={() => setShowFinalizeModal(true)}
           onClose={() => setShowCloseModal(true)}
-          onSignInventory={() => setShowSignInventoryModal(true)}
         />
 
         {/* El nombre de quien firma se infiere de la sesion (currentUser); estos modales solo piden confirmar. */}
@@ -206,20 +207,6 @@ export function OrdenesModule() {
         />
 
         <ConfirmModal
-          open={showSignInventoryModal}
-          onClose={() => setShowSignInventoryModal(false)}
-          title="Firmar documento de la OT"
-          message="Estas seguro de firmar el documento de esta OT como Control de Inventario?"
-          confirmLabel="Firmar"
-          confirmVariant="primary"
-          onConfirm={() => {
-            signOTInventory(selectedOT.id, currentUser);
-            setShowSignInventoryModal(false);
-            toast(`Documento de ${selectedOT.code} firmado correctamente`);
-          }}
-        />
-
-        <ConfirmModal
           open={showCloseModal}
           onClose={() => setShowCloseModal(false)}
           title="Cerrar Orden de Trabajo"
@@ -247,16 +234,17 @@ export function OrdenesModule() {
           }}
         />
 
-        <AssignModal
-          open={showAssignModal}
-          onClose={() => setShowAssignModal(false)}
-          ot={selectedOT}
-          onAssign={(who, type) => {
-            assignWorkOrder(selectedOT.id, who, type);
-            setShowAssignModal(false);
-            toast(`${selectedOT.code} asignada correctamente`);
-          }}
-        />
+        {showAssignModal && (
+          <AssignModal
+            ot={selectedOT}
+            onClose={() => setShowAssignModal(false)}
+            onAssign={(team, type) => {
+              assignWorkOrder(selectedOT.id, team, type);
+              setShowAssignModal(false);
+              toast(`${selectedOT.code} asignada correctamente`);
+            }}
+          />
+        )}
       </>
     );
   }
@@ -308,18 +296,28 @@ export function OrdenesModule() {
 
         <div className="flex items-center gap-3 px-4 py-3 border-b border-stone-100 bg-stone-50/50 flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-            <TextInput
-              placeholder="Buscar por codigo, activo o descripcion..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9"
-            />
+            <Field label="Buscar">
+              <Search size={16} className="absolute left-3 top-1/2 text-stone-400" />
+              <TextInput
+                placeholder="Buscar por codigo, vehiculo o descripcion..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full pl-9"
+              />
+            </Field>
           </div>
-          <Select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="w-full sm:w-auto">
-            <option value="">Todos los estados</option>
-            {allOTStatuses.map(s => <option key={s} value={s}>{statusLabels[s]}</option>)}
-          </Select>
+          <Field label="Estado">
+            <Select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="w-full sm:w-auto">
+              <option value="">--- seleccione ---</option>
+              {allOTStatuses.map(s => <option key={s} value={s}>{statusLabels[s]}</option>)}
+            </Select>
+          </Field>
+          <Field label="Prioridad">
+            <Select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="w-full sm:w-auto">
+              <option value="">--- seleccione ---</option>
+              {allOTStatuses.map(s => <option key={s} value={s}>{statusLabels[s]}</option>)}
+            </Select>
+          </Field>
         </div>
 
         {viewMode === 'lista' ? (
@@ -402,7 +400,7 @@ function OTTable({ orders, onSelect }: { orders: WorkOrder[]; onSelect: (id: str
                   )}
                 </td>
                 <td className="text-stone-600">
-                  {ot.assignedTo ?? <span className="text-stone-400">Sin asignar</span>}
+                  {otResponsibles(ot) ?? <span className="text-stone-400">Sin asignar</span>}
                   {ot.assignedToType === 'taller_externo' && <span className="block text-stone-400">Taller externo</span>}
                 </td>
                 <td className="text-stone-500">{ot.createdAt}</td>
@@ -457,7 +455,7 @@ function OTCard({ ot, onClick }: { ot: WorkOrder; onClick: () => void }) {
       )}
 
       <div className="grid grid-cols-2 gap-1.5 text-content font-normal text-stone-700 pt-2 border-t border-stone-100">
-        <span className="truncate"><strong className="font-bold text-stone-600">Asignada a:</strong> {ot.assignedTo ?? 'Sin asignar'}</span>
+        <span className="truncate"><strong className="font-bold text-stone-600">Asignada a:</strong> {otResponsibles(ot) ?? 'Sin asignar'}</span>
         <span className="text-right"><strong className="font-bold text-stone-600">Creada:</strong> {ot.createdAt}</span>
         <span className="flex items-center gap-1"><Clock size={11} /> {formatHours(otHours(ot))}</span>
         <span className="text-right"><strong className="font-bold text-stone-600">Repuestos:</strong> {formatCLP(otPartsCost(ot))}</span>
@@ -480,23 +478,21 @@ function OTCard({ ot, onClick }: { ot: WorkOrder; onClick: () => void }) {
   );
 }
 
-function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRetroApprove, onAssign, onFinalize, onClose, onSignInventory }: {
+function OTDetail({ ot, currentUser, onBack, onReopen, onApprove, onReject, onRetroApprove, onFinalize, onClose }: {
   ot: WorkOrder;
   currentUser: string;
   onBack: () => void;
-  onSubmit: () => void;
+  onReopen: () => void;
   onApprove: () => void;
   onReject: () => void;
   onRetroApprove: () => void;
-  onAssign: () => void;
   onFinalize: () => void;
   onClose: () => void;
-  onSignInventory: () => void;
 }) {
   const { hasPermission } = useApp();
   const [editingOT, setEditingOT] = useState(false);
   const blocked = blockingReason(ot);
-  const isAssigned = ot.assignedTo === currentUser;
+  const isAssigned = isOTAssignedTo(ot, currentUser);
   const isCreator = ot.createdBy === currentUser;
   const canSeeAllOTs = hasPermission('ot.ver.todas');
   const locked = ot.status === 'cerrada' || ot.status === 'rechazada';
@@ -506,22 +502,19 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
   const canExecuteLines = hasPermission('ot.lineas.estado') && (isAssigned || canSeeAllOTs)
     && (ot.status === 'aprobada' || ot.status === 'en_ejecucion');
 
-  const canSubmit = hasPermission('ot.crear') && ot.status === 'creada';
-  const canApprove = hasPermission('ot.aprobar') && ot.status === 'pendiente_aprobacion';
-  const canReject = hasPermission('ot.rechazar') && ot.status === 'pendiente_aprobacion';
-  const canAssign = hasPermission('ot.asignar') && !locked && !ot.assignedTo;
+  // una OT nace "creada" y espera la aprobacion del Jefe de Taller (la version anterior "pendiente_aprobacion" tambien cuenta)
+  const awaitingApproval = ot.status === 'creada' || ot.status === 'pendiente_aprobacion';
+  const canApprove = hasPermission('ot.aprobar') && awaitingApproval;
+  const canReject = hasPermission('ot.rechazar') && awaitingApproval;
   const canRetro = hasPermission('ot.emergencia.aprobarRetro')
     && !ot.approvedBy
     && (ot.status === 'en_ejecucion' || ot.status === 'finalizada');
   const canFinalize = hasPermission('ot.finalizar') && (isAssigned || canSeeAllOTs) && ot.status === 'en_ejecucion';
   const canFinalizeNow = canFinalize && !blocked;
   const canClose = hasPermission('ot.cerrar') && ot.status === 'finalizada';
-  // Revision de Inventario va ANTES de Finalizar en la linea de tiempo: Control de Inventario firma
-  // mientras la OT sigue en ejecucion, y esa firma es requisito para poder finalizar (ver blockingReason)
-  const canSignInventory = hasPermission('ot.inventario.firmar') && ot.status === 'en_ejecucion' && !ot.inventorySignedBy;
   // reabrir una OT rechazada: el Jefe de Taller (mismo permiso con el que la rechazo) o el tecnico que la creo
   const canReopen = ot.status === 'rechazada' && (hasPermission('ot.rechazar') || isCreator);
-  const hasActions = canSubmit || canApprove || canReject || canAssign || canRetro || canClose || canSignInventory || canReopen;
+  const hasActions = canApprove || canReject || canRetro || canClose || canReopen;
   const showActionBar = hasActions || (canFinalize && Boolean(blocked));
 
   return (
@@ -535,36 +528,53 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 mb-1">
-                <span className="text-sm font-bold text-blue-700">{ot.code}</span>
+                <span className="text-sm font-bold text-black">{ot.code}</span>
                 <OTDocumentButton ot={ot} />
                 <OTHistoryButton ot={ot} />
               </div>
               <h3 className="ui-title break-words">{ot.description}</h3>
-              <p className="text-sm font-normal text-stone-500 mt-0.5">{ot.assetCode} - {ot.assetName}</p>
+              <p className="text-sm font-normal mt-0.5">{ot.assetCode} - {ot.assetName}</p>
             </div>
             {canEditLines && (
-              <Button variant="outline" size="sm" className="min-h-[44px] sm:min-h-0 flex-shrink-0 self-start" onClick={() => setEditingOT(true)}>
-                <Pencil size={14} /> Editar OT
+              <Button variant="secondary" size="sm" className="min-h-[44px] sm:min-h-0 flex-shrink-0 self-start" onClick={() => setEditingOT(true)}>
+                <Pencil size={14} /> Editar
               </Button>
             )}
           </div>
         </div>
 
-        <div className="px-5 py-4 border-b border-stone-100 bg-stone-50/50">
-          <OTTimeline ot={ot} />
-        </div>
+        <div className="grid grid-cols-1 border-b border-stone-100 lg:grid-cols-[minmax(0,1fr)_16rem]">
+          <div className="min-w-0">
+            <div className="px-5 py-4 border-b border-stone-100 bg-stone-50/50">
+              <OTTimeline ot={ot} />
+            </div>
 
-        <div className="px-4 sm:px-5 py-4 border-b border-stone-50">
-          <dl className="sap-grid grid-cols-1 border-stone-100 sm:grid-cols-2 sm:border-stone-100 lg:grid-cols-3 lg:border-stone-100">
-            <SapCell label="Solicitado por">{ot.createdBy}</SapCell>
-            <SapCell label="Asignada a">
-              {ot.assignedTo ? `${ot.assignedTo}${ot.assignedToType === 'taller_externo' ? ' (taller externo)' : ''}` : 'Sin asignar'}
-            </SapCell>
-            <SapCell label="Fecha de creacion">{ot.createdAt}</SapCell>
-            <SapCell label="Aprobado por">{ot.approvedBy ?? 'Sin aprobar'}</SapCell>
-            <SapCell label="Prioridad">{priorityLabels[ot.priority]}</SapCell>
-            <SapCell label="Tiempo trabajado">{formatHours(otHours(ot))}</SapCell>
-          </dl>
+            <div className="px-4 sm:px-5 py-4">
+              <dl className="sap-grid grid-cols-1 border-stone-100 sm:grid-cols-2 sm:border-stone-100 lg:grid-cols-3 lg:border-stone-100">
+                <SapCell label="Solicitado por">{ot.createdBy}</SapCell>
+                <SapCell label="Asignada a">
+                  {otResponsibles(ot) ? `${otResponsibles(ot)}${ot.assignedToType === 'taller_externo' ? ' (taller externo)' : ''}` : 'Sin asignar'}
+                </SapCell>
+                <SapCell label="Fecha de creacion">{ot.createdAt}</SapCell>
+                <SapCell label="Aprobado por">{ot.approvedBy ?? 'Sin aprobar'}</SapCell>
+                <SapCell label="Prioridad">{priorityLabels[ot.priority]}</SapCell>
+                <SapCell label="Tiempo trabajado">{formatHours(otHours(ot))}</SapCell>
+              </dl>
+            </div>
+          </div>
+
+          {/* evidencia a nivel de OT (se agrega desde "Nueva OT" o "Agregar linea de trabajo"), solo para ver */}
+          <div className="px-4 py-4 sm:px-5 lg:border-l lg:border-stone-100">
+            <h4 className="ui-subtitle mb-2">Archivos</h4>
+            <PhotoCarousel
+              photos={ot.photos ?? []}
+              canEdit={false}
+              compact
+              emptyReadonlyLabel="Sin fotografias registradas."
+              onAddFiles={() => undefined}
+              onRemove={() => undefined}
+            />
+          </div>
         </div>
 
         {ot.rejectedReason && (
@@ -607,9 +617,6 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
 
         {showActionBar && (
           <div className="px-5 py-4 border-t border-stone-200 flex items-center gap-2 flex-wrap">
-            {canSubmit && (
-              <Button variant="primary" onClick={onSubmit}><Send size={16} /> Enviar a aprobacion</Button>
-            )}
             {canApprove && (
               <Button variant="primary" onClick={onApprove}><CheckCircle size={16} /> Aprobar</Button>
             )}
@@ -617,24 +624,14 @@ function OTDetail({ ot, currentUser, onBack, onSubmit, onApprove, onReject, onRe
               <Button variant="danger" onClick={onReject}><XCircle size={16} /> Rechazar</Button>
             )}
             {canReopen && (
-              <Button variant="outline" onClick={onSubmit}><RotateCcw size={16} /> Reabrir OT</Button>
+              <Button variant="outline" onClick={onReopen}><RotateCcw size={16} /> Reabrir OT</Button>
             )}
             {canRetro && (
               <Button variant="secondary" onClick={onRetroApprove}><ShieldAlert size={16} /> Aprobar retroactivamente</Button>
             )}
-            {canAssign && (
-              <Button variant="outline" onClick={onAssign}>
-                <UserPlus size={16} /> Asignar tecnico
-              </Button>
-            )}
             {canClose && (
               <Button variant="primary" onClick={onClose} disabled={Boolean(blocked)} title={blocked ?? undefined}>
                 <Lock size={16} /> Firmar y cerrar OT
-              </Button>
-            )}
-            {canSignInventory && (
-              <Button variant="outline" onClick={onSignInventory}>
-                <PenTool size={16} /> Firmar como Control de Inventario
               </Button>
             )}
             {canFinalize && blocked && (
@@ -703,30 +700,40 @@ function EditOTModal({ ot, onClose }: { ot: WorkOrder; onClose: () => void }) {
   );
 }
 
-function AssignModal({ open, onClose, ot, onAssign }: {
-  open: boolean;
-  onClose: () => void;
+/**
+ * Se abre justo despues de aprobar la OT. Tecnico de taller: se marcan uno o varios tecnicos activos (por defecto
+ * el que creo la OT, si es tecnico). Taller externo: un solo nombre escrito a mano.
+ */
+function AssignModal({ ot, onClose, onAssign }: {
   ot: WorkOrder;
-  onAssign: (who: string, type: 'tecnico' | 'taller_externo') => void;
+  onClose: () => void;
+  onAssign: (team: string[], type: 'tecnico' | 'taller_externo') => void;
 }) {
+  const { users } = useAuth();
+  const confirm = useConfirm();
   const [type, setType] = useState<'tecnico' | 'taller_externo'>('tecnico');
   const [externalShop, setExternalShop] = useState('');
-  const confirm = useConfirm();
+  const technicians = users.filter(u => u.role === 'tecnico' && u.active);
+  const [team, setTeam] = useState<string[]>(() => (technicians.some(u => u.name === ot.createdBy) ? [ot.createdBy] : []));
 
-  const inferredTechnician = ot.createdBy;
+  const toggleTechnician = (name: string) => {
+    setTeam(prev => (prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]));
+  };
+
+  const canSubmit = type === 'tecnico' ? team.length > 0 : externalShop.trim() !== '';
 
   const handleSubmit = async () => {
-    const who = type === 'tecnico' ? inferredTechnician : externalShop.trim();
-    if (!who) return;
-    if (!(await confirm({ title: 'Asignar OT', message: `¿Estas seguro de asignar esta OT a ${who}?`, confirmLabel: 'Asignar' }))) return;
+    const who = type === 'tecnico' ? team : [externalShop.trim()];
+    if (!canSubmit) return;
+    if (!(await confirm({ title: 'Asignar OT', message: `¿Estas seguro de asignar esta OT a ${who.join(', ')}?`, confirmLabel: 'Asignar' }))) return;
     onAssign(who, type);
-    setExternalShop('');
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={`Asignar ${ot.code}`} size="md">
+    // sin cerrar a medias: la OT no puede empezar sin responsable, asi que el modal solo se cierra al asignar
+    <Modal open onClose={onClose} title={`Asignar ${ot.code}`} size="md" dismissible={false}>
       <div className="space-y-4">
-        <Field label="Responsable de la ejecucion *">
+        <Field label="Asignar a *">
           <div className="flex gap-3">
             <button
               onClick={() => setType('tecnico')}
@@ -744,8 +751,26 @@ function AssignModal({ open, onClose, ot, onAssign }: {
         </Field>
 
         {type === 'tecnico' ? (
-          <Field label="Tecnico">
-            <p className="text-content text-stone-800 py-2 px-3 rounded-md border border-stone-200 bg-stone-50">{inferredTechnician}</p>
+          <Field label="Asignar Personal *">
+            {technicians.length === 0 ? (
+              <p className="text-content text-stone-500">No hay tecnicos activos. Crealos en Administracion.</p>
+            ) : (
+              <ul className="divide-y divide-stone-100 rounded-md border border-stone-200">
+                {technicians.map(u => (
+                  <li key={u.id}>
+                    <label className="flex min-h-[44px] cursor-pointer items-center gap-2 px-3 py-2 text-content text-stone-700 transition-colors hover:bg-stone-50 sm:min-h-0">
+                      <input
+                        type="checkbox"
+                        checked={team.includes(u.name)}
+                        onChange={() => toggleTechnician(u.name)}
+                        className="flex-shrink-0 rounded border-stone-300 text-orange-500 focus:ring-orange-300"
+                      />
+                      {u.name}
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Field>
         ) : (
           <Field label="Taller externo *">
@@ -753,15 +778,8 @@ function AssignModal({ open, onClose, ot, onAssign }: {
           </Field>
         )}
 
-        {ot.assignedTo && (
-          <p className="text-content text-stone-500">
-            Asignada actualmente a <strong className="text-stone-700">{ot.assignedTo}</strong>.
-          </p>
-        )}
-
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSubmit}><UserPlus size={16} /> Asignar</Button>
+          <Button onClick={handleSubmit} disabled={!canSubmit}><UserPlus size={16} /> Asignar</Button>
         </div>
       </div>
     </Modal>

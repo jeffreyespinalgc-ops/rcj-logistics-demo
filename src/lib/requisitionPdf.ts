@@ -104,7 +104,7 @@ function drawPage(
   const rowsBottom = rowsTop + rowH * ROWS_PER_PAGE;
   const signaturesTop = rowsBottom;
   const bottom = signaturesTop + signaturesH;
-  const cols = [16, 16, 88, 42, 26, 66];
+  const cols = [42, 88, 16, 26, 16, 66];
 
   doc.setDrawColor(...NAVY);
   doc.setTextColor(...INK);
@@ -149,10 +149,10 @@ function drawPage(
   doc.rect(X, tableTop, W, tableHeadH, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  const titles = ['SOLICITADO', 'RECIBIDO', 'DESCRIPCIÓN', 'CÓDIGO', 'UNIDAD', 'OBSERVACIONES'];
+  const titles = ['CÓDIGO', 'DESCRIPCIÓN', 'SOLICITADO', 'UNIDAD', 'RECIBIDO', 'OBSERVACIONES'];
   let cx = X;
   titles.forEach((title, i) => {
-    doc.setFontSize(i < 2 ? 7 : 9);
+    doc.setFontSize(i === 2 || i === 4 ? 7 : 9);
     doc.text(title, cx + cols[i] / 2, tableTop + tableHeadH / 2 + 1.3, { align: 'center' });
     cx += cols[i];
   });
@@ -166,16 +166,16 @@ function drawPage(
     if (!item) continue;
     doc.setFontSize(8.5);
     const cells: [string, number, 'center' | 'left'][] = [
-      [item.requested, 0, 'center'],
-      [item.received, 1, 'center'],
-      [item.description, 2, 'left'],
-      [item.code, 3, 'center'],
-      [item.unit, 4, 'center'],
+      [item.code, 0, 'center'],
+      [item.description, 1, 'left'],
+      [item.requested, 2, 'center'],
+      [item.unit, 3, 'center'],
+      [item.received, 4, 'center'],
       [item.notes, 5, 'left'],
     ];
     let cellX = X;
     cells.forEach(([text, i, align]) => {
-      doc.setFont('helvetica', i === 1 && item.partial ? 'bold' : 'normal');
+      doc.setFont('helvetica', i === 4 && item.partial ? 'bold' : 'normal');
       const lines = (doc.splitTextToSize(text, cols[i] - 4) as string[]).slice(0, 2);
       const textY = ry + rowH / 2 + (lines.length > 1 ? -0.4 : 1.1);
       doc.text(lines, align === 'center' ? cellX + cols[i] / 2 : cellX + 2, textY, { align, lineHeightFactor: 1.15 });

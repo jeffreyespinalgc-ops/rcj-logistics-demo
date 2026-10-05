@@ -90,6 +90,8 @@ export function Combobox({ value, onChange, options, placeholder, disabled, aria
     onChange(opt.value);
     setOpen(false);
     setQuery('');
+    // quitar el foco: si queda puesto, al volver a tocar el campo no hay evento de foco y la lista no se abre
+    inputRef.current?.blur();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

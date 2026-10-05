@@ -15,7 +15,7 @@ const formatDateTime = (iso: string) => {
  * que hacer al agregar/quitar una (persistirlas de una, o solo juntarlas local hasta que exista el registro
  * al que pertenecen, como en "Nueva OT" antes de crear la OT).
  */
-export function PhotoCarousel({ photos, canEdit, busy = false, onAddFiles, onRemove, emptyEditableLabel, emptyReadonlyLabel }: {
+export function PhotoCarousel({ photos, canEdit, busy = false, onAddFiles, onRemove, emptyEditableLabel, emptyReadonlyLabel, compact = false }: {
   photos: AssetPhoto[];
   canEdit: boolean;
   busy?: boolean;
@@ -23,13 +23,14 @@ export function PhotoCarousel({ photos, canEdit, busy = false, onAddFiles, onRem
   onRemove: (photo: AssetPhoto) => void;
   emptyEditableLabel?: string;
   emptyReadonlyLabel?: string;
+  /** Carrusel mas chico (p. ej. el de la vista de la OT, donde sobra espacio) */
+  compact?: boolean;
 }) {
   const [preview, setPreview] = useState<AssetPhoto | null>(null);
   const [index, setIndex] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const dragStartX = useRef(0);
-  const didDragRef = useRef(false);
   const viewportRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -43,7 +44,6 @@ export function PhotoCarousel({ photos, canEdit, busy = false, onAddFiles, onRem
   const goNext = () => setIndex(i => Math.min(ordered.length - 1, Math.min(i, ordered.length - 1) + 1));
 
   const onDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (ordered.length <= 1) return;
     dragStartX.current = e.clientX;
     setDragging(true);
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -54,19 +54,15 @@ export function PhotoCarousel({ photos, canEdit, busy = false, onAddFiles, onRem
     setDragOffset(e.clientX - dragStartX.current);
   };
 
-  const onDragEnd = () => {
+  const onDragEnd = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragging) return;
-    didDragRef.current = Math.abs(dragOffset) > 5;
+    // un toque sin arrastrar abre la foto en grande (solo en pointerup; cancelar el gesto no abre nada)
+    if (e.type === 'pointerup' && Math.abs(dragOffset) <= 5 && current) setPreview(current);
     const threshold = Math.min(60, (viewportRef.current?.clientWidth ?? 240) * 0.2);
     if (dragOffset < -threshold) goNext();
     else if (dragOffset > threshold) goPrev();
     setDragging(false);
     setDragOffset(0);
-  };
-
-  const handleTap = (photo: AssetPhoto) => {
-    if (didDragRef.current) { didDragRef.current = false; return; }
-    setPreview(photo);
   };
 
   const handleFiles = (files: FileList | null) => {
@@ -82,10 +78,10 @@ export function PhotoCarousel({ photos, canEdit, busy = false, onAddFiles, onRem
         {canEdit && (
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => cameraRef.current?.click()} disabled={busy}>
-              <Camera size={14} />
+              <Camera size={14} /> Tomar foto
             </Button>
             <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={busy}>
-              <Plus size={14} /> {busy ? 'Cargando...' : ''}
+              <Plus size={14} /> {busy ? 'Cargando...' : ''} Subir archivo
             </Button>
             <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => handleFiles(e.target.files)} />
             <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={e => handleFiles(e.target.files)} />
@@ -94,7 +90,7 @@ export function PhotoCarousel({ photos, canEdit, busy = false, onAddFiles, onRem
       </div>
 
       {current ? (
-        <div className="mx-auto flex max-w-sm flex-col gap-2">
+        <div className={`mx-auto flex flex-col gap-2 ${compact ? 'max-w-[15rem]' : 'max-w-sm'}`}>
           <div className="relative">
             <div
               ref={viewportRef}
@@ -102,7 +98,7 @@ export function PhotoCarousel({ photos, canEdit, busy = false, onAddFiles, onRem
               onPointerMove={onDragMove}
               onPointerUp={onDragEnd}
               onPointerCancel={onDragEnd}
-              className="aspect-[4/3] w-full touch-pan-y select-none overflow-hidden rounded-md border border-stone-300 bg-stone-100 cursor-grab active:cursor-grabbing"
+              className="aspect-[4/3] w-full touch-pan-y select-none overflow-hidden rounded-md border border-stone-300 bg-stone-100 cursor-pointer"
             >
               <div
                 className="flex h-full"
@@ -116,8 +112,8 @@ export function PhotoCarousel({ photos, canEdit, busy = false, onAddFiles, onRem
                   <button
                     key={photo.id}
                     type="button"
-                    onClick={() => handleTap(photo)}
-                    className="h-full flex-shrink-0"
+                    onClick={() => setPreview(photo)}
+                    className="h-full flex-shrink-0 cursor-pointer"
                     style={{ width: `${100 / ordered.length}%` }}
                     title={`${photo.name} - ${formatDateTime(photo.addedAt)}`}
                   >
@@ -181,7 +177,7 @@ export function PhotoCarousel({ photos, canEdit, busy = false, onAddFiles, onRem
         <div className="rounded-md border border-dashed border-stone-200 py-6 text-center">
           <ImageIcon size={22} className="mx-auto mb-1 text-stone-300" />
           <p className="text-content text-stone-400">
-            {canEdit ? (emptyEditableLabel ?? 'Sin fotografias.') : (emptyReadonlyLabel ?? 'Sin fotografias registradas.')}
+            {canEdit ? (emptyEditableLabel ?? ' ') : (emptyReadonlyLabel ?? 'Sin fotografias registradas.')}
           </p>
         </div>
       )}
@@ -189,7 +185,7 @@ export function PhotoCarousel({ photos, canEdit, busy = false, onAddFiles, onRem
       {preview && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-stone-900/70 backdrop-blur-sm" onClick={() => setPreview(null)} />
-          <div className="relative flex max-h-[85vh] max-w-3xl flex-col">
+          <div className="relative flex max-h-[90vh] max-w-5xl flex-col">
             <div className="mb-2 flex items-center justify-between">
               <div className="text-white">
                 <p className="text-content font-medium">{preview.name}</p>
@@ -199,7 +195,7 @@ export function PhotoCarousel({ photos, canEdit, busy = false, onAddFiles, onRem
                 <X size={22} />
               </button>
             </div>
-            <img src={preview.dataUrl} alt={preview.name} className="max-h-[75vh] rounded-lg bg-stone-900 object-contain" />
+            <img src={preview.dataUrl} alt={preview.name} className="max-h-[80vh] rounded-lg bg-stone-900 object-contain" />
           </div>
         </div>
       )}

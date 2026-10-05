@@ -40,7 +40,6 @@ export type Permission =
   | 'ot.lineas.editar'
   | 'ot.lineas.estado'
   | 'ot.lineas.aprobarHallazgo'
-  | 'ot.inventario.firmar'
   // Inventario
   | 'repuestos.consumir'
   | 'inventario.catalogo.editar'
@@ -82,7 +81,6 @@ export const permissionLabels: Record<Permission, string> = {
   'ot.lineas.editar': 'Editar la OT (descripcion, prioridad), sus lineas, actividades y repuestos con sus cantidades',
   'ot.lineas.estado': 'Ejecutar lineas: iniciar y finalizar, evidencias',
   'ot.lineas.aprobarHallazgo': 'Aprobar o rechazar lineas de hallazgo',
-  'ot.inventario.firmar': 'Firmar el documento de la OT como Control de Inventario',
   'repuestos.consumir': 'Consumir repuestos en lineas de OT',
   'inventario.catalogo.editar': 'Editar catalogo de repuestos',
   'requisa.solicitar': 'Firmar requisas como tecnico (Solicitado por y Recibido por)',
@@ -117,7 +115,7 @@ export const permissionGroups: { title: string; permissions: Permission[] }[] = 
     title: 'Ordenes de Trabajo',
     permissions: [
       'ot.ver.todas', 'ot.crear', 'ot.aprobar', 'ot.rechazar', 'ot.emergencia.aprobarRetro',
-      'ot.asignar', 'ot.cerrar', 'ot.finalizar', 'ot.inventario.firmar',
+      'ot.asignar', 'ot.cerrar', 'ot.finalizar',
       'ot.lineas.agregar', 'ot.lineas.editar', 'ot.lineas.estado', 'ot.lineas.aprobarHallazgo', 'repuestos.consumir',
     ],
   },
@@ -144,8 +142,6 @@ export const permissionGroups: { title: string; permissions: Permission[] }[] = 
  * (despacha) las requisas de repuestos. Las requisas se firman en orden: tecnico, Jefe de Taller y despues Control.
  * Ver el documento de una requisa (o de la OT) lo puede hacer cualquiera que la vea; descargar el PDF requiere
  * 'requisa.descargar' (Administrador, Jefe de Taller y Control de Inventario; el tecnico solo lo ve).
- * El documento de la OT lo firma Control de Inventario con 'ot.inventario.firmar' una vez finalizada, en
- * cualquier orden respecto a "Firmar y cerrar OT" del Jefe de Taller (ninguna bloquea a la otra).
  */
 export const defaultPermissions: PermissionMatrix = {
   administrador: [
@@ -167,7 +163,7 @@ export const defaultPermissions: PermissionMatrix = {
   control_inventario: [
     'modulo.activos', 'modulo.inventario', 'modulo.ordenes', 'modulo.combustible',
     'modulo.notificaciones', 'modulo.requisas',
-    'ot.ver.todas', 'requisa.despachar', 'requisa.descargar', 'ot.inventario.firmar',
+    'ot.ver.todas', 'requisa.despachar', 'requisa.descargar',
   ],
   tecnico: [
     'modulo.ordenes', 'modulo.notificaciones',

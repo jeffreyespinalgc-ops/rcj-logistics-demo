@@ -16,7 +16,7 @@ export function RequisitionProgress({ line, showNames = false, compact = false }
   const labels = compact ? requisitionStepShortLabels : requisitionStepLabels;
   return (
     // en tablas las 4 etapas van en una cuadricula de 2 x 2: en una sola fila no caben junto a los botones de la fila
-    <ul className={compact ? 'grid w-[200px] grid-cols-2 gap-1' : 'flex flex-wrap items-center gap-1.5'}>
+    <ul className={compact ? 'grid w-full grid-cols-4 gap-2' : 'flex flex-wrap items-center gap-2'}>
       {requisitionStepsFor(line).map(step => {
         const signature = signatureFor(line, step);
         return (

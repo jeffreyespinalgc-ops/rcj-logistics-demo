@@ -79,8 +79,8 @@ export function NotificacionesModule() {
             ))}
           </div>
           {unreadCount > 0 && (
-            <Button size="sm" variant="outline" onClick={markAllNotificationsRead} aria-tooltip="Marcar todas como leidas">
-              <CheckCheck size={14} />
+            <Button size="sm" variant="secondary" onClick={markAllNotificationsRead} aria-tooltip="Marcar todas como leidas">
+              <CheckCheck size={14} /> MARCAR TODAS COMO LEIDAS
             </Button>
           )}
         </div>
@@ -119,8 +119,8 @@ export function NotificacionesModule() {
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
                     {(n.type === 'aprobacion' || n.type === 'firma') && (
-                      <Button size="sm" variant="outline" onClick={() => setActiveModule('ordenes')}>
-                        Ir a OT
+                      <Button size="sm" variant="primary" onClick={() => setActiveModule('ordenes')}>
+                        VER
                       </Button>
                     )}
                     {n.type === 'bajo_stock' && (
@@ -134,7 +134,7 @@ export function NotificacionesModule() {
                         className="text-stone-400 hover:text-green-600 transition-colors p-1"
                         title="Marcar como leida"
                       >
-                        <CheckCircle size={16} />
+                        <CheckCircle size={16} color='green' />
                       </button>
                     )}
                   </div>

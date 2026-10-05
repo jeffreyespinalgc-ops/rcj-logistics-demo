@@ -1,4 +1,5 @@
 import type { OTLine, OTLinePart, RequisitionSignature, RequisitionStep, WorkOrder } from '@/types';
+import { isOTAssignedTo } from './otTeam';
 
 /**
  * Etapas de la requisa, en orden estricto: el tecnico solicita, el Jefe de Taller autoriza, Control de Inventario
@@ -94,13 +95,26 @@ export function requisitionStatus(line: OTLine): RequisitionStatus {
 }
 
 /**
+ * Revision de Inventario = la cadena de firmas de todas las requisas de la OT (tecnico, Jefe de Taller,
+ * Control de Inventario y tecnico que recibe). Mientras alguna no este completa, la OT no pasa a ejecucion.
+ */
+export const requisitionRevisionPending = (lines: OTLine[]): boolean =>
+  lines.some(line => requiresRequisition(line) && requisitionStatus(line) !== 'completa');
+
+/** Firma de entrega de Control de Inventario mas reciente de la OT; es la que cierra la revision */
+export function lastDispatchSignature(lines: OTLine[]): RequisitionSignature | null {
+  const dispatches = lines.flatMap(signaturesOf).filter(s => s.step === 'despacha').sort((a, b) => a.at.localeCompare(b.at));
+  return dispatches[dispatches.length - 1] ?? null;
+}
+
+/**
  * Cuantas requisas siguen sin completarse (se usa para el badge del menu y de la pestana
  * "Requisas de Repuestos"). Respeta el mismo alcance que la tabla: todas las OTs si se ve todo, si no
  * solo las asignadas al usuario.
  */
 export function pendingRequisitionCount(orders: WorkOrder[], opts: { canSeeAll: boolean; currentUser: string }): number {
   return orders
-    .filter(ot => opts.canSeeAll || ot.assignedTo === opts.currentUser)
+    .filter(ot => opts.canSeeAll || isOTAssignedTo(ot, opts.currentUser))
     .flatMap(ot => ot.lines)
     .filter(requiresRequisition)
     .filter(line => requisitionStatus(line) !== 'completa')
@@ -114,8 +128,8 @@ export function firstMissingBefore(line: OTLine, step: RequisitionStep): Requisi
 }
 
 /** El solicitante es el tecnico de la linea (o al que se asigno la OT); quien solo supervisa no solicita */
-export function isRequisitionRequester(line: OTLine, assignedTo: string | null, user: string): boolean {
-  return Boolean(user) && (line.technician === user || assignedTo === user);
+export function isRequisitionRequester(line: OTLine, ot: WorkOrder, user: string): boolean {
+  return Boolean(user) && (line.technician === user || isOTAssignedTo(ot, user));
 }
 
 /**

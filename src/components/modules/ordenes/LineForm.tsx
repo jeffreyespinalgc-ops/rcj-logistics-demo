@@ -24,7 +24,7 @@ function QuantityInput({ value, onChange, label }: { value: number; onChange: (n
         if (Number.isFinite(n) && n > 0) onChange(n);
       }}
       onBlur={() => setText(String(value))}
-      className="min-h-[44px] w-20 rounded-md border border-stone-300 bg-white px-2 py-1.5 text-right text-content text-stone-800 transition-colors focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-300 sm:min-h-0"
+      className="min-h-[44px] w-20 bg-white px-2 py-1.5 text-right text-content text-stone-800 transition-colors focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-300 sm:min-h-0"
     />
   );
 }
@@ -44,6 +44,7 @@ function CellSelect({ value, options, placeholder, onChange, ariaLabel }: {
       placeholder={placeholder}
       ariaLabel={ariaLabel}
       onChange={v => { if (v) onChange(v); }}
+      className='border-none'
     />
   );
 }
@@ -93,15 +94,15 @@ export function PartsEditor({ value, onChange }: { value: OTLinePart[]; onChange
 
   return (
     <div className="space-y-2">
-      <div className="overflow-x-auto rounded-md border border-stone-300">
+      <div className="overflow-x-auto border">
         <table className="w-full border-collapse text-content">
           <thead>
-            <tr className="bg-stone-100 text-left text-stone-600">
+            <tr className="bg-white text-center text-black">
               <th className={`${cell} whitespace-nowrap font-bold`}>Codigo</th>
               <th className={`${cell} font-bold`}>Repuesto</th>
               <th className={`${cell} whitespace-nowrap font-bold`}>Unidad</th>
-              <th className={`${cell} whitespace-nowrap text-right font-bold`}>Stock actual</th>
-              <th className={`${cell} whitespace-nowrap text-right font-bold`}>Cantidad a solicitar</th>
+              <th className={`${cell} whitespace-nowrap font-bold`}>Stock actual</th>
+              <th className={`${cell} whitespace-nowrap font-bold`}>Cantidad a solicitar</th>
               <th className={`${cell} min-w-[140px] font-bold`}>Observaciones</th>
               <th className={`${cell} whitespace-nowrap font-bold`}>Acciones</th>
             </tr>
@@ -112,7 +113,7 @@ export function PartsEditor({ value, onChange }: { value: OTLinePart[]; onChange
               const short = p.quantity > stock;
               return (
                 <tr key={p.partId}>
-                  <td className={`${cell} min-w-[110px]`}>
+                  <td className={`${cell} min-w-[80px]`}>
                     <CellSelect
                       value={p.partId}
                       options={codeOptions(p.partId)}
@@ -121,7 +122,7 @@ export function PartsEditor({ value, onChange }: { value: OTLinePart[]; onChange
                       onChange={newId => pick(p.partId, newId)}
                     />
                   </td>
-                  <td className={cell}>
+                  <td className={`${cell} min-w-[200px]`}>
                     <CellSelect
                       value={p.partId}
                       options={nameOptions(p.partId)}
@@ -130,7 +131,7 @@ export function PartsEditor({ value, onChange }: { value: OTLinePart[]; onChange
                       onChange={newId => pick(p.partId, newId)}
                     />
                   </td>
-                  <td className={`${cell} whitespace-nowrap text-stone-600`}>{p.unit}</td>
+                  <td className={`${cell}`}>{p.unit}</td>
                   <td className={`${cell} whitespace-nowrap text-right ${short ? 'font-bold text-red-700' : 'text-stone-800'}`}>{stock}</td>
                   <td className={cell}>
                     <div className="flex justify-end">
@@ -148,7 +149,7 @@ export function PartsEditor({ value, onChange }: { value: OTLinePart[]; onChange
                       onChange={e => onChange(value.map(x => (x.partId === p.partId ? { ...x, notes: e.target.value } : x)))}
                       placeholder="Observaciones..."
                       aria-label={`Observaciones de ${p.partDescription}`}
-                      className="w-full min-w-[120px] rounded-md border border-stone-300 bg-white px-2 py-1.5 text-content text-stone-800 transition-colors focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                      className="w-full min-w-[120px] bg-white px-2 py-1.5 text-content text-stone-800 transition-colors focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-300"
                     />
                   </td>
                   <td className={`${cell} text-right`}>

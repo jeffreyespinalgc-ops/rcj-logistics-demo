@@ -60,7 +60,9 @@ export function WorkLinesSection({ ot, canAdd, canEdit, canExecute, canFinalize,
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [lightbox, setLightbox] = useState<OTLinePhoto | null>(null);
-  const { addOTLine, currentUser, currentRole, storageWarning, dismissStorageWarning } = useApp();
+  const { addOTLine, currentUser, currentRole, storageWarning, dismissStorageWarning, hasPermission, signRequisition } = useApp();
+  const confirm = useConfirm();
+  const toast = useToast();
   // se propone al tecnico asignado (o al taller externo, si la OT se asigno a uno: asi queda registrado
   // de forma automatica quien hizo la linea sin que haya que escribirlo a mano); sin asignacion, el propio
   // tecnico que crea la linea
@@ -70,11 +72,39 @@ export function WorkLinesSection({ ot, canAdd, canEdit, canExecute, canFinalize,
   // una sola requisa por OT: un solo boton de "Ver documento" arriba, no uno por linea
   const requisitionLine = ot.lines.find(requiresRequisition);
 
+  // lineas cuyos repuestos ya entrego Control de Inventario y falta que el tecnico confirme que los recibio
+  const receiptLines = ot.lines.filter(line => {
+    if (!requiresRequisition(line) || line.startedAt) return false;
+    const canSign = hasPermission('requisa.solicitar')
+      && isRequisitionRequester(line, ot, currentUser)
+      && ot.status !== 'finalizada' && ot.status !== 'cerrada' && ot.status !== 'rechazada';
+    return signableSteps(line, { requester: canSign, autoriza: false, despacha: false }).includes('recibe');
+  });
+
+  const confirmReceipt = async (line: OTLine) => {
+    if (!(await confirm({ title: 'Firmar requisa', message: `¿Estas seguro de firmar?`, confirmLabel: 'Firmar' }))) return;
+    const result = signRequisition(ot.id, line.id, 'recibe');
+    if (result) toast({ message: result, variant: 'error' });
+    else toast('Firma registrada correctamente');
+  };
+
   return (
     <div className="px-4 sm:px-5 py-4">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <h4 className="ui-subtitle">Lineas de trabajo</h4>
         <div className="flex items-center gap-2 flex-wrap">
+          {receiptLines.map(line => (
+            <Button
+              key={line.id}
+              size="sm"
+              variant="secondary"
+              className="min-h-[44px] sm:min-h-0"
+              title={`Confirmar que recibiste los repuestos de: ${line.work}`}
+              onClick={() => { void confirmReceipt(line); }}
+            >
+              <PenTool size={14} /> {requisitionSignLabels.recibe || 'Recibido'}
+            </Button>
+          ))}
           {(canFinalize || finalizeBlockedReason) && (
             <Button
               size="sm"
@@ -89,7 +119,7 @@ export function WorkLinesSection({ ot, canAdd, canEdit, canExecute, canFinalize,
           {requisitionLine && <RequisitionDocumentButton ot={ot} line={requisitionLine} />}
           {canAdd && (
             <Button size="sm" variant="primary" className="min-h-[44px] sm:min-h-0" onClick={() => setShowAddModal(true)}>
-              <Plus size={14} />
+              <Plus size={14} /> Agregar
             </Button>
           )}
         </div>
@@ -160,10 +190,11 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
   const delivered = isDelivered(line);
   // el tecnico de la linea firma "Solicitado por" (si aun no lo hizo) y "Recibido por" (cuando Control ya entrego)
   const canSignAsTechnician = hasPermission('requisa.solicitar')
-    && isRequisitionRequester(line, ot.assignedTo, currentUser)
+    && isRequisitionRequester(line, ot, currentUser)
     && ot.status !== 'finalizada' && ot.status !== 'cerrada' && ot.status !== 'rechazada';
   const signStep = needsRequisition && !line.startedAt
-    ? signableSteps(line, { requester: canSignAsTechnician, autoriza: false, despacha: false })[0]
+    // "Recibido por" no va en la fila de Estado: tiene su propio boton arriba, en la barra de la seccion de lineas
+    ? signableSteps(line, { requester: canSignAsTechnician, autoriza: false, despacha: false }).find(s => s !== 'recibe')
     : undefined;
   const hasPhotos = line.photosBefore.length + line.photosAfter.length > 0;
   // ya no hay boton "Finalizar" por linea (se resuelve solo con "Finalizar OT"): la unica accion posible
@@ -176,7 +207,7 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
       <button
         onClick={onToggle}
         aria-expanded={expanded}
-        className="flex w-full items-center gap-2 bg-orange-300 px-3 py-2.5 text-left text-black transition-colors hover:bg-orange-300 "
+        className="flex w-full items-center gap-2 bg-orange-500 px-3 py-2.5 text-left text-white transition-colors hover:bg-orange-500"
       >
         {expanded ? <ChevronDown size={16} className="flex-shrink-0" /> : <ChevronRight size={16} className="flex-shrink-0" />}
         <span className={`min-w-0 flex-1 text-content font-bold ${expanded ? 'break-words' : 'truncate'}`}>{line.work}</span>
@@ -232,16 +263,16 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
                         {signStep && (
                           <Button
                             size="sm"
-                            variant="primary"
+                            variant="secondary"
                             className="min-h-[44px] sm:min-h-0"
                             onClick={async () => {
-                              if (!(await confirm({ title: 'Firmar requisa', message: `¿Estas seguro de firmar "${requisitionSignLabels[signStep]}"?`, confirmLabel: 'Firmar' }))) return;
+                              if (!(await confirm({ title: 'Firmar requisa', message: `¿Estas seguro de firmar?`, confirmLabel: 'Firmar' }))) return;
                               const result = signRequisition(ot.id, line.id, signStep);
                               setSignError(result);
                               if (!result) toast('Firma registrada correctamente');
                             }}
                           >
-                            <PenTool size={12} /> {requisitionSignLabels[signStep]}
+                            <PenTool size={12} /> Recibido
                           </Button>
                         )}
                       </span>
@@ -266,7 +297,7 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
                       )}
                       {canEdit && (
                         <Button size="sm" variant="primary" className="ml-auto min-h-[44px] whitespace-nowrap sm:min-h-0" onClick={() => setEditingLine(true)}>
-                          <Pencil size={15} />
+                          <Pencil size={15} /> Editar
                         </Button>
                       )}
                     </div>
@@ -282,24 +313,28 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
                       <p className="text-stone-500">Sin repuestos.</p>
                     ) : (
                       <div className="overflow-x-auto rounded-md">
-                        <table className="border-collapse text-content">
+                        <table className="w-full border-collapse text-content">
                           <thead>
-                            <tr className="bg-stone-100 text-left text-stone-600">
-                              <th className="border border-stone-300 px-2 py-1.5 whitespace-nowrap text-left font-bold">Solicitado</th>
-                              <th className="border border-stone-300 px-2 py-1.5 whitespace-nowrap text-left font-bold">Unidad</th>
-                              <th className="border border-stone-300 px-2 py-1.5 text-left font-bold ">Producto</th>
-                              <th className="border border-stone-300 px-2 py-1.5 whitespace-nowrap text-left font-bold">Entregado</th>
+                            <tr className="bg-stone-100 text-left text-black">
+                              <th className="border border-stone-300 px-2 py-1.5 text-left whitespace-nowrap font-bold">Codigo</th>
+                              <th className="border border-stone-300 px-2 py-1.5 text-left font-bold">Descripcion</th>
+                              <th className="border border-stone-300 px-2 py-1.5 text-left whitespace-nowrap font-bold">Solicitado</th>
+                              <th className="border border-stone-300 px-2 py-1.5 text-left whitespace-nowrap font-bold">Unidad</th>
+                              <th className="border border-stone-300 px-2 py-1.5 text-left whitespace-nowrap font-bold">Recibido</th>
+                              <th className="border border-stone-300 px-2 py-1.5 text-left font-bold">Observaciones</th>
                             </tr>
                           </thead>
                           <tbody>
                             {line.parts.map(p => (
                               <tr key={p.partId}>
+                                <td className="border border-stone-300 px-2 py-1.5 text-left whitespace-nowrap font-normal">{p.partCode}</td>
+                                <td className="border border-stone-300 px-2 py-1.5 text-left font-normal">{p.partDescription}</td>
                                 <td className="border border-stone-300 px-2 py-1.5 text-left font-normal">{p.quantity}</td>
                                 <td className="border border-stone-300 px-2 py-1.5 text-left whitespace-nowrap text-stone-600">{p.unit}</td>
-                                <td className="border border-stone-300 px-2 py-1.5 text-left font-normal">{p.partDescription}</td>
                                 <td className={`border border-stone-300 px-2 py-1.5 text-left ${isPartial(line, p) ? 'font-bold text-orange-700' : 'font-normal'}`}>
                                   {delivered ? deliveredQuantity(line, p) : '--'}
                                 </td>
+                                <td className="border border-stone-300 px-2 py-1.5 text-left font-normal">{p.notes ?? ''}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -316,7 +351,7 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
                           title={delivered ? 'Control de Inventario ya entrego estos repuestos' : undefined}
                           onClick={() => setEditingLine(true)}
                         >
-                          <Pencil size={14} /> {line.parts.length > 0 ? ' ' : ' '}
+                          <Pencil size={14} /> {line.parts.length > 0 ? 'Editar' : ''}
                         </Button>
                       </div>
                     )}
@@ -332,15 +367,6 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
                       {line.requisition && <span className="font-normal">{line.requisition.code}</span>}
                       <RequisitionProgress line={line} />
                     </div>
-                  </td>
-                </tr>
-              )}
-
-              {(hasPhotos || canExecute) && (
-                <tr>
-                  <th scope="row">Evidencia</th>
-                  <td>
-                    <EvidenceGroup ot={ot} line={line} canEdit={canExecute} onOpenPhoto={onOpenPhoto} />
                   </td>
                 </tr>
               )}
@@ -380,7 +406,7 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
                   }
                 }}
               >
-                <Trash2 size={12} />
+                <Trash2 size={12} />Eliminar
               </Button>
             </div>
           )}
@@ -509,47 +535,6 @@ function EvidenceGroup({ ot, line, canEdit, onOpenPhoto }: {
           </div>
         ))}
       </div>
-
-      {canEdit && (
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant="primary"
-            className="min-h-[44px] sm:min-h-0"
-            onClick={() => cameraRef.current?.click()}
-            disabled={busy}
-            title="Tomar fotografia con la camara"
-          >
-            <Camera size={12} />
-          </Button>
-          <Button
-            size="sm"
-            variant="primary"
-            className="min-h-[44px] sm:min-h-0"
-            onClick={() => fileRef.current?.click()}
-            disabled={busy}
-            title="Subir imagenes desde el dispositivo"
-          >
-            <Upload size={12} />
-          </Button>
-          <input
-            ref={cameraRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={e => { void handleFiles(e.target.files); }}
-          />
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={e => { void handleFiles(e.target.files); }}
-          />
-        </div>
-      )}
     </div>
   );
 }
@@ -627,14 +612,13 @@ function AddLineModal({ open, onClose, onAdd, defaultTechnician, ot }: {
             </Field>
           </div>
 
-          <Field label="Evidencia de la OT">
+          <Field label="Archivos">
             <PhotoCarousel
               photos={ot.photos ?? []}
               canEdit
               busy={photosBusy}
               onAddFiles={files => { void handleAddPhotos(files); }}
               onRemove={photo => { void handleRemovePhoto(photo); }}
-              emptyEditableLabel="Sin fotografias. Sube evidencia general de la OT (no de una linea especifica)."
             />
           </Field>
         </div>
@@ -643,7 +627,7 @@ function AddLineModal({ open, onClose, onAdd, defaultTechnician, ot }: {
 
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={handleClose}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={!draft.valid}><Plus size={16} /> </Button>
+          <Button onClick={handleSubmit} disabled={!draft.valid}><Plus size={16} />AGREGAR</Button>
         </div>
       </div>
     </Modal>

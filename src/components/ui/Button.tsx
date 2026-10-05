@@ -28,7 +28,7 @@ export function Button({ variant = 'primary', size = 'md', children, className =
       className={`inline-flex items-center gap-1.5 rounded-md font-medium transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:opacity-50 disabled:cursor-not-allowed ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
       {...props}
     >
-      {children}
+      {children} 
     </button>
   );
 }

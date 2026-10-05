@@ -128,22 +128,26 @@ export function InventarioModule() {
           <>
             <div className="flex items-center gap-3 px-4 py-3 border-b border-stone-100 bg-stone-50/50 flex-wrap">
               <div className="relative flex-1 min-w-[200px]">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-                <TextInput
-                  placeholder="Buscar por codigo o descripcion..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="w-full pl-9"
-                />
+                <Field label="Buscar">
+                  <Search size={16} className="absolute left-3 top-1/2 text-stone-400" />
+                  <TextInput
+                    placeholder="Buscar por codigo o descripcion..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="w-full pl-9"
+                  />
+                </Field>
               </div>
-              <Select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} className="w-full sm:w-auto">
-                <option value="">Todas las categorias</option>
-                {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-              </Select>
-              <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
+              <Field label="Categorias">
+                <Select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} className="w-full sm:w-auto">
+                  <option value="">Todas las categorias</option>
+                  {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                </Select>
+              </Field>
+              {/* <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
                 <input type="checkbox" checked={lowStockOnly} onChange={e => setLowStockOnly(e.target.checked)} className="rounded border-stone-300 text-orange-500 focus:ring-orange-300" />
                 Solo bajo stock
-              </label>
+              </label> */}
             </div>
 
             <div className="overflow-x-auto">
