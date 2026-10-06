@@ -24,7 +24,7 @@ function QuantityInput({ value, onChange, label }: { value: number; onChange: (n
         if (Number.isFinite(n) && n > 0) onChange(n);
       }}
       onBlur={() => setText(String(value))}
-      className="min-h-[44px] w-20 bg-white px-2 py-1.5 text-right text-content text-stone-800 transition-colors focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-300 sm:min-h-0"
+      className="min-h-[44px] w-20 bg-white px-2 py-1.5 text-right text-content text-stone-800 transition-colors focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-300 [@media(pointer:fine)]:min-h-0"
     />
   );
 }
@@ -156,7 +156,7 @@ export function PartsEditor({ value, onChange }: { value: OTLinePart[]; onChange
                     <button
                       type="button"
                       onClick={() => onChange(value.filter(x => x.partId !== p.partId))}
-                      className="flex min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center rounded-md text-stone-400 transition-colors hover:bg-red-50 hover:text-red-600 sm:min-h-0 sm:min-w-0 sm:p-1.5"
+                      className="flex min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center rounded-md text-stone-400 transition-colors hover:bg-red-50 hover:text-red-600 [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 sm:p-1.5"
                       title="Quitar repuesto"
                       aria-label={`Quitar ${p.partDescription}`}
                     >

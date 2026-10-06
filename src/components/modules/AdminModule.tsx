@@ -34,10 +34,12 @@ export function AdminModule() {
           <TabButton active={tab === 'permisos'} onClick={() => setTab('permisos')}>Permisos por Rol</TabButton>
         </div>
 
-        {tab === 'usuarios' && <UsersTab />}
-        {tab === 'tipos' && <WorkTypesTab />}
-        {tab === 'planes' && <PlansTab />}
-        {tab === 'permisos' && <PermissionsTab />}
+        <div key={tab} className="animate-fade-in">
+          {tab === 'usuarios' && <UsersTab />}
+          {tab === 'tipos' && <WorkTypesTab />}
+          {tab === 'planes' && <PlansTab />}
+          {tab === 'permisos' && <PermissionsTab />}
+        </div>
       </div>
     </div>
   );
@@ -47,7 +49,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
   return (
     <button
       onClick={onClick}
-      className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${active ? 'border-orange-500 text-orange-600' : 'border-transparent text-stone-500 hover:text-stone-700'}`}
+      className={`inline-flex min-h-[44px] items-center px-5 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 [@media(pointer:fine)]:min-h-0 ${active ? 'border-orange-500 text-orange-600' : 'border-transparent text-stone-500 hover:text-stone-700'}`}
     >
       {children}
     </button>
@@ -104,13 +106,14 @@ function UsersTab() {
                     <Select
                       value={u.role}
                       onChange={e => updateUser(u.id, { role: e.target.value as UserRole })}
-                      className="!py-1 !text-content"
+                      className="min-w-[10rem] !py-1 !text-content"
                     >
                       {roleOrder.map(r => <option key={r} value={r}>{roleLabels[r]}</option>)}
                     </Select>
                   </td>
                   <td>
                     <button
+                      className="inline-flex min-h-[44px] items-center [@media(pointer:fine)]:min-h-0"
                       onClick={async () => {
                         const willActivate = !u.active;
                         if (await confirm({ title: willActivate ? 'Activar usuario' : 'Desactivar usuario', message: `¿Estas seguro de ${willActivate ? 'activar' : 'desactivar'} a ${u.name}?`, confirmLabel: willActivate ? 'Activar' : 'Desactivar' })) {
@@ -132,7 +135,7 @@ function UsersTab() {
                       }}
                       disabled={isSelf}
                       title={isSelf ? 'No puedes eliminar tu propio usuario' : 'Eliminar usuario'}
-                      className="text-stone-400 hover:text-red-600 transition-colors disabled:opacity-30 disabled:hover:text-stone-400"
+                      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-stone-400 transition-colors hover:text-red-600 disabled:opacity-30 disabled:hover:text-stone-400 [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -238,6 +241,7 @@ function WorkTypesTab() {
                 className="flex-1 !py-1 !text-content"
               />
               <button
+                className="inline-flex min-h-[44px] items-center [@media(pointer:fine)]:min-h-0"
                 onClick={async () => {
                   const willActivate = !item.active;
                   if (await confirm({ title: willActivate ? 'Activar tipo de trabajo' : 'Desactivar tipo de trabajo', message: `¿Estas seguro de ${willActivate ? 'activar' : 'desactivar'} "${item.name}"?`, confirmLabel: willActivate ? 'Activar' : 'Desactivar' })) {
@@ -255,7 +259,7 @@ function WorkTypesTab() {
                     toast({ message: `"${item.name}" eliminado`, variant: 'info' });
                   }
                 }}
-                className="text-stone-400 hover:text-red-600 transition-colors flex-shrink-0"
+                className="flex min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center text-stone-400 transition-colors hover:text-red-600 [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0"
                 title="Eliminar"
               >
                 <Trash2 size={13} />
@@ -324,13 +328,14 @@ function PermissionsTab() {
                       const locked = isLocked(role, permission);
                       return (
                         <td key={role} className="text-center">
-                          <label className="inline-flex items-center justify-center cursor-pointer">
+                          {/* toda la celda (44px en telefono) es el area de toque, no solo la casilla */}
+                          <label className="inline-flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0">
                             <input
                               type="checkbox"
                               checked={checked}
                               disabled={locked}
                               onChange={e => setRolePermission(role, permission, e.target.checked)}
-                              className="rounded border-stone-300 text-orange-500 focus:ring-orange-300 disabled:opacity-40"
+                              className="h-5 w-5 rounded border-stone-300 text-orange-500 focus:ring-orange-300 disabled:opacity-40 sm:h-4 sm:w-4"
                             />
                             {locked && <Lock size={10} className="ml-1 text-stone-400" />}
                           </label>

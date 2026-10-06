@@ -96,7 +96,7 @@ export function EditOTModal({ ot, onClose }: { ot: WorkOrder; onClose: () => voi
 
           {error && <p role="alert" className="text-content text-red-700">{error}</p>}
           <div className="flex justify-end">
-            <Button size="sm" className="min-h-[44px] sm:min-h-0" onClick={handleSaveHeader} disabled={unchanged || !description.trim()}>
+            <Button size="sm" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={handleSaveHeader} disabled={unchanged || !description.trim()}>
               <SaveAllIcon className="w-4 h-4" /> Guardar cambios
             </Button>
           </div>
@@ -114,7 +114,7 @@ export function EditOTModal({ ot, onClose }: { ot: WorkOrder; onClose: () => voi
         </section>
 
         <div className="flex justify-end gap-2 border-t border-stone-200 pt-3">
-          <Button variant="outline" className="min-h-[44px] sm:min-h-0" onClick={onClose}>
+          <Button variant="outline" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={onClose}>
             <X size={14} /> Cerrar
           </Button>
         </div>
@@ -165,7 +165,7 @@ function OTLineEditSection({ ot, line }: { ot: WorkOrder; line: OTLine }) {
       <LineFields draft={draft} asset={asset} />
       {error && <p role="alert" className="text-content text-red-700">{error}</p>}
       <div className="flex justify-end">
-        <Button size="sm" className="min-h-[44px] sm:min-h-0" onClick={handleSave} disabled={!draft.valid}>
+        <Button size="sm" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={handleSave} disabled={!draft.valid}>
           <SaveAllIcon className="w-4 h-4" /> Guardar linea
         </Button>
       </div>

@@ -20,7 +20,7 @@ export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`px-3 py-2 text-content leading-5 border border-stone-300 rounded-md bg-white text-stone-800 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-colors ${props.className ?? ''}`}
+      className={`min-h-[44px] px-3 py-2 text-content leading-5 border border-stone-300 rounded-md bg-white text-stone-800 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-colors [@media(pointer:fine)]:min-h-0 ${props.className ?? ''}`}
     />
   );
 }

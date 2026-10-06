@@ -31,7 +31,7 @@ export function OTDocumentButton({ ot }: { ot: WorkOrder }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button size="sm" variant="outline" className="min-h-[44px] sm:min-h-0" onClick={() => setOpen(true)}>
+      <Button size="sm" variant="outline" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={() => setOpen(true)}>
         <FileText size={14} /> Ver Documento
       </Button>
       {open && (

@@ -154,6 +154,7 @@ export function ActivosModule() {
                   if (await confirm({ title: 'Sincronizar con SAP', message: '¿Estas seguro de sincronizar todos los activos con SAP?', confirmLabel: 'Sincronizar' })) syncAssetsFromSAP();
                 }}
                 disabled={syncingAssets}
+                aria-busy={syncingAssets}
               >
                 <RefreshCw size={16} className={syncingAssets ? 'animate-spin' : ''} />
                 {syncingAssets ? 'Sincronizando...' : 'Sincronizar'}
@@ -198,10 +199,10 @@ export function ActivosModule() {
               <tr>
                 <SortableTh label="Codigo" sortKey="code" sort={sort} onSort={toggle} />
                 <SortableTh label="Nombre" sortKey="name" sort={sort} onSort={toggle} />
-                <SortableTh label="Tipo" sortKey="type" sort={sort} onSort={toggle} />
+                <SortableTh label="Tipo" sortKey="type" sort={sort} onSort={toggle} className="hidden md:table-cell" />
                 <SortableTh label="Estado" sortKey="status" sort={sort} onSort={toggle} />
-                <SortableTh label="Ult. Mant." sortKey="lastMaintenance" sort={sort} onSort={toggle} />
-                <SortableTh label="Código de SAP" sortKey="sap" sort={sort} onSort={toggle} />
+                <SortableTh label="Ult. Mant." sortKey="lastMaintenance" sort={sort} onSort={toggle} className="hidden md:table-cell" />
+                <SortableTh label="Código de SAP" sortKey="sap" sort={sort} onSort={toggle} className="hidden lg:table-cell" />
                 <th></th>
               </tr>
             </thead>
@@ -210,10 +211,10 @@ export function ActivosModule() {
                 <tr key={asset.id} className="cursor-pointer" onClick={() => setSelectedAsset(asset)}>
                   <td className="text-stone-600 font-normal">{asset.code}</td>
                   <td className="text-stone-600">{asset.name}</td>
-                  <td className="text-stone-600">{typeLabels[asset.type]}</td>
+                  <td className="hidden text-stone-600 md:table-cell">{typeLabels[asset.type]}</td>
                   <td><Badge>{statusLabels[asset.status]}</Badge></td>
-                  <td className="text-stone-500">{asset.lastMaintenance}</td>
-                  <td>
+                  <td className="hidden text-stone-500 md:table-cell">{asset.lastMaintenance}</td>
+                  <td className="hidden lg:table-cell">
                     {asset.sapCode ? (
                       <Badge><Link2 size={10} className="mr-1 inline" />{asset.sapCode}</Badge>
                     ) : (

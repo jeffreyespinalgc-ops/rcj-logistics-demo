@@ -70,7 +70,7 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
 
   return (
     <>
-      {mode === 'full' && <div className="fixed inset-0 z-30 bg-stone-900/50 lg:hidden" onClick={() => onModeChange('hidden')} />}
+      {mode === 'full' && <div className="animate-fade-in fixed inset-0 z-30 bg-stone-900/50 lg:hidden" onClick={() => onModeChange('hidden')} />}
 
       <aside
         className={`${mini ? 'w-14' : 'w-60'} ${mode === 'hidden' ? 'lg:w-0' : mini ? 'lg:w-14' : 'lg:w-60'} overflow-hidden bg-blue-900 text-blue-50 flex flex-col flex-shrink-0 fixed top-0 left-0 z-40 h-dvh transition-[transform,width] duration-200 motion-reduce:transition-none lg:sticky lg:z-auto lg:h-screen lg:translate-x-0 ${
@@ -164,7 +164,7 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
             <button
               onClick={logout}
               title="Cerrar sesion"
-              className="text-blue-300 hover:text-white hover:bg-blue-800 rounded-md p-1.5 transition-colors flex-shrink-0"
+              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-md text-blue-300 transition-colors hover:bg-blue-800 hover:text-white"
             >
               <LogOut size={16} />
             </button>

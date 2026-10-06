@@ -96,7 +96,7 @@ export function WorkLinesSection({ ot, canAdd, canEdit, canExecute, canFinalize,
               key={line.id}
               size="sm"
               variant="secondary"
-              className="min-h-[44px] sm:min-h-0"
+              className="min-h-[44px] [@media(pointer:fine)]:min-h-0"
               title={`Confirmar que recibiste los repuestos de: ${line.work}`}
               onClick={() => { void confirmReceipt(line); }}
             >
@@ -106,7 +106,7 @@ export function WorkLinesSection({ ot, canAdd, canEdit, canExecute, canFinalize,
           {(canFinalize || finalizeBlockedReason) && (
             <Button
               size="sm"
-              className="min-h-[44px] sm:min-h-0"
+              className="min-h-[44px] [@media(pointer:fine)]:min-h-0"
               disabled={!canFinalize}
               title={finalizeBlockedReason ?? undefined}
               onClick={onFinalize}
@@ -116,7 +116,7 @@ export function WorkLinesSection({ ot, canAdd, canEdit, canExecute, canFinalize,
           )}
           {requisitionLine && <RequisitionDocumentButton ot={ot} line={requisitionLine} />}
           {canAdd && (
-            <Button size="sm" variant="primary" className="min-h-[44px] sm:min-h-0" onClick={() => setShowAddModal(true)}>
+            <Button size="sm" variant="primary" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={() => setShowAddModal(true)}>
               <Plus size={14} /> Agregar
             </Button>
           )}
@@ -261,7 +261,7 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
                           <Button
                             size="sm"
                             variant="secondary"
-                            className="min-h-[44px] sm:min-h-0"
+                            className="min-h-[44px] [@media(pointer:fine)]:min-h-0"
                             onClick={async () => {
                               if (!(await confirm({ title: 'Firmar requisa', message: `¿Estas seguro de firmar?`, confirmLabel: 'Firmar' }))) return;
                               const result = signRequisition(ot.id, line.id, signStep);
@@ -365,7 +365,7 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
               <Button
                 size="sm"
                 variant="danger"
-                className="min-h-[44px] sm:min-h-0"
+                className="min-h-[44px] [@media(pointer:fine)]:min-h-0"
                 onClick={async () => {
                   if (await confirm({ title: 'Eliminar linea', message: '¿Estas seguro de eliminar esta linea de trabajo?', confirmLabel: 'Eliminar', variant: 'danger' })) {
                     deleteOTLine(ot.id, line.id);
@@ -442,7 +442,7 @@ function EvidenceGroup({ ot, line, canEdit, onOpenPhoto }: {
                     toast({ message: 'Fotografia eliminada', variant: 'info' });
                   }
                 }}
-                className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity shadow-sm"
+                className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center before:absolute before:-inset-2.5 before:content-[''] opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity shadow-sm"
                 title="Eliminar fotografia"
                 aria-label={`Eliminar ${photo.name}`}
               >

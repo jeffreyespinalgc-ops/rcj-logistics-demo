@@ -18,7 +18,7 @@ export function IndicatorCards({ children }: { children: ReactNode }) {
         aria-expanded={expanded}
         aria-label={expanded ? 'Ocultar indicadores' : 'Mostrar indicadores'}
         title={expanded ? 'Ocultar indicadores' : 'Mostrar indicadores'}
-        className="flex min-h-[44px] w-fit items-center gap-1.5 rounded-md px-1 text-sm font-medium text-stone-500 transition-colors hover:text-orange-600"
+        className="flex min-h-[44px] w-fit min-w-[44px] items-center justify-center gap-1.5 rounded-md px-1 text-sm font-medium text-stone-500 transition-colors hover:text-orange-600 [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0"
       >
         {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </button>

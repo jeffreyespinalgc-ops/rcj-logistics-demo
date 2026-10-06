@@ -222,12 +222,12 @@ export function RequisasTable() {
             <button
               onClick={() => { setFilter('todas'); setPage(1); }}
               aria-label={`Quitar filtro Estado: ${filterLabels[filter]}`}
-              className="rounded-full p-1 hover:bg-blue-100"
+              className="relative rounded-full p-1 hover:bg-blue-100 before:absolute before:-inset-2.5 before:content-['']"
             >
               <X size={12} />
             </button>
           </span>
-          <button onClick={clearFilters} className="font-medium text-orange-700 hover:underline">Limpiar filtros</button>
+          <button onClick={clearFilters} className="inline-flex min-h-[44px] items-center font-medium text-orange-700 hover:underline [@media(pointer:fine)]:min-h-0">Limpiar filtros</button>
         </div>
       )}
 
@@ -292,7 +292,7 @@ export function RequisasTable() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="min-h-[44px] sm:min-h-0"
+                          className="min-h-[44px] [@media(pointer:fine)]:min-h-0"
                           onClick={e => { e.stopPropagation(); setPreview({ otId: ot.id }); }}
                         >
                           <Eye size={12} /> Ver
@@ -300,7 +300,7 @@ export function RequisasTable() {
                         {mySteps.length > 0 ? (
                           <Button
                             size="sm"
-                            className="min-h-[44px] sm:min-h-0"
+                            className="min-h-[44px] [@media(pointer:fine)]:min-h-0"
                             onClick={e => { e.stopPropagation(); open(); }}
                           >
                             <PenBoxIcon size={12} /> Revisar
@@ -320,10 +320,10 @@ export function RequisasTable() {
 
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-stone-200 text-content text-stone-500">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="min-h-[44px] sm:min-h-0" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>
+          <Button variant="outline" size="sm" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>
             Anterior
           </Button>
-          <Button variant="outline" size="sm" className="min-h-[44px] sm:min-h-0" disabled={currentPage >= pageCount} onClick={() => setPage(currentPage + 1)}>
+          <Button variant="outline" size="sm" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" disabled={currentPage >= pageCount} onClick={() => setPage(currentPage + 1)}>
             Siguiente
           </Button>
         </div>
@@ -394,7 +394,7 @@ function OTRequisitionGroupModal({ otId, onClose }: { otId: string; onClose: () 
                   {mySteps.length > 0 && (
                     <Button
                       size="sm"
-                      className="min-h-[44px] sm:min-h-0"
+                      className="min-h-[44px] [@media(pointer:fine)]:min-h-0"
                       onClick={() => setLineId(line.id)}
                     >
                       <PenTool size={12} /> {requisitionSignLabels[mySteps[0]]} Aprobar

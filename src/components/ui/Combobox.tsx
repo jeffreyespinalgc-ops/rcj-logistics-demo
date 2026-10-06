@@ -58,7 +58,10 @@ export function Combobox({ value, onChange, options, placeholder, disabled, aria
     const r = el.getBoundingClientRect();
     const spaceBelow = window.innerHeight - r.bottom;
     const openUp = spaceBelow < DROPDOWN_MAX_HEIGHT + 8 && r.top > spaceBelow;
-    setRect({ top: openUp ? r.top : r.bottom, left: r.left, width: r.width, openUp });
+    // la lista nunca se sale de la pantalla (p. ej. un campo pegado al borde derecho en telefono)
+    const width = Math.min(r.width, window.innerWidth - 16);
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
+    setRect({ top: openUp ? r.top : r.bottom, left, width, openUp });
   };
 
   useEffect(() => {
@@ -133,7 +136,7 @@ export function Combobox({ value, onChange, options, placeholder, disabled, aria
         }}
         onChange={e => { setQuery(e.target.value); if (!open) setOpen(true); }}
         onKeyDown={handleKeyDown}
-        className={`w-full min-h-[44px] px-3 py-2 pr-7 text-content leading-5 border border-stone-300 rounded-md bg-white text-stone-800 transition-colors focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-500 sm:min-h-0 ${className}`}
+        className={`w-full min-h-[44px] px-3 py-2 pr-7 text-content leading-5 border border-stone-300 rounded-md bg-white text-stone-800 transition-colors focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-500 [@media(pointer:fine)]:min-h-0 ${className}`}
       />
       <ChevronDown size={14} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-stone-400" />
       {open && !disabled && rect && createPortal(
@@ -146,7 +149,7 @@ export function Combobox({ value, onChange, options, placeholder, disabled, aria
             maxHeight: DROPDOWN_MAX_HEIGHT,
             ...(rect.openUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.top + 4 }),
           }}
-          className="z-[100] overflow-y-auto rounded-md border border-stone-200 bg-white py-1 shadow-lg"
+          className="animate-drop-in z-[100] overflow-y-auto rounded-md border border-stone-200 bg-white py-1 shadow-lg"
         >
           {filtered.length === 0 ? (
             <li className="px-3 py-2 text-content text-stone-400">Sin resultados</li>

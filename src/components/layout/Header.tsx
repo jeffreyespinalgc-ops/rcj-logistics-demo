@@ -36,7 +36,7 @@ export function Header({ onMenuClick, onSignatureClick, menuLabel = 'Abrir menu'
           onClick={onMenuClick}
           aria-label={menuLabel}
           title={menuLabel}
-          className="-ml-2 p-2 text-stone-600 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors flex-shrink-0"
+          className="-ml-2 flex min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center rounded-lg text-stone-600 transition-colors hover:bg-orange-50 hover:text-orange-600 [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 sm:p-2"
         >
           <Menu size={22} />
         </button>
@@ -54,13 +54,13 @@ export function Header({ onMenuClick, onSignatureClick, menuLabel = 'Abrir menu'
           onClick={onSignatureClick}
           aria-label="Mi firma"
           title="Mi firma"
-          className="p-2 text-stone-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-orange-50 hover:text-orange-600 [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 sm:p-2"
         >
           <PenLine size={20} />
         </button>
         <button
           onClick={() => setActiveModule('notificaciones')}
-          className="relative p-2 text-stone-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+          className="relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-orange-50 hover:text-orange-600 [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 sm:p-2"
         >
           <Bell size={20} />
           {unreadCount > 0 && (

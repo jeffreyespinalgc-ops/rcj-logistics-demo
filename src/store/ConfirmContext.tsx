@@ -42,10 +42,10 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
           <div className="space-y-4">
             <p className="text-content text-stone-600">{options.message}</p>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" className="min-h-[44px] sm:min-h-0" onClick={() => finish(false)}>
+              <Button variant="outline" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={() => finish(false)}>
                 {options.cancelLabel ?? 'Cancelar'}
               </Button>
-              <Button variant={options.variant ?? 'primary'} className="min-h-[44px] sm:min-h-0" onClick={() => finish(true)}>
+              <Button variant={options.variant ?? 'primary'} className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={() => finish(true)}>
                 {options.confirmLabel ?? 'Confirmar'}
               </Button>
             </div>

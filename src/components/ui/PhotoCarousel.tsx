@@ -129,7 +129,7 @@ export function PhotoCarousel({ photos, canEdit, busy = false, onAddFiles, onRem
                   onClick={goPrev}
                   disabled={safeIndex === 0}
                   aria-label="Foto anterior"
-                  className="absolute left-1.5 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-stone-700 shadow-card transition-opacity hover:bg-white disabled:pointer-events-none disabled:opacity-0"
+                  className="absolute left-1.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-stone-700 shadow-card transition-opacity hover:bg-white disabled:pointer-events-none disabled:opacity-0"
                 >
                   <ChevronLeft size={18} />
                 </button>
@@ -137,7 +137,7 @@ export function PhotoCarousel({ photos, canEdit, busy = false, onAddFiles, onRem
                   onClick={goNext}
                   disabled={safeIndex === ordered.length - 1}
                   aria-label="Foto siguiente"
-                  className="absolute right-1.5 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-stone-700 shadow-card transition-opacity hover:bg-white disabled:pointer-events-none disabled:opacity-0"
+                  className="absolute right-1.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-stone-700 shadow-card transition-opacity hover:bg-white disabled:pointer-events-none disabled:opacity-0"
                 >
                   <ChevronRight size={18} />
                 </button>
@@ -147,7 +147,7 @@ export function PhotoCarousel({ photos, canEdit, busy = false, onAddFiles, onRem
             {canEdit && (
               <button
                 onClick={() => onRemove(current)}
-                className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow-sm transition-colors hover:bg-red-600"
+                className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow-sm transition-colors before:absolute before:-inset-2.5 before:content-[''] hover:bg-red-600"
                 title="Eliminar fotografia"
                 aria-label={`Eliminar ${current.name}`}
               >

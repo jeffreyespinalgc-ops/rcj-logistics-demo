@@ -24,10 +24,10 @@ export function Modal({ open, onClose, title, children, size = 'md', dismissible
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
+        className="animate-fade-in absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
         onClick={dismissible ? e => { e.stopPropagation(); onClose(); } : undefined}
       />
-      <div className={`relative bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} max-h-[90dvh] flex flex-col`}>
+      <div className={`animate-pop-in relative bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} max-h-[90dvh] flex flex-col`}>
         <div className="flex items-center justify-between px-5 py-3 border-b border-stone-200">
           <h3 className="ui-title">{title}</h3>
           {dismissible && (

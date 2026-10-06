@@ -35,7 +35,7 @@ export function RequisitionDocumentButton({ ot, line, onView }: { ot: WorkOrder;
 
   return (
     <>
-      <Button size="sm" variant="primary" className="min-h-[44px] sm:min-h-0" onClick={() => (onView ? onView() : setOpen(true))}>
+      <Button size="sm" variant="primary" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={() => (onView ? onView() : setOpen(true))}>
         <Eye size={14} /> Revisar
       </Button>
       {open && !onView && (

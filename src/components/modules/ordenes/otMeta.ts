@@ -157,6 +157,9 @@ export const linePartsCost = (line: OTLine) => line.parts.reduce((s, p) => s + u
 
 export const otPartsCost = (ot: WorkOrder) => ot.lines.reduce((s, l) => s + linePartsCost(l), 0);
 
+/** Fecha y hora completas de creacion (ot.createdAt solo trae la fecha); la misma marca que usa la linea de tiempo */
+export const otCreatedAt = (ot: WorkOrder): string => ot.history.find(h => h.status === 'creada')?.at ?? ot.createdAt;
+
 /** Tiempo trabajado: desde que se creo la OT hasta que termino de enviarse a SAP (la ultima etapa de la linea de tiempo) */
 export function otHours(ot: WorkOrder): number {
   const createdAt = ot.history.find(h => h.status === 'creada')?.at;

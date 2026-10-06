@@ -46,8 +46,10 @@ import { OTTimeline, OTTimelineMini } from './ordenes/OTTimeline';
 import {
   blockingReason,
   formatCLP,
+  formatDateTime,
   formatHours,
   allOTStatuses,
+  otCreatedAt,
   otFlow,
   otHours,
   otNeedsFollowUp,
@@ -295,13 +297,13 @@ export function OrdenesModule() {
             <div className="flex items-center gap-1 bg-stone-100 rounded-md p-0.5">
               <button
                 onClick={() => setViewMode('lista')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors ${viewMode === 'lista' ? 'bg-white text-orange-700 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}
+                className={`flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 ${viewMode === 'lista' ?'bg-white text-orange-700 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}
               >
                 <List size={14} /> 
               </button>
               <button
                 onClick={() => setViewMode('cuadricula')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors ${viewMode === 'cuadricula' ? 'bg-white text-orange-700 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}
+                className={`flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 ${viewMode === 'cuadricula' ?'bg-white text-orange-700 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}
               >
                 <LayoutGrid size={14} /> 
               </button>
@@ -362,15 +364,17 @@ export function OrdenesModule() {
           </Field>
         </div>
 
-        {viewMode === 'lista' ? (
-          <OTTable orders={filtered} onSelect={setSelectedOTId} />
-        ) : (
-          <div className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {filtered.map(ot => (
-              <OTCard key={ot.id} ot={ot} onClick={() => setSelectedOTId(ot.id)} />
-            ))}
-          </div>
-        )}
+        <div key={viewMode} className="animate-fade-in">
+          {viewMode === 'lista' ? (
+            <OTTable orders={filtered} onSelect={setSelectedOTId} />
+          ) : (
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {filtered.map(ot => (
+                <OTCard key={ot.id} ot={ot} onClick={() => setSelectedOTId(ot.id)} />
+              ))}
+            </div>
+          )}
+        </div>
 
         {filtered.length === 0 && (
           <div className="text-center py-8 text-stone-400 text-content">No se encontraron ordenes con los filtros seleccionados</div>
@@ -409,9 +413,9 @@ function OTTable({ orders, onSelect }: { orders: WorkOrder[]; onSelect: (id: str
             <SortableTh label="Descripción" sortKey="description" sort={sort} onSort={toggle} />
             <SortableTh label="Prioridad" sortKey="priority" sort={sort} onSort={toggle} />
             <SortableTh label="Estado" sortKey="status" sort={sort} onSort={toggle} />
-            <SortableTh label="Líneas" sortKey="lines" sort={sort} onSort={toggle} />
+            <SortableTh label="Líneas" sortKey="lines" sort={sort} onSort={toggle} className="hidden md:table-cell" />
             <SortableTh label="Asignada a" sortKey="assignedTo" sort={sort} onSort={toggle} />
-            <SortableTh label="Creación" sortKey="createdAt" sort={sort} onSort={toggle} />
+            <SortableTh label="Creación" sortKey="createdAt" sort={sort} onSort={toggle} className="hidden md:table-cell" />
             <th className="relative w-10"><span className="sr-only">Historial</span></th>
           </tr>
         </thead>
@@ -441,7 +445,7 @@ function OTTable({ orders, onSelect }: { orders: WorkOrder[]; onSelect: (id: str
                   </CircleAlert>
                 </td>
                 <td><OTTimelineMini ot={ot} /></td>
-                <td className="text-stone-600 whitespace-nowrap">
+                <td className="hidden text-stone-600 whitespace-nowrap md:table-cell">
                   {progress.total === 0 ? 'Sin lineas' : `${progress.done}/${progress.total}`}
                   {otWaitingParts(ot) && <span className="ml-1 text-yellow-600" title="Esperando repuesto">·</span>}
                   {otNeedsFollowUp(ot) && <span className="ml-1 text-purple-600" title="Requiere seguimiento">·</span>}
@@ -453,7 +457,7 @@ function OTTable({ orders, onSelect }: { orders: WorkOrder[]; onSelect: (id: str
                   {otResponsibles(ot) ?? <span className="text-stone-400">Sin asignar</span>}
                   {ot.assignedToType === 'taller_externo' && <span className="block text-stone-400">Taller externo</span>}
                 </td>
-                <td className="text-stone-500">{ot.createdAt}</td>
+                <td className="hidden text-stone-500 whitespace-nowrap md:table-cell">{formatDateTime(otCreatedAt(ot))}</td>
                 <td className="text-right"><OTHistoryButton ot={ot} /></td>
               </tr>
             );
@@ -472,7 +476,7 @@ function OTCard({ ot, onClick }: { ot: WorkOrder; onClick: () => void }) {
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-md shadow-card border border-stone-200 p-3 cursor-pointer hover:shadow-card-hover hover:border-orange-300 transition-all"
+      className="bg-white rounded-md shadow-card border border-stone-200 p-3 cursor-pointer hover:shadow-card-hover hover:border-orange-300 transition-[box-shadow,border-color,transform] duration-200 ease-out hover:-translate-y-0.5 motion-reduce:hover:translate-y-0"
     >
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <span className="text-content font-bold text-blue-700">{ot.code}</span>
@@ -586,7 +590,7 @@ function OTDetail({ ot, currentUser, onBack, onReopen, onApprove, onReject, onRe
               <p className="text-sm font-normal mt-0.5">{ot.assetCode} - {ot.assetName}</p>
             </div>
             {canEditLines && (
-              <Button variant="secondary" size="sm" className="min-h-[44px] sm:min-h-0 flex-shrink-0 self-start" onClick={() => setEditingOT(true)}>
+              <Button variant="secondary" size="sm" className="min-h-[44px] [@media(pointer:fine)]:min-h-0 flex-shrink-0 self-start" onClick={() => setEditingOT(true)}>
                 <Pencil size={14} /> Editar
               </Button>
             )}
@@ -771,7 +775,7 @@ function AssignModal({ ot, onClose, onAssign }: {
               <ul className="divide-y divide-stone-100 rounded-md border border-stone-200">
                 {technicians.map(u => (
                   <li key={u.id}>
-                    <label className="flex min-h-[44px] cursor-pointer items-center gap-2 px-3 py-2 text-content text-stone-700 transition-colors hover:bg-stone-50 sm:min-h-0">
+                    <label className="flex min-h-[44px] cursor-pointer items-center gap-2 px-3 py-2 text-content text-stone-700 transition-colors hover:bg-stone-50 [@media(pointer:fine)]:min-h-0">
                       <input
                         type="checkbox"
                         checked={team.includes(u.name)}

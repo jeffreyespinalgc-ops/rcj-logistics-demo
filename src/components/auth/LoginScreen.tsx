@@ -250,7 +250,7 @@ export function LoginScreen() {
                     type="button"
                     onClick={() => setShowPassword(v => !v)}
                     aria-label={showPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 transition-colors hover:text-stone-600"
+                    className="absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center text-stone-400 transition-colors hover:text-stone-600"
                     tabIndex={-1}
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}

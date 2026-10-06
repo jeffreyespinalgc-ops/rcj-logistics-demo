@@ -117,7 +117,7 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
     <div className="p-3 sm:p-4 space-y-2">
       <button
         onClick={onBack}
-        className="flex min-h-[44px] items-center gap-2 text-sm text-stone-600 transition-colors hover:text-orange-600 sm:min-h-0"
+        className="flex min-h-[44px] items-center gap-2 text-sm text-stone-600 transition-colors hover:text-orange-600 [@media(pointer:fine)]:min-h-0"
       >
         <ArrowLeft size={16} /> Volver al listado
       </button>
@@ -169,7 +169,7 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
           <div className="space-y-3 rounded-md border border-stone-200 bg-stone-50/50 p-3">
             <LineFields draft={draft} asset={assets.find(a => a.id === assetId)} />
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <Button variant="primary" className="min-h-[44px] sm:min-h-0" onClick={addLine} disabled={!draft.valid} title="Agregar linea de trabajo">
+              <Button variant="primary" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={addLine} disabled={!draft.valid} title="Agregar linea de trabajo">
                 <Plus size={16} /> Agregar linea de trabajo
               </Button>
             </div>
@@ -203,7 +203,7 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
                           <Button
                             size="sm"
                             variant="primary"
-                            className="min-h-[44px] sm:min-h-0"
+                            className="min-h-[44px] [@media(pointer:fine)]:min-h-0"
                             onClick={() => setEditingIndex(index)}
                             title="Editar linea"
                             aria-label={`Editar la linea ${line.work}`}
@@ -213,7 +213,7 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
                           <Button
                             size="sm"
                             variant="danger"
-                            className="min-h-[44px] sm:min-h-0"
+                            className="min-h-[44px] [@media(pointer:fine)]:min-h-0"
                             onClick={() => setLines(prev => prev.filter((_, i) => i !== index))}
                             title="Quitar linea"
                             aria-label={`Quitar la linea ${line.work}`}
@@ -266,8 +266,8 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
               </p>
             )}
           </div>
-          <Button variant="danger" className="min-h-[44px] sm:min-h-0" onClick={onBack}><X size={16} />Cancelar</Button>
-          <Button className="min-h-[44px] sm:min-h-0" onClick={handleCreate}><Plus size={16} /> Crear</Button>
+          <Button variant="danger" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={onBack}><X size={16} />Cancelar</Button>
+          <Button className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={handleCreate}><Plus size={16} /> Crear</Button>
         </div>
       </div>
 
@@ -321,11 +321,11 @@ function EditDraftLineModal({ line, asset, onSave, onClose }: {
       <div className="space-y-4">
         <LineFields draft={draft} asset={asset} />
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="danger" className="min-h-[44px] sm:min-h-0" onClick={onClose}>
+          <Button variant="danger" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={onClose}>
             <X size={14} />
             Cancelar
           </Button>
-          <Button className="min-h-[44px] sm:min-h-0" onClick={handleSave} disabled={!draft.valid}>
+          <Button className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={handleSave} disabled={!draft.valid}>
             <SaveAllIcon className="w-4 h-4" /> Guardar cambios
           </Button>
         </div>

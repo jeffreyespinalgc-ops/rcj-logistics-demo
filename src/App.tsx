@@ -52,6 +52,8 @@ function ModuleRouter() {
 
 function AppLayout() {
   const { session, users, updateUser } = useAuth();
+  const { activeModule } = useApp();
+  const routeKey = activeModule === 'requisas' ? 'inventario' : activeModule;
   const me = users.find(u => u.id === session?.userId);
   // la primera vez que entra, el usuario registra su firma (obligatorio); despues puede rehacerla desde el encabezado
   const mustSign = Boolean(me && !me.signature);
@@ -80,7 +82,9 @@ function AppLayout() {
           onSignatureClick={() => setEditingSignature(true)}
         />
         <main className="flex-1 overflow-y-auto">
-          <ModuleRouter />
+          <div key={routeKey} className="animate-fade-up mx-auto w-full max-w-[80rem]">
+            <ModuleRouter />
+          </div>
         </main>
       </div>
       {me && (mustSign || editingSignature) && (

@@ -93,20 +93,20 @@ export function InventarioModule() {
           <div className="flex items-center gap-1">
             <button
               onClick={() => setView('stock')}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${view === 'stock' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
+              className={`min-h-[44px] px-3 py-1.5 text-sm rounded-md transition-colors [@media(pointer:fine)]:min-h-0 ${view === 'stock' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
             >
               Inventario
             </button>
             <button
               onClick={() => setView('historial')}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${view === 'historial' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
+              className={`min-h-[44px] px-3 py-1.5 text-sm rounded-md transition-colors [@media(pointer:fine)]:min-h-0 ${view === 'historial' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
             >
               Historial de Movimientos
             </button>
             {canSeeRequisas && (
               <button
                 onClick={() => setView('requisas')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${view === 'requisas' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
+                className={`flex items-center gap-1.5 min-h-[44px] px-3 py-1.5 text-sm rounded-md transition-colors [@media(pointer:fine)]:min-h-0 ${view === 'requisas' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
               >
                 Requisas de Repuestos
                 {pendingRequisitions > 0 && (
@@ -124,6 +124,7 @@ export function InventarioModule() {
           )}
         </div>
 
+        <div key={view} className="animate-fade-in">
         {view === 'stock' ? (
           <>
             <div className="flex items-center gap-3 px-4 py-3 border-b border-stone-100 bg-stone-50/50 flex-wrap">
@@ -156,7 +157,7 @@ export function InventarioModule() {
                   <tr>
                     <SortableTh label="Codigo" sortKey="code" sort={partSort} onSort={togglePartSort} />
                     <SortableTh label="Descripcion" sortKey="description" sort={partSort} onSort={togglePartSort} />
-                    <SortableTh label="Categoria" sortKey="category" sort={partSort} onSort={togglePartSort} />
+                    <SortableTh label="Categoria" sortKey="category" sort={partSort} onSort={togglePartSort} className="hidden md:table-cell" />
                     <SortableTh label="Stock Actual" sortKey="stock" sort={partSort} onSort={togglePartSort} className="text-right" />
                     <SortableTh label="Costo" sortKey="cost" sort={partSort} onSort={togglePartSort} className="text-right" />
                     <SortableTh label="Estado" sortKey="status" sort={partSort} onSort={togglePartSort} />
@@ -171,7 +172,7 @@ export function InventarioModule() {
                       <tr key={part.id} className={isLow ? 'bg-orange-50/40' : ''}>
                         <td className="text-stone-600 font-normal">{part.code}</td>
                         <td className="font-normal text-stone-800">{part.description}</td>
-                        <td className="text-stone-600">{part.category}</td>
+                        <td className="hidden text-stone-600 md:table-cell">{part.category}</td>
                         <td className={`text-right font-normal ${isLow ? 'text-orange-700' : 'text-stone-800'}`}>
                           {canEditCatalog ? (
                             <TextInput
@@ -212,7 +213,7 @@ export function InventarioModule() {
                                   toast({ message: `${part.description} eliminado`, variant: 'info' });
                                 }
                               }}
-                              className="text-stone-400 hover:text-red-600 transition-colors"
+                              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-stone-400 transition-colors hover:text-red-600 [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0"
                               title="Eliminar repuesto"
                             >
                               <Trash2 size={13} />
@@ -269,6 +270,7 @@ export function InventarioModule() {
         ) : (
           <RequisasTable />
         )}
+        </div>
       </div>
 
       <CreatePartModal open={showCreateModal} onClose={() => setShowCreateModal(false)} onCreate={addPart} />

@@ -137,7 +137,7 @@ function PlanColumns({ roots, rootLabel, value, onChange, asset }: {
                         type="button"
                         onClick={() => toggleAll(col.nodes)}
                         aria-label="Seleccionar todos"
-                        className="group relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-orange-600 transition-colors hover:bg-orange-50 sm:min-h-0 sm:min-w-0 sm:p-1.5"
+                        className="group relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-orange-600 transition-colors hover:bg-orange-50 [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 sm:p-1.5"
                       >
                         <CheckCheck size={16} />
                         <span
@@ -154,7 +154,7 @@ function PlanColumns({ roots, rootLabel, value, onChange, asset }: {
                         return (
                           <li key={node.id}>
                             <label
-                              className={`flex min-h-[44px] cursor-pointer items-center gap-2 px-2.5 py-2 text-content text-stone-700 transition-colors hover:bg-orange-50/50 sm:min-h-0 ${
+                              className={`flex min-h-[44px] cursor-pointer items-center gap-2 px-2.5 py-2 text-content text-stone-700 transition-colors hover:bg-orange-50/50 [@media(pointer:fine)]:min-h-0 ${
                                 checked ? 'bg-orange-200' : ''
                               }`}
                             >
@@ -180,7 +180,7 @@ function PlanColumns({ roots, rootLabel, value, onChange, asset }: {
                           <button
                             type="button"
                             onClick={() => selectAt(col.depth, node)}
-                            className={`flex min-h-[44px] w-full items-center gap-2 px-2.5 py-2 text-left text-content transition-colors hover:bg-stone-50 sm:min-h-0 ${
+                            className={`flex min-h-[44px] w-full items-center gap-2 px-2.5 py-2 text-left text-content transition-colors hover:bg-stone-50 [@media(pointer:fine)]:min-h-0 ${
                               chosen ? 'bg-orange-200' : ''
                             }`}
                           >
