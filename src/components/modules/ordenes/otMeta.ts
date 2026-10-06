@@ -80,6 +80,14 @@ export const priorityVariants: Record<OTPriority, BadgeVariant> = {
   critica: 'red',
 };
 
+/** Colores tipo semaforo (+ uno extra para "Critica") para el icono CircleAlert de prioridad, sin texto */
+export const priorityIconColors: Record<OTPriority, string> = {
+  baja: 'text-green-600',
+  media: 'text-yellow-500',
+  alta: 'text-orange-500',
+  critica: 'text-red-600',
+};
+
 // ===== Estados de linea de trabajo =====
 
 export const lineStatusOrder: OTLineStatus[] = [
@@ -149,7 +157,14 @@ export const linePartsCost = (line: OTLine) => line.parts.reduce((s, p) => s + u
 
 export const otPartsCost = (ot: WorkOrder) => ot.lines.reduce((s, l) => s + linePartsCost(l), 0);
 
-export const otHours = (ot: WorkOrder) => ot.lines.reduce((s, l) => s + l.hours, 0);
+/** Tiempo trabajado: desde que se creo la OT hasta que termino de enviarse a SAP (la ultima etapa de la linea de tiempo) */
+export function otHours(ot: WorkOrder): number {
+  const createdAt = ot.history.find(h => h.status === 'creada')?.at;
+  if (!createdAt || !ot.sapSentAt) return 0;
+  const diff = new Date(ot.sapSentAt).getTime() - new Date(createdAt).getTime();
+  if (!Number.isFinite(diff) || diff <= 0) return 0;
+  return Math.round((diff / 3_600_000) * 4) / 4;
+}
 
 /** Lineas cerradas (completadas con o sin observaciones) sobre el total */
 export function otProgress(ot: WorkOrder): { done: number; total: number; pct: number } {

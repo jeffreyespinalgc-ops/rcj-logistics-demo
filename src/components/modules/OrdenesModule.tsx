@@ -21,6 +21,7 @@ import {
   XCircle,
   Lock,
   AlertCircle,
+  CircleAlert,
   List,
   LayoutGrid,
   Search,
@@ -38,9 +39,10 @@ import {
 import { useEffect, useState, useMemo } from 'react';
 import { WorkLinesSection } from './ordenes/WorkLines';
 import { CreateOTPage } from './ordenes/CreateOT';
+import { EditOTModal } from './ordenes/EditOTModal';
 import { OTDocumentButton } from './ordenes/OTDocument';
 import { OTHistoryButton } from './ordenes/OTHistory';
-import { OTTimeline } from './ordenes/OTTimeline';
+import { OTTimeline, OTTimelineMini } from './ordenes/OTTimeline';
 import {
   blockingReason,
   formatCLP,
@@ -53,6 +55,7 @@ import {
   otProgress,
   otWaitingParts,
   pendingFindings,
+  priorityIconColors,
   priorityLabels,
   priorityVariants,
   statusLabels,
@@ -84,6 +87,9 @@ export function OrdenesModule() {
   const [rejectReason, setRejectReason] = useState('');
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterPriority, setFilterPriority] = useState('');
+  const [filterAsset, setFilterAsset] = useState('');
+  const [filterAssignee, setFilterAssignee] = useState('');
 
   // sin permiso para ver todas, el tecnico solo ve las OTs asignadas a el
   const canSeeAll = hasPermission('ot.ver.todas');
@@ -99,6 +105,22 @@ export function OrdenesModule() {
     cerradas: visibleOrders.filter(o => o.status === 'cerrada').length,
   }), [visibleOrders]);
 
+  // opciones de los filtros: solo lo que realmente aparece en las OTs visibles, no el catalogo completo
+  const assetOptions = useMemo(() => {
+    const byId = new Map<string, string>();
+    visibleOrders.forEach(ot => byId.set(ot.assetId, `${ot.assetCode} - ${ot.assetName}`));
+    return [...byId.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [visibleOrders]);
+
+  const assigneeOptions = useMemo(() => {
+    const names = new Set<string>();
+    visibleOrders.forEach(ot => {
+      if (ot.assignedToType === 'taller_externo' && ot.assignedTo) names.add(ot.assignedTo);
+      ot.assignedTeam.forEach(n => names.add(n));
+    });
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [visibleOrders]);
+
   const filtered = useMemo(() => visibleOrders.filter(ot => {
     if (search) {
       const q = search.toLowerCase();
@@ -109,8 +131,16 @@ export function OrdenesModule() {
       if (!hit) return false;
     }
     if (filterStatus && ot.status !== filterStatus) return false;
+    if (filterPriority && ot.priority !== filterPriority) return false;
+    if (filterAsset && ot.assetId !== filterAsset) return false;
+    if (filterAssignee) {
+      const assigned = ot.assignedToType === 'taller_externo'
+        ? ot.assignedTo === filterAssignee
+        : ot.assignedTeam.includes(filterAssignee);
+      if (!assigned) return false;
+    }
     return true;
-  }), [visibleOrders, search, filterStatus]);
+  }), [visibleOrders, search, filterStatus, filterPriority, filterAsset, filterAssignee]);
 
   // otro modulo (p. ej. Requisas de Repuestos) puede pedir abrir una OT concreta
   useEffect(() => {
@@ -313,9 +343,21 @@ export function OrdenesModule() {
             </Select>
           </Field>
           <Field label="Prioridad">
-            <Select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="w-full sm:w-auto">
+            <Select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} className="w-full sm:w-auto">
               <option value="">--- seleccione ---</option>
-              {allOTStatuses.map(s => <option key={s} value={s}>{statusLabels[s]}</option>)}
+              {priorityOrder.map(p => <option key={p} value={p}>{priorityLabels[p]}</option>)}
+            </Select>
+          </Field>
+          <Field label="Vehiculo">
+            <Select value={filterAsset} onChange={e => setFilterAsset(e.target.value)} className="w-full sm:w-auto">
+              <option value="">--- seleccione ---</option>
+              {assetOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+            </Select>
+          </Field>
+          <Field label="Asignada a">
+            <Select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)} className="w-full sm:w-auto">
+              <option value="">--- seleccione ---</option>
+              {assigneeOptions.map(name => <option key={name} value={name}>{name}</option>)}
             </Select>
           </Field>
         </div>
@@ -339,8 +381,8 @@ export function OrdenesModule() {
   );
 }
 
+const priorityOrder: OTPriority[] = ['baja', 'media', 'alta', 'critica'];
 const priorityRank: Record<OTPriority, number> = { baja: 0, media: 1, alta: 2, critica: 3 };
-const allPriorities: OTPriority[] = ['baja', 'media', 'alta', 'critica'];
 
 const otSortGetters = {
   code: (ot: WorkOrder) => ot.code,
@@ -389,8 +431,16 @@ function OTTable({ orders, onSelect }: { orders: WorkOrder[]; onSelect: (id: str
                   </button>
                 </td>
                 <td className="font-medium text-stone-800 max-w-[280px] truncate">{ot.description}</td>
-                <td><Badge variant={priorityVariants[ot.priority]}>{priorityLabels[ot.priority]}</Badge></td>
-                <td><Badge variant={statusVariants[ot.status]}>{statusShortLabels[ot.status]}</Badge></td>
+                <td>
+                  <CircleAlert
+                    size={18}
+                    className={priorityIconColors[ot.priority]}
+                    aria-label={`Prioridad ${priorityLabels[ot.priority]}`}
+                  >
+                    <title>{`Prioridad ${priorityLabels[ot.priority]}`}</title>
+                  </CircleAlert>
+                </td>
+                <td><OTTimelineMini ot={ot} /></td>
                 <td className="text-stone-600 whitespace-nowrap">
                   {progress.total === 0 ? 'Sin lineas' : `${progress.done}/${progress.total}`}
                   {otWaitingParts(ot) && <span className="ml-1 text-yellow-600" title="Esperando repuesto">·</span>}
@@ -660,43 +710,6 @@ function SapCell({ label, children }: { label: string; children: React.ReactNode
       <dt>{label}:</dt>
       <dd>{children}</dd>
     </div>
-  );
-}
-
-function EditOTModal({ ot, onClose }: { ot: WorkOrder; onClose: () => void }) {
-  const { updateWorkOrder } = useApp();
-  const confirm = useConfirm();
-  const toast = useToast();
-  const [description, setDescription] = useState(ot.description);
-  const [priority, setPriority] = useState<OTPriority>(ot.priority);
-  const [error, setError] = useState<string | null>(null);
-  const unchanged = description.trim() === ot.description && priority === ot.priority;
-
-  const handleSave = async () => {
-    if (!(await confirm({ title: 'Editar OT', message: '¿Estas seguro de guardar los cambios de esta OT?', confirmLabel: 'Guardar cambios' }))) return;
-    const result = updateWorkOrder(ot.id, { description, priority });
-    if (result) setError(result);
-    else { toast(`${ot.code} actualizada correctamente`); onClose(); }
-  };
-
-  return (
-    <Modal open onClose={onClose} title={`Editar ${ot.code}`} size="md">
-      <div className="space-y-4">
-        <Field label="Descripcion *">
-          <TextArea value={description} onChange={e => { setDescription(e.target.value); setError(null); }} rows={3} />
-        </Field>
-        <Field label="Prioridad *">
-          <Select value={priority} onChange={e => setPriority(e.target.value as OTPriority)}>
-            {allPriorities.map(p => <option key={p} value={p}>{priorityLabels[p]}</option>)}
-          </Select>
-        </Field>
-        {error && <p role="alert" className="text-content text-red-700">{error}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" className="min-h-[44px] sm:min-h-0" onClick={onClose}>Cancelar</Button>
-          <Button className="min-h-[44px] sm:min-h-0" onClick={handleSave} disabled={unchanged || !description.trim()}>Guardar cambios</Button>
-        </div>
-      </div>
-    </Modal>
   );
 }
 

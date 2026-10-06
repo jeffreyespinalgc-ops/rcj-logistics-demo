@@ -15,7 +15,7 @@ export function OTHistoryButton({ ot }: { ot: WorkOrder }) {
       <button
         type="button"
         onClick={e => { e.stopPropagation(); setOpen(true); }}
-        className="flex min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center rounded-md text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-700 sm:min-h-0 sm:min-w-0 sm:p-1.5"
+        className="flex min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center rounded-md transition-colors hover:bg-stone-100 hover:text-blue-500 sm:min-h-0 sm:min-w-0 sm:p-1.5"
         title="Ver log de modificaciones"
         aria-label={`Ver log de modificaciones de ${ot.code}`}
       >

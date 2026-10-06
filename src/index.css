@@ -40,10 +40,13 @@
   .ui-label { @apply text-xs font-bold text-stone-600; }
   .ui-value { @apply text-content font-normal text-stone-800; }
 
-  /* Ficha estilo SAP: tabla de etiqueta (negrita) + valor (normal) con bordes finos */
+  /* Ficha estilo SAP: etiqueta (negrita) arriba del valor (normal), con bordes finos. Siempre en columna: con
+     etiqueta y valor en la misma fila, una columna angosta (p. ej. 3 por fila junto a un panel lateral) deja el
+     valor con tan poco ancho que el texto se corta letra por letra -- en columna el valor siempre tiene el ancho
+     completo de la celda, sin importar cuantas columnas tenga el grid ni que tan angosto quede el contenedor. */
   .sap-grid { @apply grid border-l border-t border-stone-300 bg-white; }
-  .sap-cell { @apply flex min-w-0 items-baseline gap-2 border-b border-r border-stone-300 px-3 py-1.5 text-content; }
-  .sap-cell > dt { @apply flex-shrink-0 min-w-[10rem] font-bold text-stone-700; }
+  .sap-cell { @apply flex min-w-0 flex-col gap-0.5 border-b border-r border-stone-300 px-3 py-1.5 text-content; }
+  .sap-cell > dt { @apply font-bold text-stone-700; }
   .sap-cell > dd { @apply min-w-0 break-words font-normal text-stone-800; }
 
   /* Ficha de dos columnas (etiqueta | valor) para el detalle de una linea de trabajo */
