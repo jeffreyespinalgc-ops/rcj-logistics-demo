@@ -275,6 +275,12 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
         <EditDraftLineModal
           line={lines[editingIndex]}
           asset={assets.find(a => a.id === assetId)}
+          priority={priority}
+          description={description}
+          photos={photos}
+          photosBusy={photosBusy}
+          onAddPhotos={handleAddPhotos}
+          onRemovePhoto={handleRemovePhoto}
           onSave={updated => setLines(prev => prev.map((l, i) => (i === editingIndex ? updated : l)))}
           onClose={() => setEditingIndex(null)}
         />
@@ -284,12 +290,20 @@ export function CreateOTPage({ onBack, onCreated }: { onBack: () => void; onCrea
 }
 
 /**
- * Editar una linea de la OT que se esta creando: el mismo formulario completo de "Agregar linea" (tipo de trabajo,
- * columnas del plan, repuestos y observaciones). La OT todavia no existe, asi que solo cambia la lista de esta pagina.
+ * Editar una linea de la OT que se esta creando: el mismo formulario completo de "Nueva OT" (vehiculo, prioridad,
+ * descripcion y archivos de contexto, mas el tipo de trabajo, columnas del plan, repuestos y observaciones de la
+ * linea) -- igual que "Agregar linea" en una OT ya creada. La OT todavia no existe, asi que vehiculo/prioridad/
+ * descripcion solo se muestran (se editan en la pagina, no aqui); los archivos si se pueden agregar desde aqui.
  */
-function EditDraftLineModal({ line, asset, onSave, onClose }: {
+function EditDraftLineModal({ line, asset, priority, description, photos, photosBusy, onAddPhotos, onRemovePhoto, onSave, onClose }: {
   line: NewOTLine;
   asset?: Asset;
+  priority: OTPriority;
+  description: string;
+  photos: AssetPhoto[];
+  photosBusy: boolean;
+  onAddPhotos: (files: FileList | null) => void;
+  onRemovePhoto: (photo: AssetPhoto) => void;
   onSave: (updated: NewOTLine) => void;
   onClose: () => void;
 }) {
@@ -319,6 +333,37 @@ function EditDraftLineModal({ line, asset, onSave, onClose }: {
   return (
     <Modal open onClose={onClose} title="Editar linea de trabajo" size="xl">
       <div className="space-y-4">
+        {/* misma ficha que "Nueva Orden de Trabajo": estos datos se editan en la pagina, aqui solo dan contexto */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Vehiculo">
+                <Select value={asset?.id ?? ''} disabled>
+                  <option value={asset?.id ?? ''}>{asset ? `${asset.code} - ${asset.name}` : 'Sin vehiculo seleccionado'}</option>
+                </Select>
+              </Field>
+              <Field label="Prioridad">
+                <Select value={priority} disabled>
+                  {priorityOrder.map(p => <option key={p} value={p}>{priorityLabels[p]}</option>)}
+                </Select>
+              </Field>
+            </div>
+            <Field label="Descripcion">
+              <TextArea value={description} rows={3} disabled />
+            </Field>
+          </div>
+
+          <Field label="Archivos">
+            <PhotoCarousel
+              photos={photos}
+              canEdit
+              busy={photosBusy}
+              onAddFiles={onAddPhotos}
+              onRemove={onRemovePhoto}
+            />
+          </Field>
+        </div>
+
         <LineFields draft={draft} asset={asset} />
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="danger" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={onClose}>

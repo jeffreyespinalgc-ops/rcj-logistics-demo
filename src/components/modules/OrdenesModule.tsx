@@ -568,7 +568,8 @@ function OTDetail({ ot, currentUser, onBack, onReopen, onApprove, onReject, onRe
   const canClose = hasPermission('ot.cerrar') && ot.status === 'finalizada';
   // reabrir una OT rechazada: el Jefe de Taller (mismo permiso con el que la rechazo) o el tecnico que la creo
   const canReopen = ot.status === 'rechazada' && (hasPermission('ot.rechazar') || isCreator);
-  const hasActions = canApprove || canReject || canRetro || canClose || canReopen;
+  // Aprobar/Rechazar se muestran arriba, junto a "Editar" (no en esta barra)
+  const hasActions = canRetro || canClose || canReopen;
   const showActionBar = hasActions || (canFinalize && Boolean(blocked));
 
   return (
@@ -589,11 +590,23 @@ function OTDetail({ ot, currentUser, onBack, onReopen, onApprove, onReject, onRe
               <h3 className="ui-title break-words">{ot.description}</h3>
               <p className="text-sm font-normal mt-0.5">{ot.assetCode} - {ot.assetName}</p>
             </div>
-            {canEditLines && (
-              <Button variant="secondary" size="sm" className="min-h-[44px] [@media(pointer:fine)]:min-h-0 flex-shrink-0 self-start" onClick={() => setEditingOT(true)}>
-                <Pencil size={14} /> Editar
-              </Button>
-            )}
+            <div className="flex flex-shrink-0 flex-wrap items-center gap-2 self-start">
+              {canApprove && (
+                <Button variant="primary" size="sm" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={onApprove}>
+                  <CheckCircle size={14} /> Aprobar
+                </Button>
+              )}
+              {canReject && (
+                <Button variant="danger" size="sm" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={onReject}>
+                  <XCircle size={14} /> Rechazar
+                </Button>
+              )}
+              {canEditLines && (
+                <Button variant="secondary" size="sm" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={() => setEditingOT(true)}>
+                  <Pencil size={14} /> Editar
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -671,12 +684,6 @@ function OTDetail({ ot, currentUser, onBack, onReopen, onApprove, onReject, onRe
 
         {showActionBar && (
           <div className="px-5 py-4 border-t border-stone-200 flex items-center gap-2 flex-wrap">
-            {canApprove && (
-              <Button variant="primary" onClick={onApprove}><CheckCircle size={16} /> Aprobar</Button>
-            )}
-            {canReject && (
-              <Button variant="danger" onClick={onReject}><XCircle size={16} /> Rechazar</Button>
-            )}
             {canReopen && (
               <Button variant="outline" onClick={onReopen}><RotateCcw size={16} /> Reabrir OT</Button>
             )}

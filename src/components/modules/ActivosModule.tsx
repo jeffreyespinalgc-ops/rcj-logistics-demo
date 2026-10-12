@@ -22,6 +22,8 @@ import {
   Wrench,
   Link2,
   RefreshCw,
+  List,
+  LayoutGrid,
 } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 
@@ -45,6 +47,16 @@ const typeLabels: Record<AssetType, string> = {
   maquinaria: 'Maquinaria',
   equipo_auxiliar: 'Equipo Auxiliar',
 };
+
+/** Franja de color a la izquierda de la card: el estado se reconoce de un vistazo, sin leer el badge */
+const statusStripeColors: Record<AssetStatus, string> = {
+  operativo: 'bg-green-500',
+  en_mantenimiento: 'bg-orange-500',
+  fuera_de_servicio: 'bg-red-500',
+  baja: 'bg-stone-400',
+};
+
+type ViewMode = 'lista' | 'cuadricula';
 
 const formatCLP = (n: number) => 'L.' + n.toLocaleString('es-HN');
 
@@ -76,6 +88,7 @@ export function ActivosModule() {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [detailTab, setDetailTab] = useState<'ficha' | 'historial'>('ficha');
+  const [viewMode, setViewMode] = useState<ViewMode>(() => (window.matchMedia('(max-width: 639px)').matches ? 'cuadricula' : 'lista'));
 
   // otro modulo (p. ej. Ordenes de Trabajo) puede pedir abrir un activo concreto
   useEffect(() => {
@@ -139,8 +152,26 @@ export function ActivosModule() {
 
       <div className="bg-white rounded-lg shadow-card border border-stone-200">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-stone-200">
-          <div>
+          <div className="flex items-center gap-3">
             <h3 className="ui-title text-content">LISTADO DE ACTIVOS</h3>
+            <div className="flex items-center gap-1 bg-stone-100 rounded-md p-0.5">
+              <button
+                onClick={() => setViewMode('lista')}
+                aria-label="Ver en tabla"
+                title="Ver en tabla"
+                className={`flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 ${viewMode === 'lista' ? 'bg-white text-orange-700 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}
+              >
+                <List size={14} />
+              </button>
+              <button
+                onClick={() => setViewMode('cuadricula')}
+                aria-label="Ver en tarjetas"
+                title="Ver en tarjetas"
+                className={`flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 ${viewMode === 'cuadricula' ? 'bg-white text-orange-700 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}
+              >
+                <LayoutGrid size={14} />
+              </button>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {canCreateAsset && (
@@ -193,6 +224,7 @@ export function ActivosModule() {
           </Select>
         </div>
 
+        {viewMode === 'lista' ? (
         <div className="overflow-x-auto">
           <table className="data-table">
             <thead>
@@ -232,6 +264,19 @@ export function ActivosModule() {
             <div className="text-center py-8 text-stone-400 text-content">No se encontraron activos con los filtros seleccionados</div>
           )}
         </div>
+        ) : (
+          <div className="p-4">
+            {sorted.length === 0 ? (
+              <div className="text-center py-8 text-stone-400 text-content">No se encontraron activos con los filtros seleccionados</div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {sorted.map(asset => (
+                  <AssetCard key={asset.id} asset={asset} onClick={() => setSelectedAsset(asset)} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <CreateAssetModal
@@ -240,6 +285,48 @@ export function ActivosModule() {
         onCreate={addAsset}
         locations={locations}
       />
+    </div>
+  );
+}
+
+function AssetCard({ asset, onClick }: { asset: Asset; onClick: () => void }) {
+  const cover = asset.photos[0];
+
+  return (
+    <div
+      onClick={onClick}
+      className="group relative flex cursor-pointer flex-col overflow-hidden rounded-lg border border-stone-200 bg-white shadow-card transition-[box-shadow,border-color,transform] duration-200 ease-out hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-card-hover motion-reduce:hover:translate-y-0"
+    >
+      <span className={`absolute inset-y-0 left-0 z-10 w-[3px] ${statusStripeColors[asset.status]}`} />
+
+      <div className="relative h-40 w-full flex-shrink-0 bg-stone-100">
+        {cover ? (
+          <img src={cover.dataUrl} alt={asset.name} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center">
+            <Truck size={40} className="text-stone-400" />
+          </div>
+        )}
+        <div className="absolute right-2 top-2">
+          <Badge variant={statusVariants[asset.status]}>{statusLabels[asset.status]}</Badge>
+        </div>
+      </div>
+
+      <div className="flex flex-1 flex-col gap-1.5 p-3">
+        {/* <span className="text-content font-bold text-blue-700">{asset.code}</span> */}
+        <p className="text-content font-normal text-black line-clamp-2">{asset.name}</p>
+        {/* <p className="text-content text-stone-500">{typeLabels[asset.type]}</p> */}
+        <div className="mt-auto grid grid-cols-2 gap-1.5 border-t border-stone-100 pt-2 text-content text-stone-600">
+          <span className="truncate"><strong className="font-bold text-stone-600"></strong> {asset.plate || '--'}</span>
+          <span className="truncate text-right"><strong className="font-bold text-stone-600"></strong> {asset.lastMaintenance}</span>
+        </div>
+
+        {/* {asset.sapCode ? (
+          <Badge><Link2 size={10} className="mr-1 inline" />{asset.sapCode}</Badge>
+        ) : (
+          <Badge>No vinculado</Badge>
+        )} */}
+      </div>
     </div>
   );
 }
