@@ -334,7 +334,7 @@ export function OrdenesModule() {
                 placeholder="Buscar por codigo, vehiculo o descripcion..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full pl-9"
+                className="w-full pl-9 font-medium"
               />
             </Field>
           </div>
