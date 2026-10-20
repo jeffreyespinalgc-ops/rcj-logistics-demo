@@ -31,7 +31,7 @@ function OTHistoryModal({ ot, onClose }: { ot: WorkOrder; onClose: () => void })
   const entries = otLog.filter(e => e.otId === ot.id).reverse();
 
   return (
-    <Modal open onClose={onClose} title={`Log de modificaciones de ${ot.code}`} size="xl">
+    <Modal open onClose={onClose} title={`Log de modificaciones ${ot.code}`} size="xl">
       {entries.length === 0 ? (
         <p className="text-content text-stone-500">Sin modificaciones registradas.</p>
       ) : (
@@ -42,15 +42,15 @@ function OTHistoryModal({ ot, onClose }: { ot: WorkOrder; onClose: () => void })
                 <th className="w-10 !py-1.5">#</th>
                 <th className="whitespace-nowrap !py-1.5">Fecha</th>
                 <th className="!py-1.5">Usuario</th>
-                <th className="!py-1.5">Entidad</th>
+                <th className="!py-1.5">Documento</th>
                 <th className="!py-1.5">Accion</th>
                 <th className="!py-1.5">Detalle</th>
               </tr>
             </thead>
             <tbody>
               {entries.map((e, i) => (
-                <tr key={e.id}>
-                  <td className="!py-0.5 text-left">{i + 1}</td>
+                <tr key={e.id} className='text-left'>
+                  <td className="!py-0.5 ">{i + 1}</td>
                   <td className="!py-0.5 whitespace-nowrap text-stone-500">{formatDateTime(e.at)}</td>
                   <td className="!py-0.5 font-normal text-stone-800">{e.by}</td>
                   <td className="!py-0.5">{entityLabels[e.entity]}</td>

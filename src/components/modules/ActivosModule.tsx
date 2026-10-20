@@ -9,6 +9,7 @@ import { StatCard } from '@/components/ui/StatCard';
 import { IndicatorCards } from '@/components/ui/IndicatorCards';
 import { SortableTh } from '@/components/ui/SortableTh';
 import { PhotoCarousel } from '@/components/ui/PhotoCarousel';
+import { FiltersToggleButton } from '@/components/ui/FiltersToggleButton';
 import type { Asset, AssetPhoto, AssetStatus, AssetType } from '@/types';
 import { fileToCompressedDataUrl } from '@/lib/image';
 import { useSort } from '@/lib/useSort';
@@ -85,6 +86,7 @@ export function ActivosModule() {
   const [filterType, setFilterType] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterLocation, setFilterLocation] = useState('');
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [detailTab, setDetailTab] = useState<'ficha' | 'historial'>('ficha');
@@ -99,6 +101,7 @@ export function ActivosModule() {
   }, [pendingAssetId, assets, clearPendingAsset]);
 
   const locations = useMemo(() => [...new Set(assets.map(a => a.location))], [assets]);
+  const activeFilterCount = [filterType, filterStatus, filterLocation].filter(Boolean).length;
 
   const filtered = useMemo(() => {
     return assets.filter(a => {
@@ -196,7 +199,7 @@ export function ActivosModule() {
 
         <div className="flex items-center gap-3 px-4 py-3 border-b border-stone-100 bg-stone-50/50 flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
-              <Search size={16} className="absolute left-3 top-1/2 text-stone-400" />
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
               <TextInput
                 placeholder="Buscar por codigo, nombre o patente..."
                 value={search}
@@ -204,24 +207,27 @@ export function ActivosModule() {
                 className="w-full pl-9"
               />
           </div>
-          <Select value={filterType} onChange={e => setFilterType(e.target.value)} className="w-full sm:w-auto">
-            <option value="">TIPOS</option>
-            <option value="vehiculo_ligero">VEHICULO LIGERO</option>
-            <option value="vehiculo_pesado">Vehiculo Pesado</option>
-            <option value="maquinaria">Maquinaria</option>
-            <option value="equipo_auxiliar">Equipo Auxiliar</option>
-          </Select>
-          <Select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="w-full sm:w-auto">
-            <option value="">Todos los estados</option>
-            <option value="operativo">Operativo</option>
-            <option value="en_mantenimiento">En Mantenimiento</option>
-            <option value="fuera_de_servicio">Fuera de Servicio</option>
-            <option value="baja">Dada de Baja</option>
-          </Select>
-          <Select value={filterLocation} onChange={e => setFilterLocation(e.target.value)} className="w-full sm:w-auto">
-            <option value="">Todas las ubicaciones</option>
-            {locations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
-          </Select>
+          <FiltersToggleButton open={mobileFiltersOpen} onToggle={() => setMobileFiltersOpen(o => !o)} activeCount={activeFilterCount} />
+          <div className={`${mobileFiltersOpen ? 'flex' : 'hidden'} w-full flex-wrap items-center gap-3 sm:flex sm:w-auto`}>
+            <Select value={filterType} onChange={e => setFilterType(e.target.value)} className="w-full sm:w-auto">
+              <option value="">TIPOS</option>
+              <option value="vehiculo_ligero">VEHICULO LIGERO</option>
+              <option value="vehiculo_pesado">Vehiculo Pesado</option>
+              <option value="maquinaria">Maquinaria</option>
+              <option value="equipo_auxiliar">Equipo Auxiliar</option>
+            </Select>
+            <Select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="w-full sm:w-auto">
+              <option value="">Todos los estados</option>
+              <option value="operativo">Operativo</option>
+              <option value="en_mantenimiento">En Mantenimiento</option>
+              <option value="fuera_de_servicio">Fuera de Servicio</option>
+              <option value="baja">Dada de Baja</option>
+            </Select>
+            <Select value={filterLocation} onChange={e => setFilterLocation(e.target.value)} className="w-full sm:w-auto">
+              <option value="">Todas las ubicaciones</option>
+              {locations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+            </Select>
+          </div>
         </div>
 
         {viewMode === 'lista' ? (

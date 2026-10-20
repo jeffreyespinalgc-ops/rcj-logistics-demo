@@ -8,6 +8,7 @@ import { Field, TextInput, Select, TextArea } from '@/components/ui/Field';
 import { StatCard } from '@/components/ui/StatCard';
 import { IndicatorCards } from '@/components/ui/IndicatorCards';
 import { SortableTh } from '@/components/ui/SortableTh';
+import { FiltersToggleButton } from '@/components/ui/FiltersToggleButton';
 import { PhotoCarousel } from '@/components/ui/PhotoCarousel';
 import { useSort } from '@/lib/useSort';
 import { isOTAssignedTo, otResponsibles } from '@/lib/otTeam';
@@ -92,6 +93,7 @@ export function OrdenesModule() {
   const [filterPriority, setFilterPriority] = useState('');
   const [filterAsset, setFilterAsset] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // sin permiso para ver todas, el tecnico solo ve las OTs asignadas a el
   const canSeeAll = hasPermission('ot.ver.todas');
@@ -143,6 +145,7 @@ export function OrdenesModule() {
     }
     return true;
   }), [visibleOrders, search, filterStatus, filterPriority, filterAsset, filterAssignee]);
+  const activeFilterCount = [filterStatus, filterPriority, filterAsset, filterAssignee].filter(Boolean).length;
 
   // otro modulo (p. ej. Requisas de Repuestos) puede pedir abrir una OT concreta
   useEffect(() => {
@@ -329,7 +332,7 @@ export function OrdenesModule() {
         <div className="flex items-center gap-3 px-4 py-3 border-b border-stone-100 bg-stone-50/50 flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
             <Field label="Buscar">
-              <Search size={16} className="absolute left-3 top-1/2 text-stone-400" />
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
               <TextInput
                 placeholder="Buscar por codigo, vehiculo o descripcion..."
                 value={search}
@@ -338,30 +341,33 @@ export function OrdenesModule() {
               />
             </Field>
           </div>
-          <Field label="Estado">
-            <Select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="w-full sm:w-auto">
-              <option value="">--- seleccione ---</option>
-              {allOTStatuses.map(s => <option key={s} value={s}>{statusLabels[s]}</option>)}
-            </Select>
-          </Field>
-          <Field label="Prioridad">
-            <Select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} className="w-full sm:w-auto">
-              <option value="">--- seleccione ---</option>
-              {priorityOrder.map(p => <option key={p} value={p}>{priorityLabels[p]}</option>)}
-            </Select>
-          </Field>
-          <Field label="Vehiculo">
-            <Select value={filterAsset} onChange={e => setFilterAsset(e.target.value)} className="w-full sm:w-auto">
-              <option value="">--- seleccione ---</option>
-              {assetOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-            </Select>
-          </Field>
-          <Field label="Asignada a">
-            <Select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)} className="w-full sm:w-auto">
-              <option value="">--- seleccione ---</option>
-              {assigneeOptions.map(name => <option key={name} value={name}>{name}</option>)}
-            </Select>
-          </Field>
+          <FiltersToggleButton open={mobileFiltersOpen} onToggle={() => setMobileFiltersOpen(o => !o)} activeCount={activeFilterCount} />
+          <div className={`${mobileFiltersOpen ? 'flex' : 'hidden'} w-full flex-wrap items-center gap-3 sm:flex sm:w-auto`}>
+            <Field label="Estado">
+              <Select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="w-full sm:w-auto">
+                <option value="">--- seleccione ---</option>
+                {allOTStatuses.map(s => <option key={s} value={s}>{statusLabels[s]}</option>)}
+              </Select>
+            </Field>
+            <Field label="Prioridad">
+              <Select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} className="w-full sm:w-auto">
+                <option value="">--- seleccione ---</option>
+                {priorityOrder.map(p => <option key={p} value={p}>{priorityLabels[p]}</option>)}
+              </Select>
+            </Field>
+            <Field label="Vehiculo">
+              <Select value={filterAsset} onChange={e => setFilterAsset(e.target.value)} className="w-full sm:w-auto">
+                <option value="">--- seleccione ---</option>
+                {assetOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+              </Select>
+            </Field>
+            <Field label="Asignada a">
+              <Select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)} className="w-full sm:w-auto">
+                <option value="">--- seleccione ---</option>
+                {assigneeOptions.map(name => <option key={name} value={name}>{name}</option>)}
+              </Select>
+            </Field>
+          </div>
         </div>
 
         <div key={viewMode} className="animate-fade-in">
@@ -587,8 +593,8 @@ function OTDetail({ ot, currentUser, onBack, onReopen, onApprove, onReject, onRe
                 <OTDocumentButton ot={ot} />
                 <OTHistoryButton ot={ot} />
               </div>
-              <h3 className="ui-title break-words">{ot.description}</h3>
-              <p className="text-sm font-normal mt-0.5">{ot.assetCode} - {ot.assetName}</p>
+              {/* <h3 className="ui-title break-words">{ot.description}</h3> */}
+              <p className="text-sm mt-0.5 ui-title break-words">{ot.assetCode} - {ot.assetName}</p>
             </div>
             <div className="flex flex-shrink-0 flex-wrap items-center gap-2 self-start">
               {canApprove && (
