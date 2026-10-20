@@ -96,7 +96,7 @@ export function WorkLinesSection({ ot, canAdd, canEdit, canExecute, canFinalize,
               key={line.id}
               size="sm"
               variant="secondary"
-              className="min-h-[44px] [@media(pointer:fine)]:min-h-0"
+              className="min-h-[44px] pointer-fine:min-h-0"
               title={`Confirmar que recibiste los repuestos de: ${line.work}`}
               onClick={() => { void confirmReceipt(line); }}
             >
@@ -106,7 +106,7 @@ export function WorkLinesSection({ ot, canAdd, canEdit, canExecute, canFinalize,
           {(canFinalize || finalizeBlockedReason) && (
             <Button
               size="sm"
-              className="min-h-[44px] [@media(pointer:fine)]:min-h-0"
+              className="min-h-[44px] pointer-fine:min-h-0"
               disabled={!canFinalize}
               title={finalizeBlockedReason ?? undefined}
               onClick={onFinalize}
@@ -116,7 +116,7 @@ export function WorkLinesSection({ ot, canAdd, canEdit, canExecute, canFinalize,
           )}
           {requisitionLine && <RequisitionDocumentButton ot={ot} line={requisitionLine} />}
           {canAdd && (
-            <Button size="sm" variant="primary" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={() => setShowAddModal(true)}>
+            <Button size="sm" variant="primary" className="min-h-[44px] pointer-fine:min-h-0" onClick={() => setShowAddModal(true)}>
               <Plus size={14} /> Agregar
             </Button>
           )}
@@ -124,10 +124,10 @@ export function WorkLinesSection({ ot, canAdd, canEdit, canExecute, canFinalize,
       </div>
 
       {storageWarning && (
-        <div className="mb-3 flex items-start gap-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
-          <AlertTriangle size={14} className="text-yellow-600 mt-0.5 flex-shrink-0" />
-          <p className="text-content text-yellow-800 flex-1">{storageWarning}</p>
-          <button onClick={dismissStorageWarning} className="text-yellow-600 hover:text-yellow-800">
+        <div className="mb-3 flex items-start gap-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md dark:border-yellow-500/30 dark:bg-yellow-500/15">
+          <AlertTriangle size={14} className="text-yellow-600 mt-0.5 shrink-0 dark:text-yellow-400" />
+          <p className="text-content text-yellow-800 flex-1 dark:text-yellow-300">{storageWarning}</p>
+          <button onClick={dismissStorageWarning} className="text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300">
             <X size={14} />
           </button>
         </div>
@@ -206,15 +206,15 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
         aria-expanded={expanded}
         className="flex w-full items-center gap-2 bg-orange-200 px-3 py-2.5 text-left text-white transition-colors hover:bg-orange-200"
       >
-        {expanded ? <ChevronDown size={16} className="flex-shrink-0 text-black" /> : <ChevronRight size={16} className="flex-shrink-0 text-black" />}
-        <span className={`min-w-0 flex-1 text-content font-normal text-black ${expanded ? 'break-words' : 'truncate'}`}>{line.work}</span>
+        {expanded ? <ChevronDown size={16} className="shrink-0 text-black" /> : <ChevronRight size={16} className="shrink-0 text-black" />}
+        <span className={`min-w-0 flex-1 text-content font-normal text-black ${expanded ? 'wrap-break-word' : 'truncate'}`}>{line.work}</span>
       </button>
 
       {expanded && (
-        <div className="space-y-3 bg-white p-3">
+        <div className="space-y-3 bg-surface p-3">
           {canReviewFinding && (
-            <div className="flex flex-wrap items-center gap-2 p-2 rounded-md border bg-orange-50 border-orange-100">
-              <Flag size={14} className="text-orange-600" />
+            <div className="flex flex-wrap items-center gap-2 p-2 rounded-md border bg-orange-50 border-orange-100 dark:border-orange-500/30 dark:bg-orange-500/15">
+              <Flag size={14} className="text-orange-600 dark:text-orange-400" />
               <Badge variant={findingStatusVariants[line.findingStatus]}>{findingStatusLabels[line.findingStatus]}</Badge>
               <span className="ml-auto flex items-center gap-2">
                 <Button
@@ -261,12 +261,13 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
                           <Button
                             size="sm"
                             variant="secondary"
-                            className="min-h-[44px] [@media(pointer:fine)]:min-h-0"
+                            className="min-h-[44px] pointer-fine:min-h-0"
                             onClick={async () => {
                               if (!(await confirm({ title: 'Firmar requisa', message: `¿Estas seguro de firmar?`, confirmLabel: 'Firmar' }))) return;
                               const result = signRequisition(ot.id, line.id, signStep);
                               setSignError(result);
-                              if (!result) toast('Firma registrada correctamente');
+                              if (result) toast({ message: result, variant: 'error' });
+                              else toast('Firma registrada correctamente');
                             }}
                           >
                             <PenTool size={12} /> Recibido
@@ -297,7 +298,7 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
                     <div className="overflow-x-auto rounded-md">
                       <table className="w-full border-collapse text-content">
                         <thead>
-                          <tr className="bg-stone-100 text-left text-black">
+                          <tr className="bg-stone-100 text-left text-stone-900">
                             <th className="border border-stone-300 px-2 py-1.5 text-left whitespace-nowrap font-bold">Codigo</th>
                             <th className="border border-stone-300 px-2 py-1.5 text-left font-bold">Descripcion</th>
                             <th className="border border-stone-300 px-2 py-1.5 text-left whitespace-nowrap font-bold">Solicitado</th>
@@ -365,7 +366,7 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
               <Button
                 size="sm"
                 variant="danger"
-                className="min-h-[44px] [@media(pointer:fine)]:min-h-0"
+                className="min-h-[44px] pointer-fine:min-h-0"
                 onClick={async () => {
                   if (await confirm({ title: 'Eliminar linea', message: '¿Estas seguro de eliminar esta linea de trabajo?', confirmLabel: 'Eliminar', variant: 'danger' })) {
                     deleteOTLine(ot.id, line.id);
@@ -442,7 +443,7 @@ function EvidenceGroup({ ot, line, canEdit, onOpenPhoto }: {
                     toast({ message: 'Fotografia eliminada', variant: 'info' });
                   }
                 }}
-                className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center before:absolute before:-inset-2.5 before:content-[''] opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity shadow-sm"
+                className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center before:absolute before:-inset-2.5 before:content-[''] opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity shadow-xs"
                 title="Eliminar fotografia"
                 aria-label={`Eliminar ${photo.name}`}
               >
@@ -553,8 +554,8 @@ function AddLineModal({ open, onClose, onAdd, defaultTechnician, ot }: {
 
 function PhotoLightbox({ photo, onClose }: { photo: OTLinePhoto; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
-      <div className="absolute inset-0 bg-stone-900/70 backdrop-blur-sm" onClick={onClose} />
+    <div className="fixed inset-0 z-60 flex items-center justify-center p-6">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-xs" onClick={onClose} />
       <div className="relative max-w-3xl max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between mb-2">
           <div className="text-white">

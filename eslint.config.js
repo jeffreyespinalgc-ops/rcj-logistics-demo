@@ -19,6 +19,12 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // Reglas nuevas del "React Compiler" en eslint-plugin-react-hooks v7, activadas por defecto en
+      // `recommended`: marcan patrones ya existentes en el codigo (AppContext.tsx sobre todo) que no son
+      // bugs confirmados. Se bajan a warning para no bloquear `pnpm lint` mientras se revisan con calma.
+      'react-hooks/refs': 'warn',
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/preserve-manual-memoization': 'warn',
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },

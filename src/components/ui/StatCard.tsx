@@ -9,13 +9,13 @@ interface StatCardProps {
 
 export function StatCard({ label, value, icon, subtitle }: StatCardProps) {
   return (
-    <div className="bg-white rounded-lg shadow-card border border-stone-200 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-      <div className="h-10 sm:w-10 flex items-center justify-start sm:justify-center flex-shrink-0 text-stone-900">
+    <div className="bg-surface rounded-lg shadow-card border border-stone-200 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+      <div className="h-10 sm:w-10 flex items-center justify-start sm:justify-center shrink-0 text-stone-900">
         {icon}
       </div>
       <div className="min-w-0">
         <p className="text-xs font-medium text-stone-500 uppercase tracking-wide">{label}</p>
-        <p className="text-xl font-bold text-stone-800 break-words">{value}</p>
+        <p className="text-xl font-bold text-stone-800 wrap-break-word">{value}</p>
         {subtitle && <p className="text-content text-stone-400 mt-0.5">{subtitle}</p>}
       </div>
     </div>

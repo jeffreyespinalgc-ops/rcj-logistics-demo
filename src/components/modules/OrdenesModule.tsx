@@ -218,12 +218,14 @@ export function OrdenesModule() {
             </Field>
           }
           onConfirm={() => {
-            if (rejectReason) {
-              rejectWorkOrder(selectedOT.id, rejectReason);
-              setShowRejectModal(false);
-              setRejectReason('');
-              toast({ message: `${selectedOT.code} rechazada`, variant: 'info' });
+            if (!rejectReason.trim()) {
+              toast({ message: 'Escribe el motivo del rechazo.', variant: 'error' });
+              return;
             }
+            rejectWorkOrder(selectedOT.id, rejectReason);
+            setShowRejectModal(false);
+            setRejectReason('');
+            toast({ message: `${selectedOT.code} rechazada`, variant: 'info' });
           }}
         />
 
@@ -293,20 +295,20 @@ export function OrdenesModule() {
         <StatCard label="Cerradas" value={stats.cerradas} icon={<CheckCircle size={28} />} />
       </IndicatorCards>
 
-      <div className="bg-white rounded-lg shadow-card border border-stone-200">
+      <div className="bg-surface rounded-lg shadow-card border border-stone-200">
         <div className="flex items-center justify-between px-4 py-3 border-b border-stone-200 gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <h3 className="ui-title">Ordenes de trabajo</h3>
             <div className="flex items-center gap-1 bg-stone-100 rounded-md p-0.5">
               <button
                 onClick={() => setViewMode('lista')}
-                className={`flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 ${viewMode === 'lista' ?'bg-white text-orange-700 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}
+                className={`flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-sm transition-colors pointer-fine:min-h-0 pointer-fine:min-w-0 ${viewMode === 'lista' ?'bg-surface text-orange-700 shadow-xs' : 'text-stone-500 hover:text-stone-700'}`}
               >
                 <List size={14} /> 
               </button>
               <button
                 onClick={() => setViewMode('cuadricula')}
-                className={`flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 ${viewMode === 'cuadricula' ?'bg-white text-orange-700 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}
+                className={`flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-sm transition-colors pointer-fine:min-h-0 pointer-fine:min-w-0 ${viewMode === 'cuadricula' ?'bg-surface text-orange-700 shadow-xs' : 'text-stone-500 hover:text-stone-700'}`}
               >
                 <LayoutGrid size={14} /> 
               </button>
@@ -482,7 +484,7 @@ function OTCard({ ot, onClick }: { ot: WorkOrder; onClick: () => void }) {
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-md shadow-card border border-stone-200 p-3 cursor-pointer hover:shadow-card-hover hover:border-orange-300 transition-[box-shadow,border-color,transform] duration-200 ease-out hover:-translate-y-0.5 motion-reduce:hover:translate-y-0"
+      className="bg-surface rounded-md shadow-card border border-stone-200 p-3 cursor-pointer hover:shadow-card-hover hover:border-orange-300 transition-[box-shadow,border-color,transform] duration-200 ease-out hover:-translate-y-0.5 motion-reduce:hover:translate-y-0"
     >
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <span className="text-content font-bold text-blue-700">{ot.code}</span>
@@ -584,26 +586,26 @@ function OTDetail({ ot, currentUser, onBack, onReopen, onApprove, onReject, onRe
         <ArrowLeft size={16} /> Volver al listado
       </button>
 
-      <div className="bg-white rounded-lg shadow-card border border-stone-200">
+      <div className="bg-surface rounded-lg shadow-card border border-stone-200">
         <div className="px-5 py-4 border-b border-stone-200">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 mb-1">
-                <span className="text-sm font-bold text-black">{ot.code}</span>
+                <span className="text-sm font-bold text-stone-900">{ot.code}</span>
                 <OTDocumentButton ot={ot} />
                 <OTHistoryButton ot={ot} />
               </div>
-              {/* <h3 className="ui-title break-words">{ot.description}</h3> */}
-              <p className="text-sm mt-0.5 ui-title break-words">{ot.assetCode} - {ot.assetName}</p>
+              {/* <h3 className="ui-title wrap-break-word">{ot.description}</h3> */}
+              <p className="text-sm mt-0.5 ui-title wrap-break-word">{ot.assetCode} - {ot.assetName}</p>
             </div>
-            <div className="flex flex-shrink-0 flex-wrap items-center gap-2 self-start">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 self-start">
               {canApprove && (
-                <Button variant="primary" size="sm" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={onApprove}>
+                <Button variant="primary" size="sm" className="min-h-[44px] pointer-fine:min-h-0" onClick={onApprove}>
                   <CheckCircle size={14} /> Aprobar
                 </Button>
               )}
               {canReject && (
-                <Button variant="danger" size="sm" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={onReject}>
+                <Button variant="danger" size="sm" className="min-h-[44px] pointer-fine:min-h-0" onClick={onReject}>
                   <XCircle size={14} /> Rechazar
                 </Button>
               )}
@@ -611,7 +613,7 @@ function OTDetail({ ot, currentUser, onBack, onReopen, onApprove, onReject, onRe
                 <Button
                   variant="primary"
                   size="sm"
-                  className="min-h-[44px] [@media(pointer:fine)]:min-h-0"
+                  className="min-h-[44px] pointer-fine:min-h-0"
                   onClick={onClose}
                   disabled={Boolean(blocked)}
                   title={blocked ?? undefined}
@@ -620,7 +622,7 @@ function OTDetail({ ot, currentUser, onBack, onReopen, onApprove, onReject, onRe
                 </Button>
               )}
               {canEditLines && (
-                <Button variant="secondary" size="sm" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={() => setEditingOT(true)}>
+                <Button variant="secondary" size="sm" className="min-h-[44px] pointer-fine:min-h-0" onClick={() => setEditingOT(true)}>
                   <Pencil size={14} /> Editar
                 </Button>
               )}
@@ -644,6 +646,7 @@ function OTDetail({ ot, currentUser, onBack, onReopen, onApprove, onReject, onRe
                 <SapCell label="Aprobado por">{ot.approvedBy ?? 'Sin aprobar'}</SapCell>
                 <SapCell label="Prioridad">{priorityLabels[ot.priority]}</SapCell>
                 <SapCell label="Tiempo trabajado">{formatHours(otHours(ot))}</SapCell>
+                <SapCell label="Costo total">{formatCLP(otPartsCost(ot))}</SapCell>
                 {ot.assignedToType === 'taller_externo' && ot.externalWorkshop && (
                   <SapCell label="Contacto taller externo">
                     {ot.externalWorkshop.location}
@@ -670,16 +673,16 @@ function OTDetail({ ot, currentUser, onBack, onReopen, onApprove, onReject, onRe
         </div>
 
         {ot.rejectedReason && (
-          <div className="px-5 py-3 bg-red-50 border-b border-red-100 flex items-center gap-2">
-            <XCircle size={16} className="text-red-600" />
-            <p className="text-content text-red-700"><strong>Rechazada:</strong> {ot.rejectedReason}</p>
+          <div className="px-5 py-3 bg-red-50 border-b border-red-100 flex items-center gap-2 dark:border-red-500/30 dark:bg-red-500/15">
+            <XCircle size={16} className="text-red-600 dark:text-red-400" />
+            <p className="text-content text-red-700 dark:text-red-300"><strong>Rechazada:</strong> {ot.rejectedReason}</p>
           </div>
         )}
 
         {canRetro && (
-          <div className="px-5 py-3 bg-orange-50 border-b border-orange-100 flex items-center gap-2">
-            <ShieldAlert size={16} className="text-orange-600 flex-shrink-0" />
-            <p className="text-content text-orange-800 flex-1">
+          <div className="px-5 py-3 bg-orange-50 border-b border-orange-100 flex items-center gap-2 dark:border-orange-500/30 dark:bg-orange-500/15">
+            <ShieldAlert size={16} className="text-orange-600 shrink-0 dark:text-orange-400" />
+            <p className="text-content text-orange-800 flex-1 dark:text-orange-300">
               OT ejecutada sin aprobacion previa. Requiere revision retroactiva.
             </p>
           </div>
@@ -689,9 +692,9 @@ function OTDetail({ ot, currentUser, onBack, onReopen, onApprove, onReject, onRe
             el documento es un tramite aparte que no bloquea ni se menciona aqui (ver "Firmar como Control de
             Inventario" mas abajo, disponible en cualquier momento y en cualquier orden). */}
         {ot.status === 'finalizada' && (
-          <div className="px-5 py-3 bg-blue-50 border-b border-blue-100 flex items-center gap-2">
-            <PenTool size={16} className="text-blue-600 flex-shrink-0" />
-            <p className="text-content text-blue-800">
+          <div className="px-5 py-3 bg-blue-50 border-b border-blue-100 flex items-center gap-2 dark:border-blue-500/30 dark:bg-blue-500/15">
+            <PenTool size={16} className="text-blue-600 shrink-0 dark:text-blue-400" />
+            <p className="text-content text-blue-800 dark:text-blue-300">
               Firmada por <strong>{ot.signedBy ?? '--'}</strong>. En espera de la firma del Jefe de Taller para cerrar la OT.
             </p>
           </div>
@@ -790,13 +793,13 @@ function AssignModal({ ot, onClose, onAssign }: {
           <div className="flex gap-3">
             <button
               onClick={() => setType('tecnico')}
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border text-sm font-medium transition-colors ${type === 'tecnico' ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-stone-300 text-stone-500 hover:bg-stone-50'}`}
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border text-sm font-medium transition-colors ${type === 'tecnico' ? 'border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/15 dark:text-blue-300' : 'border-stone-300 text-stone-500 hover:bg-stone-50'}`}
             >
               Tecnico de taller
             </button>
             <button
               onClick={() => setType('taller_externo')}
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border text-sm font-medium transition-colors ${type === 'taller_externo' ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-stone-300 text-stone-500 hover:bg-stone-50'}`}
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md border text-sm font-medium transition-colors ${type === 'taller_externo' ? 'border-orange-400 bg-orange-50 text-orange-700 dark:border-orange-500/40 dark:bg-orange-500/15 dark:text-orange-300' : 'border-stone-300 text-stone-500 hover:bg-stone-50'}`}
             >
               Taller externo
             </button>
@@ -811,12 +814,12 @@ function AssignModal({ ot, onClose, onAssign }: {
               <ul className="divide-y divide-stone-100 rounded-md border border-stone-200">
                 {technicians.map(u => (
                   <li key={u.id}>
-                    <label className="flex min-h-[44px] cursor-pointer items-center gap-2 px-3 py-2 text-content text-stone-700 transition-colors hover:bg-stone-50 [@media(pointer:fine)]:min-h-0">
+                    <label className="flex min-h-[44px] cursor-pointer items-center gap-2 px-3 py-2 text-content text-stone-700 transition-colors hover:bg-stone-50 pointer-fine:min-h-0">
                       <input
                         type="checkbox"
                         checked={team.includes(u.name)}
                         onChange={() => toggleTechnician(u.name)}
-                        className="flex-shrink-0 rounded border-stone-300 text-orange-500 focus:ring-orange-300"
+                        className="shrink-0 rounded-sm border-stone-300 text-orange-500 focus:ring-orange-300"
                       />
                       {u.name}
                     </label>

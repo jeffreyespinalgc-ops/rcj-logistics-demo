@@ -12,7 +12,7 @@ export function FiltersToggleButton({ open, onToggle, activeCount }: { open: boo
       onClick={onToggle}
       aria-expanded={open}
       aria-label="Mostrar u ocultar filtros"
-      className="flex min-h-[44px] items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 text-content font-medium text-stone-700 transition-colors hover:bg-stone-50 sm:hidden"
+      className="flex min-h-[44px] items-center gap-1.5 rounded-md border border-stone-300 bg-surface px-3 text-content font-medium text-stone-700 transition-colors hover:bg-stone-50 sm:hidden"
     >
       <SlidersHorizontal size={14} />
       Filtros

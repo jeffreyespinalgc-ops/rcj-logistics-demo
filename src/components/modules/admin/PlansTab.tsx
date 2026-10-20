@@ -67,7 +67,7 @@ export function PlansTab() {
           <button
             key={wt.code}
             onClick={() => selectType(wt.code)}
-            className={`px-4 py-2 text-content font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${workType === wt.code ? 'border-orange-500 text-orange-600' : 'border-transparent text-stone-500 hover:text-stone-700'}`}
+            className={`px-4 py-2 text-content font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${workType === wt.code ? 'border-orange-500 text-orange-600' : 'border-transparent text-stone-500 hover:text-stone-700'}`}
           >
             {wt.name}
           </button>
@@ -124,8 +124,13 @@ function AdminPlanColumns({ workType, roots, rootLabel, openPath, setOpenPath }:
 
   const handleAdd = (col: Column) => {
     const name = (newNameByDepth[col.depth] ?? '').trim();
-    if (!name) return;
+    if (!name) { toast({ message: 'Escribe el nombre del elemento.', variant: 'error' }); return; }
+    if (col.nodes.some(n => n.name.toLowerCase() === name.toLowerCase())) {
+      toast({ message: 'Ya existe un elemento con ese nombre en esta columna.', variant: 'error' });
+      return;
+    }
     addMaintenanceNode(workType, col.parentId, name);
+    toast(`"${name}" agregado correctamente`);
     setNewNameByDepth(prev => ({ ...prev, [col.depth]: '' }));
   };
 
@@ -140,24 +145,24 @@ function AdminPlanColumns({ workType, roots, rootLabel, openPath, setOpenPath }:
   };
 
   return (
-    <div className="overflow-hidden rounded-md border border-stone-200 bg-white">
+    <div className="overflow-hidden rounded-md border border-stone-200 bg-surface">
       {/* breadcrumb fijo: ubica la rama que se esta editando aunque sus columnas hayan quedado fuera de vista por el scroll */}
       {openPath.length > 0 && (
         <nav aria-label="Ruta del plan" className="flex flex-wrap items-center gap-1 border-b border-stone-100 bg-stone-50/60 px-3 py-2">
           <button
             type="button"
             onClick={() => scrollToColumn(0)}
-            className="rounded px-1.5 py-0.5 text-content font-bold text-stone-500 transition-colors hover:bg-white hover:text-orange-600"
+            className="rounded-sm px-1.5 py-0.5 text-content font-bold text-stone-500 transition-colors hover:bg-surface hover:text-orange-600"
           >
             {rootLabel}
           </button>
           {columns.slice(1).map((col, i) => (
             <span key={col.depth} className="flex items-center gap-1">
-              <ChevronRight size={11} className="flex-shrink-0 text-stone-300" />
+              <ChevronRight size={11} className="shrink-0 text-stone-300" />
               <button
                 type="button"
                 onClick={() => scrollToColumn(col.depth)}
-                className={`rounded px-1.5 py-0.5 text-content font-medium transition-colors hover:bg-white hover:text-orange-600 ${
+                className={`rounded px-1.5 py-0.5 text-content font-medium transition-colors hover:bg-surface hover:text-orange-600 ${
                   i === columns.length - 2 ? 'text-stone-800' : 'text-stone-500'
                 }`}
               >
@@ -177,9 +182,9 @@ function AdminPlanColumns({ workType, roots, rootLabel, openPath, setOpenPath }:
               if (el) columnRefs.current.set(col.depth, el);
               else columnRefs.current.delete(col.depth);
             }}
-            className="flex h-full w-64 flex-shrink-0 flex-col border-r border-stone-100 last:border-r-0"
+            className="flex h-full w-64 shrink-0 flex-col border-r border-stone-100 last:border-r-0"
           >
-            <div className="flex-shrink-0 border-b border-stone-100 bg-stone-50/80 px-2.5 py-1.5">
+            <div className="shrink-0 border-b border-stone-100 bg-stone-50/80 px-2.5 py-1.5">
               <p className="truncate text-content font-bold text-stone-500">{col.parentName}</p>
             </div>
 
@@ -190,8 +195,8 @@ function AdminPlanColumns({ workType, roots, rootLabel, openPath, setOpenPath }:
               {col.nodes.map((node, i) => {
                 const isLeafNow = node.children.length === 0;
                 return (
-                  <div key={node.id} className="flex min-w-0 items-center gap-0.5 rounded-md border border-stone-200 bg-white px-1 py-1">
-                    <div className="flex flex-shrink-0 flex-col">
+                  <div key={node.id} className="flex min-w-0 items-center gap-0.5 rounded-md border border-stone-200 bg-surface px-1 py-1">
+                    <div className="flex shrink-0 flex-col">
                       <button
                         type="button"
                         onClick={() => moveUp(col.nodes, i)}
@@ -217,14 +222,14 @@ function AdminPlanColumns({ workType, roots, rootLabel, openPath, setOpenPath }:
                       value={node.name}
                       onChange={e => renameMaintenanceNode(workType, node.id, e.target.value)}
                       aria-label={`Renombrar ${node.name}`}
-                      className="min-h-[36px] min-w-0 flex-1 !px-1.5 !py-1 !text-content"
+                      className="min-h-[36px] min-w-0 flex-1 px-1.5! py-1! text-content!"
                     />
                     <button
                       type="button"
                       onClick={() => openAt(col.depth, node)}
                       title={isLeafNow ? 'Vacio: se ve como actividad -- click para agregarle niveles' : 'Ver/editar sus elementos'}
                       aria-label={isLeafNow ? `${node.name}: actividad, click para agregarle niveles` : `Ver elementos de ${node.name}`}
-                      className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md transition-colors ${
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors ${
                         isLeafNow ? 'text-stone-400 hover:bg-orange-50 hover:text-orange-600' : 'text-orange-500 hover:bg-orange-50'
                       }`}
                     >
@@ -235,7 +240,7 @@ function AdminPlanColumns({ workType, roots, rootLabel, openPath, setOpenPath }:
                       onClick={() => handleDelete(col.depth, node)}
                       title="Eliminar"
                       aria-label={`Eliminar ${node.name}`}
-                      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-stone-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-stone-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/15 dark:hover:text-red-400"
                     >
                       <Trash2 size={13} />
                     </button>
@@ -244,14 +249,14 @@ function AdminPlanColumns({ workType, roots, rootLabel, openPath, setOpenPath }:
               })}
             </div>
 
-            <div className="flex flex-shrink-0 items-center gap-1 border-t border-stone-100 bg-stone-50/50 p-1.5">
+            <div className="flex shrink-0 items-center gap-1 border-t border-stone-100 bg-stone-50/50 p-1.5">
               <TextInput
                 value={newNameByDepth[col.depth] ?? ''}
                 onChange={e => setNewNameByDepth(prev => ({ ...prev, [col.depth]: e.target.value }))}
                 onKeyDown={e => { if (e.key === 'Enter') handleAdd(col); }}
                 placeholder={col.depth === 0 ? 'Nuevo elemento' : 'Nuevo subelemento'}
                 aria-label="Nombre del nuevo elemento"
-                className="min-h-[36px] min-w-0 flex-1 !py-1 !text-content"
+                className="min-h-[36px] min-w-0 flex-1 py-1! text-content!"
               />
               <Button size="sm" variant="outline" onClick={() => handleAdd(col)} title="Agregar">
                 <Plus size={12} />

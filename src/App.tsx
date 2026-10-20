@@ -20,7 +20,7 @@ import { Lock } from 'lucide-react';
 function AccessDenied() {
   return (
     <div className="p-4 sm:p-6">
-      <div className="bg-white rounded-lg shadow-card border border-stone-200 p-6 sm:p-10 text-center">
+      <div className="bg-surface rounded-lg shadow-card border border-stone-200 p-6 sm:p-10 text-center">
         <div className="w-12 h-12 text-stone-900 flex items-center justify-center mx-auto mb-3">
           <Lock size={28} />
         </div>
@@ -82,7 +82,7 @@ function AppLayout() {
           onSignatureClick={() => setEditingSignature(true)}
         />
         <main className="flex-1 overflow-y-auto">
-          <div key={routeKey} className="animate-fade-up mx-auto w-full max-w-[80rem]">
+          <div key={routeKey} className="animate-fade-up mx-auto w-full max-w-7xl">
             <ModuleRouter />
           </div>
         </main>

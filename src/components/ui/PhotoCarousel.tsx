@@ -90,7 +90,7 @@ export function PhotoCarousel({ photos, canEdit, busy = false, onAddFiles, onRem
       </div>
 
       {current ? (
-        <div className={`mx-auto flex flex-col gap-2 ${compact ? 'max-w-[15rem]' : 'max-w-sm'}`}>
+        <div className={`mx-auto flex flex-col gap-2 ${compact ? 'max-w-60' : 'max-w-sm'}`}>
           <div className="relative">
             <div
               ref={viewportRef}
@@ -98,7 +98,7 @@ export function PhotoCarousel({ photos, canEdit, busy = false, onAddFiles, onRem
               onPointerMove={onDragMove}
               onPointerUp={onDragEnd}
               onPointerCancel={onDragEnd}
-              className="aspect-[4/3] w-full touch-pan-y select-none overflow-hidden rounded-md border border-stone-300 bg-stone-100 cursor-pointer"
+              className="aspect-4/3 w-full touch-pan-y select-none overflow-hidden rounded-md border border-stone-300 bg-stone-100 cursor-pointer"
             >
               <div
                 className="flex h-full"
@@ -113,7 +113,7 @@ export function PhotoCarousel({ photos, canEdit, busy = false, onAddFiles, onRem
                     key={photo.id}
                     type="button"
                     onClick={() => setPreview(photo)}
-                    className="h-full flex-shrink-0 cursor-pointer"
+                    className="h-full shrink-0 cursor-pointer"
                     style={{ width: `${100 / ordered.length}%` }}
                     title={`${photo.name} - ${formatDateTime(photo.addedAt)}`}
                   >
@@ -147,7 +147,7 @@ export function PhotoCarousel({ photos, canEdit, busy = false, onAddFiles, onRem
             {canEdit && (
               <button
                 onClick={() => onRemove(current)}
-                className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow-sm transition-colors before:absolute before:-inset-2.5 before:content-[''] hover:bg-red-600"
+                className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow-xs transition-colors before:absolute before:-inset-2.5 before:content-[''] hover:bg-red-600"
                 title="Eliminar fotografia"
                 aria-label={`Eliminar ${current.name}`}
               >
@@ -183,8 +183,8 @@ export function PhotoCarousel({ photos, canEdit, busy = false, onAddFiles, onRem
       )}
 
       {preview && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-stone-900/70 backdrop-blur-sm" onClick={() => setPreview(null)} />
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-xs" onClick={() => setPreview(null)} />
           <div className="relative flex max-h-[90vh] max-w-5xl flex-col">
             <div className="mb-2 flex items-center justify-between">
               <div className="text-white">

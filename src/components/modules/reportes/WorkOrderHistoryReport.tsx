@@ -87,7 +87,7 @@ export function WorkOrderHistoryReport({ onBack, backLabel }: { onBack: () => vo
         <div className="flex items-center justify-between gap-2">
           <p className="text-content text-stone-500">{filtered.length} de {workOrders.length} ordenes de trabajo</p>
           {hasFilters && (
-            <Button variant="outline" size="sm" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={clearFilters}>
+            <Button variant="outline" size="sm" className="min-h-[44px] pointer-fine:min-h-0" onClick={clearFilters}>
               <RotateCcw size={12} /> Limpiar filtros
             </Button>
           )}

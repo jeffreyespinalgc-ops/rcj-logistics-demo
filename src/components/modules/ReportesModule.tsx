@@ -23,7 +23,7 @@ export function ReportesModule() {
 
   return (
     <div className="p-4 sm:p-6 space-y-4">
-      <div className="bg-white rounded-lg shadow-card border border-stone-200">
+      <div className="bg-surface rounded-lg shadow-card border border-stone-200">
         <div className="px-4 py-3 border-b border-stone-200">
           <h3 className="ui-title">Reportes</h3>
         </div>
@@ -33,12 +33,12 @@ export function ReportesModule() {
               key={report.id}
               type="button"
               onClick={() => setOpenReport(report)}
-              className="group relative flex min-h-[44px] flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border border-stone-200 bg-white px-3 py-5 text-center shadow-sm transition-colors hover:border-orange-300 hover:bg-stone-50 hover:shadow-card"
+              className="group relative flex min-h-[44px] flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border border-stone-200 bg-surface px-3 py-5 text-center shadow-xs transition-colors hover:border-orange-300 hover:bg-stone-50 hover:shadow-card"
             >
-              <FileText size={22} className="text-stone-400 flex-shrink-0" />
+              <FileText size={22} className="text-stone-400 shrink-0" />
               <span className="text-content font-medium text-stone-800">{report.name}</span>
-              <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-stone-900/50 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-                <span className="inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-1.5 text-content font-bold text-stone-800">
+              <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-surface px-3 py-1.5 text-content font-bold text-stone-800">
                   <Eye size={14} /> Ver
                 </span>
               </span>

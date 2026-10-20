@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/store/AuthContext';
+import { useToast } from '@/store/ToastContext';
 import { Button } from '@/components/ui/Button';
 import { Field, TextInput } from '@/components/ui/Field';
 import { roleLabels, roleOrder } from '@/lib/roles';
@@ -154,6 +155,7 @@ function LoginBackdrop() {
 
 export function LoginScreen() {
   const { login } = useAuth();
+  const toast = useToast();
   const [role, setRole] = useState<UserRole>('jefe_taller');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -164,9 +166,12 @@ export function LoginScreen() {
     e.preventDefault();
     if (!username || !password) {
       setError('Ingresa usuario y contrasena.');
+      toast({ message: 'Ingresa usuario y contrasena.', variant: 'error' });
       return;
     }
-    setError(login(username, password, role));
+    const result = login(username, password, role);
+    setError(result);
+    if (result) toast({ message: result, variant: 'error' });
   };
 
   const selectRole = (r: UserRole) => {
@@ -181,12 +186,12 @@ export function LoginScreen() {
   };
 
   return (
-    <div className="relative min-h-dvh flex items-center justify-center overflow-hidden bg-gradient-to-br from-blue-900 via-[#141f5a] to-[#0b1240] p-4 sm:p-6">
+    <div className="theme-fixed-light relative min-h-dvh flex items-center justify-center overflow-hidden bg-linear-to-br from-blue-900 via-[#141f5a] to-[#0b1240] p-4 sm:p-6">
       <LoginBackdrop />
 
       <div className="login-rise relative z-10 w-full max-w-[490px]">
-        <div className="relative overflow-hidden rounded-2xl bg-white/95 shadow-2xl ring-1 ring-white/40 backdrop-blur">
-          <div className="h-1 bg-gradient-to-r from-orange-500 via-orange-400 to-blue-800" />
+        <div className="relative overflow-hidden rounded-2xl bg-white/95 shadow-2xl ring-1 ring-white/40 backdrop-blur-sm">
+          <div className="h-1 bg-linear-to-r from-orange-500 via-orange-400 to-blue-800" />
 
           <div className="px-6 pb-7 pt-7 sm:px-8">
             <div className="flex flex-col items-center text-center">
@@ -196,8 +201,8 @@ export function LoginScreen() {
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div>
-                <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-stone-600">Ingresar como</p>
-                <div className="grid grid-cols-2 gap-1 rounded-xl bg-stone-100 p-1 sm:grid-cols-4">
+                <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-gray-600">Ingresar como</p>
+                <div className="grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 sm:grid-cols-4">
                   {roleOrder.map(r => {
                     const Icon = roleIcons[r];
                     const active = role === r;
@@ -210,7 +215,7 @@ export function LoginScreen() {
                         className={`flex flex-col items-center justify-center gap-1 rounded-lg px-1.5 py-2.5 text-content font-medium leading-tight transition-all ${
                           active
                             ? 'bg-blue-900 text-white shadow-md'
-                            : 'text-stone-500 hover:bg-white hover:text-stone-700'
+                            : 'text-gray-500 hover:bg-white hover:text-gray-700'
                         }`}
                       >
                         <Icon size={18} className={active ? 'text-orange-400' : ''} />
@@ -223,34 +228,34 @@ export function LoginScreen() {
 
               <Field label="Usuario">
                 <div className="relative">
-                  <User size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                  <User size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <TextInput
                     value={username}
                     onChange={e => { setUsername(e.target.value); setError(null); }}
                     placeholder="Tu usuario"
                     autoComplete="username"
                     autoFocus
-                    className="w-full !rounded-lg !py-2.5 pl-10"
+                    className="w-full rounded-lg! border-gray-300! bg-white! py-2.5! pl-10 text-gray-800!"
                   />
                 </div>
               </Field>
 
               <Field label="Contrasena">
                 <div className="relative">
-                  <Lock size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                  <Lock size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <TextInput
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={e => { setPassword(e.target.value); setError(null); }}
                     placeholder="••••••••"
                     autoComplete="current-password"
-                    className="w-full !rounded-lg !py-2.5 pl-10 pr-10"
+                    className="w-full rounded-lg! border-gray-300! bg-white! py-2.5! pl-10 pr-10 text-gray-800!"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(v => !v)}
                     aria-label={showPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
-                    className="absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center text-stone-400 transition-colors hover:text-stone-600"
+                    className="absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center text-gray-400 transition-colors hover:text-gray-600"
                     tabIndex={-1}
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -260,12 +265,12 @@ export function LoginScreen() {
 
               {error && (
                 <div role="alert" className="flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 p-2.5">
-                  <AlertCircle size={14} className="flex-shrink-0 text-red-600" />
+                  <AlertCircle size={14} className="shrink-0 text-red-600" />
                   <p className="text-xs text-red-700">{error}</p>
                 </div>
               )}
 
-              <Button type="submit" className="w-full justify-center !rounded-lg !py-2.5 shadow-md shadow-orange-500/30">
+              <Button type="submit" className="w-full justify-center rounded-lg! py-2.5! shadow-md shadow-orange-500/30">
                 <LogIn size={16} /> Ingresar
               </Button>
             </form>
@@ -273,11 +278,11 @@ export function LoginScreen() {
             <button
               type="button"
               onClick={fillDemoCredentials}
-              className="mt-5 w-full rounded-lg border border-dashed border-stone-300 px-3 py-2 text-center text-content text-stone-400 transition-colors hover:border-orange-300 hover:bg-orange-50/50 hover:text-stone-600"
+              className="mt-5 w-full rounded-lg border border-dashed border-gray-300 px-3 py-2 text-center text-content text-gray-400 transition-colors hover:border-orange-300 hover:bg-orange-50/50 hover:text-gray-600"
               title="Autocompletar credenciales de prueba"
             >
               Credenciales de prueba para {roleLabels[role]}:{' '}
-              <span className="font-normal text-stone-500">
+              <span className="font-normal text-gray-500">
                 {demoCredentials[role].username} / {demoCredentials[role].password}
               </span>
             </button>

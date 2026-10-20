@@ -1,7 +1,9 @@
 import { useApp } from '@/store/AppContext';
 import type { ModuleKey } from '@/types';
-import { Bell, Menu, PenLine } from 'lucide-react';
+import { Bell, Maximize, Menu, Minimize, Moon, PenLine, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useDarkMode } from '@/lib/useDarkMode';
+import { useFullscreen } from '@/lib/useFullscreen';
 
 const moduleTitles: Record<ModuleKey, { title: string; subtitle: string }> = {
   activos: { title: 'Vehiculos', subtitle: '' },
@@ -23,6 +25,8 @@ export function Header({ onMenuClick, onSignatureClick, menuLabel = 'Abrir menu'
   const { title, subtitle } = moduleTitles[activeModule];
   const unreadCount = notifications.filter(n => !n.read).length;
   const [now, setNow] = useState(() => new Date());
+  const { isDark, toggle: toggleDark } = useDarkMode();
+  const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -30,13 +34,13 @@ export function Header({ onMenuClick, onSignatureClick, menuLabel = 'Abrir menu'
   }, []);
 
   return (
-    <header className="bg-white border-b border-stone-200 px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3 flex-shrink-0">
+    <header className="bg-surface border-b border-stone-200 px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3 shrink-0">
       <div className="flex items-center gap-3 min-w-0">
         <button
           onClick={onMenuClick}
           aria-label={menuLabel}
           title={menuLabel}
-          className="-ml-2 flex min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center rounded-lg text-stone-600 transition-colors hover:bg-orange-50 hover:text-orange-600 [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 sm:p-2"
+          className="-ml-2 flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-stone-600 transition-colors hover:bg-orange-50 hover:text-orange-600 pointer-fine:min-h-0 pointer-fine:min-w-0 sm:p-2"
         >
           <Menu size={22} />
         </button>
@@ -45,22 +49,38 @@ export function Header({ onMenuClick, onSignatureClick, menuLabel = 'Abrir menu'
           <p className="text-xs text-stone-500 mt-0.5 truncate">{subtitle}</p>
         </div>
       </div>
-      <div className="flex items-center gap-4 flex-shrink-0">
+      <div className="flex items-center gap-4 shrink-0">
         <div className="text-right hidden sm:block">
           <p className="text-xs text-stone-400">Fecha</p>
-          <p className="text-sm font-medium text-stone-700"> { new Intl.DateTimeFormat('es-ES', { weekday: 'long',  }).format(now) + " " + now.toLocaleDateString() + " " + now.toLocaleTimeString() }</p>
+          <p className="text-sm font-medium text-stone-700"> { now.toLocaleTimeString() +' '+ new Intl.DateTimeFormat('es-ES', { weekday: 'long',  }).format(now) + " " + now.toLocaleDateString() }</p>
         </div>
+        <button
+          onClick={toggleDark}
+          aria-label={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+          title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-orange-50 hover:text-orange-600 pointer-fine:min-h-0 pointer-fine:min-w-0 sm:p-2"
+        >
+          {isDark ? <Sun size={20} /> : <Moon size={20} />}
+        </button>
+        <button
+          onClick={toggleFullscreen}
+          aria-label={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+          title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+          className="hidden min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-orange-50 hover:text-orange-600 pointer-fine:min-h-0 pointer-fine:min-w-0 sm:flex sm:p-2"
+        >
+          {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
+        </button>
         <button
           onClick={onSignatureClick}
           aria-label="Mi firma"
           title="Mi firma"
-          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-orange-50 hover:text-orange-600 [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 sm:p-2"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-orange-50 hover:text-orange-600 pointer-fine:min-h-0 pointer-fine:min-w-0 sm:p-2"
         >
           <PenLine size={20} />
         </button>
         <button
           onClick={() => setActiveModule('notificaciones')}
-          className="relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-orange-50 hover:text-orange-600 [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 sm:p-2"
+          className="relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-orange-50 hover:text-orange-600 pointer-fine:min-h-0 pointer-fine:min-w-0 sm:p-2"
         >
           <Bell size={20} />
           {unreadCount > 0 && (

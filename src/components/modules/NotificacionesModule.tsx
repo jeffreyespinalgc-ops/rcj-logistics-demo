@@ -65,14 +65,14 @@ export function NotificacionesModule() {
         <StatCard label="Alertas Bajo Stock" value={byType['bajo_stock'] ?? 0} icon={<Package size={28} />} />
       </IndicatorCards>
 
-      <div className="bg-white rounded-lg shadow-card border border-stone-200">
+      <div className="bg-surface rounded-lg shadow-card border border-stone-200">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-stone-200">
           <div className="flex items-center gap-1 flex-wrap">
             {filterTabs.map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setFilter(tab.key)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${filter === tab.key ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${filter === tab.key ? 'bg-orange-50 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300' : 'text-stone-500 hover:bg-stone-100'}`}
               >
                 {tab.label}
               </button>
@@ -98,15 +98,15 @@ export function NotificacionesModule() {
               return (
                 <div
                   key={n.id}
-                  className={`flex flex-wrap items-start gap-3 px-4 py-3 transition-colors ${!n.read ? 'bg-orange-50/30' : 'bg-white'} hover:bg-stone-50`}
+                  className={`flex flex-wrap items-start gap-3 px-4 py-3 transition-colors ${!n.read ? 'bg-orange-50/30 dark:bg-orange-500/10' : 'bg-surface'} hover:bg-stone-50`}
                 >
-                  <div className="w-10 h-10 flex items-center justify-center flex-shrink-0 text-stone-900">
+                  <div className="w-10 h-10 flex items-center justify-center shrink-0 text-stone-900">
                     <Icon size={22} />
                   </div>
-                  <div className="flex-1 min-w-[12rem]">
+                  <div className="flex-1 min-w-48">
                     <div className="flex items-center gap-2 mb-0.5">
                       <p className={`text-sm ${!n.read ? 'font-bold text-stone-800' : 'font-medium text-stone-700'}`}>{n.title}</p>
-                      {!n.read && <span className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0" />}
+                      {!n.read && <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />}
                     </div>
                     <p className="text-content text-stone-600 mb-1">{n.description}</p>
                     <div className="flex flex-wrap items-center gap-2 text-content text-stone-400">
@@ -117,7 +117,7 @@ export function NotificacionesModule() {
                       <Badge variant={priorityVariants[n.priority]}>{n.priority}</Badge>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
+                  <div className="flex items-center gap-2 shrink-0 ml-auto">
                     {(n.type === 'aprobacion' || n.type === 'firma') && (
                       <Button size="sm" variant="primary" onClick={() => setActiveModule('ordenes')}>
                         VER

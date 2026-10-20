@@ -136,8 +136,8 @@ export const permissionGroups: { title: string; permissions: Permission[] }[] = 
  * actividades, pero no ejecuta trabajo tecnico ni aprueba/firma OTs del dia a dia.
  * Jefe de Taller: aprueba, asigna, rechaza y cierra; crea, edita y ejecuta lineas y consume
  * repuestos; no toca catalogos ni SAP.
- * Tecnico: ve las OTs que creo o le asignaron y crea lineas en ellas; una vez creadas no las edita
- * ni elimina, solo las ejecuta (estado, horas, actividades, evidencias, repuestos) en las asignadas a el.
+ * Tecnico: ve todas las OTs (igual que los demas roles) y crea lineas en ellas; una vez creadas no las
+ * edita ni elimina, solo las ejecuta (estado, horas, actividades, evidencias, repuestos) en las asignadas a el.
  * Control de Inventario: solo consulta activos, inventario, OTs, combustible y notificaciones; firma
  * (despacha) las requisas de repuestos. Las requisas se firman en orden: tecnico, Jefe de Taller y despues Control.
  * Ver el documento de una requisa (o de la OT) lo puede hacer cualquiera que la vea; descargar el PDF requiere
@@ -167,7 +167,7 @@ export const defaultPermissions: PermissionMatrix = {
   ],
   tecnico: [
     'modulo.ordenes', 'modulo.notificaciones',
-    'ot.crear', 'ot.finalizar', 'ot.lineas.agregar', 'ot.lineas.estado', 'repuestos.consumir',
+    'ot.ver.todas', 'ot.crear', 'ot.finalizar', 'ot.lineas.agregar', 'ot.lineas.estado', 'repuestos.consumir',
     'requisa.solicitar',
   ],
 };

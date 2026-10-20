@@ -72,16 +72,16 @@ export function OTTimelineMini({ ot }: { ot: WorkOrder }) {
         const circle = step.done
           ? 'bg-green-500 border-green-500 text-white'
           : step.active
-            ? 'bg-orange-500 border-orange-500 text-white ring-2 ring-orange-100'
-            : 'bg-white border-stone-300 text-stone-300';
+            ? 'bg-orange-500 border-orange-500 text-white ring-2 ring-orange-100 dark:ring-orange-500/20'
+            : 'bg-surface border-stone-300 text-stone-300';
         const tooltip = `${step.label}${step.at ? ` - ${formatDateTime(step.at)}${step.by ? ` (${step.by})` : ''}` : ''}`;
 
         return (
           <div key={step.key} className="flex items-center" title={tooltip}>
             {idx > 0 && (
-              <div className={`h-0.5 w-2.5 flex-shrink-0 ${step.done || step.active ? 'bg-green-400' : 'bg-stone-200'}`} />
+              <div className={`h-0.5 w-2.5 shrink-0 ${step.done || step.active ? 'bg-green-400' : 'bg-stone-200'}`} />
             )}
-            <div className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border-2 ${circle}`}>
+            <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${circle}`}>
               {step.done && <Check size={9} />}
             </div>
           </div>
@@ -95,13 +95,13 @@ export function OTTimeline({ ot }: { ot: WorkOrder }) {
   const steps = buildOTSteps(ot);
 
   return (
-    <div className="flex items-start overflow-x-auto pb-1">
+    <div className="flex items-start overflow-x-auto pb-1 pt-2">
       {steps.map((step, idx) => {
         const circle = step.done
           ? 'bg-green-500 border-green-500 text-white'
           : step.active
-            ? 'bg-orange-500 border-orange-500 text-white ring-4 ring-orange-100'
-            : 'bg-white border-stone-300 text-stone-400';
+            ? 'bg-orange-500 border-orange-500 text-white ring-4 ring-orange-100 dark:ring-orange-500/20'
+            : 'bg-surface border-stone-300 text-stone-400';
 
         return (
           <div key={step.key} className="flex-1 min-w-[136px] flex flex-col items-center relative">

@@ -130,7 +130,7 @@ const closedLineStatuses: OTLineStatus[] = ['completado', 'completado_con_observ
 
 // ===== Helpers =====
 
-export const formatCLP = (n: number) => 'L' + n.toLocaleString('es-HN');
+export const formatCLP = (n: number) => 'L' + n.toLocaleString('es-HN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function formatDateTime(iso: string | null): string {
   if (!iso) return '--';

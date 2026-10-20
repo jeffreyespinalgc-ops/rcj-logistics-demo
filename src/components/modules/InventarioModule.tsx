@@ -26,7 +26,7 @@ import { useState, useMemo } from 'react';
 import { RequisasTable } from './RequisasModule';
 import { pendingRequisitionCount } from '@/lib/requisition';
 
-const formatCLP = (n: number) => 'L.' + n.toLocaleString('es-HN');
+const formatCLP = (n: number) => 'L.' + n.toLocaleString('es-HN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const partSortGetters = {
   code: (p: Part) => p.code,
@@ -95,13 +95,13 @@ export function InventarioModule() {
         <StatCard label="Repuestos en Excedente" value={excedenteParts.length} icon={<PackageMinus size={28} />} />
       </IndicatorCards>
 
-      <div className="bg-white rounded-lg shadow-card border border-stone-200">
+      <div className="bg-surface rounded-lg shadow-card border border-stone-200">
         <div className="flex items-center justify-between px-4 py-3 border-b border-stone-200 flex-wrap gap-2">
           <div className="flex items-center gap-1">
             {canSeeRequisas && (
               <button
                 onClick={() => setView('requisas')}
-                className={`flex items-center gap-1.5 min-h-[44px] px-3 py-1.5 text-sm rounded-md transition-colors [@media(pointer:fine)]:min-h-0 ${view === 'requisas' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
+                className={`flex items-center gap-1.5 min-h-[44px] px-3 py-1.5 text-sm rounded-md transition-colors pointer-fine:min-h-0 ${view === 'requisas' ? 'bg-orange-50 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300' : 'text-stone-500 hover:bg-stone-100'}`}
               >
                 Requisas de Repuestos
                 {pendingRequisitions > 0 && (
@@ -113,19 +113,19 @@ export function InventarioModule() {
             )}
             <button
               onClick={() => setView('stock')}
-              className={`min-h-[44px] px-3 py-1.5 text-sm rounded-md transition-colors [@media(pointer:fine)]:min-h-0 ${view === 'stock' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
+              className={`min-h-[44px] px-3 py-1.5 text-sm rounded-md transition-colors pointer-fine:min-h-0 ${view === 'stock' ? 'bg-orange-50 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300' : 'text-stone-500 hover:bg-stone-100'}`}
             >
               Inventario
             </button>
             <button
               onClick={() => setView('excedente')}
-              className={`min-h-[44px] px-3 py-1.5 text-sm rounded-md transition-colors [@media(pointer:fine)]:min-h-0 ${view === 'excedente' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
+              className={`min-h-[44px] px-3 py-1.5 text-sm rounded-md transition-colors pointer-fine:min-h-0 ${view === 'excedente' ? 'bg-orange-50 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300' : 'text-stone-500 hover:bg-stone-100'}`}
             >
               Inventario Excedente
             </button>
             <button
               onClick={() => setView('historial')}
-              className={`min-h-[44px] px-3 py-1.5 text-sm rounded-md transition-colors [@media(pointer:fine)]:min-h-0 ${view === 'historial' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
+              className={`min-h-[44px] px-3 py-1.5 text-sm rounded-md transition-colors pointer-fine:min-h-0 ${view === 'historial' ? 'bg-orange-50 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300' : 'text-stone-500 hover:bg-stone-100'}`}
             >
               Historial
             </button>
@@ -162,7 +162,7 @@ export function InventarioModule() {
                 </Field>
               </div>
               {/* <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
-                <input type="checkbox" checked={lowStockOnly} onChange={e => setLowStockOnly(e.target.checked)} className="rounded border-stone-300 text-orange-500 focus:ring-orange-300" />
+                <input type="checkbox" checked={lowStockOnly} onChange={e => setLowStockOnly(e.target.checked)} className="rounded-sm border-stone-300 text-orange-500 focus:ring-orange-300" />
                 Solo bajo stock
               </label> */}
             </div>
@@ -185,13 +185,13 @@ export function InventarioModule() {
                     const isLow = part.currentStock < part.minStock;
                     const isCritical = part.currentStock < part.minStock * 0.5;
                     return (
-                      <tr key={part.id} className={isLow ? 'bg-orange-50/40' : ''}>
+                      <tr key={part.id} className={isLow ? 'bg-orange-50/40 dark:bg-orange-500/10' : ''}>
                         <td className="text-stone-600 font-normal">{part.code}</td>
                         <td className="font-normal text-stone-800">{part.description}</td>
                         <td className="hidden text-stone-600 md:table-cell">{part.category}</td>
                         {/* Stock Actual y Costo vienen de SAP: de solo lectura para todos los roles, nadie los edita aqui */}
-                        <td className={`text-right font-normal ${isLow ? 'text-orange-700' : 'text-stone-800'}`}>{part.currentStock}</td>
-                        <td className="text-right text-stone-600">{formatCLP(part.unitCost)}</td>
+                        <td className={` font-normal ${isLow ? 'text-orange-700' : 'text-stone-800'}`}>{part.currentStock}</td>
+                        <td className=" text-stone-600">{formatCLP(part.unitCost)}</td>
                         <td>
                           {isCritical ? (
                             <Badge variant="red"><AlertTriangle size={10} className="mr-1 inline" /> Critico</Badge>
@@ -210,7 +210,7 @@ export function InventarioModule() {
                                   toast({ message: `${part.description} eliminado`, variant: 'info' });
                                 }
                               }}
-                              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-stone-400 transition-colors hover:text-red-600 [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0"
+                              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-stone-400 transition-colors hover:text-red-600 pointer-fine:min-h-0 pointer-fine:min-w-0"
                               title="Eliminar repuesto"
                             >
                               <Trash2 size={13} />
@@ -331,7 +331,16 @@ function CreatePartModal({ open, onClose, onCreate }: {
   const toast = useToast();
 
   const handleSubmit = async () => {
-    if (!form.code || !form.description) return;
+    if (!form.code.trim()) { toast({ message: 'El codigo del repuesto es obligatorio.', variant: 'error' }); return; }
+    if (!form.description.trim()) { toast({ message: 'La descripcion del repuesto es obligatoria.', variant: 'error' }); return; }
+    if (form.currentStock < 0 || form.minStock < 0 || form.maxStock < 0 || form.unitCost < 0) {
+      toast({ message: 'Las cantidades y el costo no pueden ser negativos.', variant: 'error' });
+      return;
+    }
+    if (form.maxStock > 0 && form.minStock > form.maxStock) {
+      toast({ message: 'El stock minimo no puede ser mayor al stock maximo.', variant: 'error' });
+      return;
+    }
     if (!(await confirm({ title: 'Crear repuesto', message: '¿Estas seguro de crear este repuesto?', confirmLabel: 'Crear repuesto' }))) return;
     onCreate(form);
     toast(`${form.description} creado correctamente`);

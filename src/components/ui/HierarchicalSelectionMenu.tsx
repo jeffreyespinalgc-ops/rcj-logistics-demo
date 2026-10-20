@@ -131,32 +131,32 @@ export function HierarchicalSelectionMenu({ levelLabels, data, onComplete, reset
   };
 
   return (
-    <div className={`flex w-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}>
+    <div className={`flex w-full flex-col overflow-hidden rounded-xl border border-stone-200 bg-surface shadow-xs ${className}`}>
       {/* breadcrumb fijo: ubica la ruta elegida aunque sus columnas hayan quedado fuera de vista por el scroll */}
-      <nav aria-label="Ruta de seleccion" className="flex flex-wrap items-center gap-1 border-b border-slate-100 bg-slate-50/60 px-4 py-2.5">
+      <nav aria-label="Ruta de seleccion" className="flex flex-wrap items-center gap-1 border-b border-stone-100 bg-stone-50/60 px-4 py-2.5">
         <button
           type="button"
           onClick={() => scrollToColumn(0)}
-          className="rounded px-1.5 py-0.5 text-xs font-semibold text-slate-500 transition-colors hover:bg-white hover:text-orange-600"
+          className="rounded-sm px-1.5 py-0.5 text-xs font-semibold text-stone-500 transition-colors hover:bg-surface hover:text-orange-600"
         >
           {levelLabels[0] ?? 'Inicio'}
         </button>
         {path.map((node, i) => (
           <span key={node.id} className="flex items-center gap-1">
-            <ChevronRightIcon className="h-3 w-3 flex-shrink-0 text-slate-300" />
+            <ChevronRightIcon className="h-3 w-3 shrink-0 text-stone-300" />
             <button
               type="button"
               onClick={() => scrollToColumn(i + 1)}
               title={`Ver "${levelLabels[i + 1] ?? `Nivel ${i + 2}`}"`}
-              className={`rounded px-1.5 py-0.5 text-xs font-medium transition-colors hover:bg-white hover:text-orange-600 ${
-                i === path.length - 1 ? 'text-slate-800' : 'text-slate-500'
+              className={`rounded px-1.5 py-0.5 text-xs font-medium transition-colors hover:bg-surface hover:text-orange-600 ${
+                i === path.length - 1 ? 'text-stone-800' : 'text-stone-500'
               }`}
             >
               {node.label}
             </button>
           </span>
         ))}
-        <span className="ml-auto flex-shrink-0 pl-2 text-[11px] font-medium text-slate-400">
+        <span className="ml-auto shrink-0 pl-2 text-[11px] font-medium text-stone-400">
           {Math.min(columns.length, totalLevels)}/{totalLevels}
         </span>
       </nav>
@@ -172,39 +172,39 @@ export function HierarchicalSelectionMenu({ levelLabels, data, onComplete, reset
                 if (el) columnRefs.current.set(col.depth, el);
                 else columnRefs.current.delete(col.depth);
               }}
-              className="flex h-full w-60 flex-shrink-0 flex-col border-r border-slate-100 last:border-r-0"
+              className="flex h-full w-60 shrink-0 flex-col border-r border-stone-100 last:border-r-0"
             >
-              <div className="flex-shrink-0 border-b border-slate-100 bg-slate-50/80 px-3 py-2">
-                <p className="truncate text-[11px] font-bold uppercase tracking-wide text-slate-500">
+              <div className="shrink-0 border-b border-stone-100 bg-stone-50/80 px-3 py-2">
+                <p className="truncate text-[11px] font-bold uppercase tracking-wide text-stone-500">
                   {levelLabels[col.depth] ?? `Nivel ${col.depth + 1}`}
                 </p>
               </div>
 
               <div className="flex-1 overflow-y-auto">
                 {col.nodes.length === 0 ? (
-                  <p className="px-3 py-6 text-center text-xs text-slate-400">Sin opciones</p>
+                  <p className="px-3 py-6 text-center text-xs text-stone-400">Sin opciones</p>
                 ) : columnIsLeaf ? (
-                  <ul className="divide-y divide-slate-100">
+                  <ul className="divide-y divide-stone-100">
                     {col.nodes.map(node => {
                       const checked = selectedIds.has(node.id);
                       return (
                         <li key={node.id}>
                           <label
-                            className={`flex min-h-[44px] cursor-pointer items-start gap-2 px-3 py-2 transition-colors hover:bg-orange-50/60 active:bg-orange-50 ${
-                              checked ? 'bg-orange-50/80' : 'bg-white'
+                            className={`flex min-h-[44px] cursor-pointer items-start gap-2 px-3 py-2 transition-colors hover:bg-orange-50/60 dark:hover:bg-orange-500/15 active:bg-orange-50 dark:active:bg-orange-500/20 ${
+                              checked ? 'bg-orange-50/80 dark:bg-orange-500/20' : 'bg-surface'
                             }`}
                           >
                             <input
                               type="checkbox"
                               checked={checked}
                               onChange={() => toggleLeaf(node.id)}
-                              className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-slate-300 text-orange-500 focus:ring-orange-300"
+                              className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-stone-300 text-orange-500 focus:ring-orange-300"
                             />
                             <span className="min-w-0 flex-1">
-                              <span className={`block text-sm ${checked ? 'font-semibold text-slate-900' : 'font-medium text-slate-700'}`}>
+                              <span className={`block text-sm ${checked ? 'font-semibold text-stone-900' : 'font-medium text-stone-700'}`}>
                                 {node.label}
                               </span>
-                              {node.description && <span className="block text-xs text-slate-400">{node.description}</span>}
+                              {node.description && <span className="block text-xs text-stone-400">{node.description}</span>}
                             </span>
                           </label>
                         </li>
@@ -212,7 +212,7 @@ export function HierarchicalSelectionMenu({ levelLabels, data, onComplete, reset
                     })}
                   </ul>
                 ) : (
-                  <ul className="divide-y divide-slate-100">
+                  <ul className="divide-y divide-stone-100">
                     {col.nodes.map(node => {
                       const chosen = path[col.depth]?.id === node.id;
                       return (
@@ -220,18 +220,18 @@ export function HierarchicalSelectionMenu({ levelLabels, data, onComplete, reset
                           <button
                             type="button"
                             onClick={() => selectAt(col.depth, node)}
-                            className={`flex min-h-[44px] w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-slate-50 active:bg-slate-100 ${
-                              chosen ? 'bg-orange-50/70' : 'bg-white'
+                            className={`flex min-h-[44px] w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-stone-50 active:bg-stone-100 ${
+                              chosen ? 'bg-orange-50/70 dark:bg-orange-500/20' : 'bg-surface'
                             }`}
                           >
-                            <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${chosen ? 'bg-orange-500' : 'bg-transparent'}`} />
+                            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${chosen ? 'bg-orange-500' : 'bg-transparent'}`} />
                             <span className="min-w-0 flex-1">
-                              <span className={`block truncate text-sm ${chosen ? 'font-semibold text-slate-900' : 'font-medium text-slate-700'}`}>
+                              <span className={`block truncate text-sm ${chosen ? 'font-semibold text-stone-900' : 'font-medium text-stone-700'}`}>
                                 {node.label}
                               </span>
-                              {node.description && <span className="block truncate text-xs text-slate-400">{node.description}</span>}
+                              {node.description && <span className="block truncate text-xs text-stone-400">{node.description}</span>}
                             </span>
-                            <ChevronRightIcon className={`h-4 w-4 flex-shrink-0 ${chosen ? 'text-orange-500' : 'text-slate-300'}`} />
+                            <ChevronRightIcon className={`h-4 w-4 shrink-0 ${chosen ? 'text-orange-500' : 'text-stone-300'}`} />
                           </button>
                         </li>
                       );
@@ -246,7 +246,7 @@ export function HierarchicalSelectionMenu({ levelLabels, data, onComplete, reset
 
       {/* pie fijo: seleccionar todos / confirmar, siempre a la vista sin importar el scroll de las columnas */}
       {atLeafLevel && (
-        <div className="flex flex-shrink-0 items-center justify-between gap-2 border-t border-slate-100 px-4 py-3">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-stone-100 px-4 py-3">
           <button type="button" onClick={toggleAll} className="text-xs font-medium text-orange-600 hover:text-orange-700">
             {allSelected ? 'Quitar todos' : 'Seleccionar todos'}
           </button>
@@ -254,7 +254,7 @@ export function HierarchicalSelectionMenu({ levelLabels, data, onComplete, reset
             type="button"
             onClick={handleConfirm}
             disabled={selectedIds.size === 0}
-            className="flex min-h-[40px] items-center gap-1.5 rounded-md bg-orange-500 px-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
+            className="flex min-h-[40px] items-center gap-1.5 rounded-md bg-orange-500 px-3.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-400 disabled:shadow-none"
           >
             <CheckIcon className="h-4 w-4" /> Confirmar seleccion ({selectedIds.size})
           </button>

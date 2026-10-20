@@ -25,13 +25,13 @@ export function RequisitionProgress({ line, showNames = false, compact = false }
             title={`${requisitionFieldLabels[step]} (${requisitionStepRoles[step]}): ${signature ? `${signature.name} - ${formatDateTime(signature.at)}` : 'pendiente de firma'}`}
             className={`inline-flex items-center gap-1 whitespace-nowrap rounded border px-1.5 py-0.5 text-content font-medium ${
               signature
-                ? 'border-green-200 bg-green-50 text-green-700'
+                ? 'border-green-200 bg-green-50 text-green-700 dark:border-green-500/30 dark:bg-green-500/15 dark:text-green-300'
                 : 'border-stone-200 bg-stone-50 text-stone-500'
             }`}
           >
             {signature ? <Check size={11} /> : <Circle size={10} />}
             {labels[step]}
-            {showNames && signature && <span className="font-normal text-green-600">· {signature.name}</span>}
+            {showNames && signature && <span className="font-normal text-green-600 dark:text-green-400">· {signature.name}</span>}
           </li>
         );
       })}

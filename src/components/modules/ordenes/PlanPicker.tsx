@@ -81,25 +81,25 @@ function PlanColumns({ roots, rootLabel, value, onChange, asset }: {
   };
 
   return (
-    <div className="overflow-hidden rounded-md border border-stone-200 bg-white">
+    <div className="overflow-hidden rounded-md border border-stone-200 bg-surface">
       {/* breadcrumb fijo: ubica la ruta elegida aunque sus columnas hayan quedado fuera de vista por el scroll */}
       {columns.length > 1 && (
         <nav aria-label="Ruta del plan" className="flex flex-wrap items-center gap-1 border-b border-stone-100 bg-stone-50/60 px-3 py-2">
           <button
             type="button"
             onClick={() => scrollToColumn(0)}
-            className="rounded px-1.5 py-0.5 text-content font-bold text-stone-500 transition-colors hover:bg-white hover:text-orange-600"
+            className="rounded-sm px-1.5 py-0.5 text-content font-bold text-stone-500 transition-colors hover:bg-surface hover:text-orange-600"
           >
             {rootLabel}
           </button>
 
           {columns.slice(1).map((col, i) => (
             <span key={col.depth} className="flex items-center gap-1">
-              <ChevronRight size={11} className="flex-shrink-0 text-stone-300" />
+              <ChevronRight size={11} className="shrink-0 text-stone-300" />
               <button
                 type="button"
                 onClick={() => scrollToColumn(col.depth)}
-                className={`rounded px-1.5 py-0.5 text-content font-medium transition-colors hover:bg-white hover:text-orange-600 ${
+                className={`rounded px-1.5 py-0.5 text-content font-medium transition-colors hover:bg-surface hover:text-orange-600 ${
                   i === columns.length - 2 ? 'text-stone-800' : 'text-stone-500'
                 }`}
               >
@@ -121,9 +121,9 @@ function PlanColumns({ roots, rootLabel, value, onChange, asset }: {
                 if (el) columnRefs.current.set(col.depth, el);
                 else columnRefs.current.delete(col.depth);
               }}
-              className="flex h-full w-52 flex-shrink-0 flex-col border-r border-stone-100 last:border-r-0 sm:w-60"
+              className="flex h-full w-52 shrink-0 flex-col border-r border-stone-100 last:border-r-0 sm:w-60"
             >
-              <div className="flex-shrink-0 border-b border-stone-100 bg-stone-50/80 px-2.5 py-1.5">
+              <div className="shrink-0 border-b border-stone-100 bg-stone-50/80 px-2.5 py-1.5">
                 <p className="truncate text-content font-bold text-stone-500">{col.parentName}</p>
               </div>
 
@@ -137,7 +137,7 @@ function PlanColumns({ roots, rootLabel, value, onChange, asset }: {
                         type="button"
                         onClick={() => toggleAll(col.nodes)}
                         aria-label="Seleccionar todos"
-                        className="group relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-orange-600 transition-colors hover:bg-orange-50 [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 sm:p-1.5"
+                        className="group relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-orange-600 transition-colors hover:bg-orange-50 pointer-fine:min-h-0 pointer-fine:min-w-0 sm:p-1.5"
                       >
                         <CheckCheck size={16} />
                         <span
@@ -154,7 +154,7 @@ function PlanColumns({ roots, rootLabel, value, onChange, asset }: {
                         return (
                           <li key={node.id}>
                             <label
-                              className={`flex min-h-[44px] cursor-pointer items-center gap-2 px-2.5 py-2 text-content text-stone-700 transition-colors hover:bg-orange-50/50 [@media(pointer:fine)]:min-h-0 ${
+                              className={`flex min-h-[44px] cursor-pointer items-center gap-2 px-2.5 py-2 text-content text-stone-700 transition-colors hover:bg-orange-50/50 pointer-fine:min-h-0 ${
                                 checked ? 'bg-orange-200' : ''
                               }`}
                             >
@@ -162,7 +162,7 @@ function PlanColumns({ roots, rootLabel, value, onChange, asset }: {
                                 type="checkbox"
                                 checked={checked}
                                 onChange={() => toggleLeaf(node.id)}
-                                className="flex-shrink-0 rounded border-stone-300 text-orange-500 focus:ring-orange-300"
+                                className="shrink-0 rounded-sm border-stone-300 text-orange-500 focus:ring-orange-300"
                               />
                               <span className={checked ? 'font-bold text-stone-800' : ''}>{node.name}</span>
                             </label>
@@ -180,13 +180,13 @@ function PlanColumns({ roots, rootLabel, value, onChange, asset }: {
                           <button
                             type="button"
                             onClick={() => selectAt(col.depth, node)}
-                            className={`flex min-h-[44px] w-full items-center gap-2 px-2.5 py-2 text-left text-content transition-colors hover:bg-stone-50 [@media(pointer:fine)]:min-h-0 ${
+                            className={`flex min-h-[44px] w-full items-center gap-2 px-2.5 py-2 text-left text-content transition-colors hover:bg-stone-50 pointer-fine:min-h-0 ${
                               chosen ? 'bg-orange-200' : ''
                             }`}
                           >
-                            <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${chosen ? 'bg-orange-500' : 'bg-transparent'}`} />
+                            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${chosen ? 'bg-orange-500' : 'bg-transparent'}`} />
                             <span className={`min-w-0 flex-1 truncate ${chosen ? 'font-bold text-stone-800' : 'text-stone-700'}`}>{node.name}</span>
-                            <ChevronRight size={14} className={`flex-shrink-0 ${chosen ? 'text-orange-500' : 'text-stone-300'}`} />
+                            <ChevronRight size={14} className={`shrink-0 ${chosen ? 'text-orange-500' : 'text-stone-300'}`} />
                           </button>
                         </li>
                       );

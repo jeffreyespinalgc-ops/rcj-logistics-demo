@@ -187,9 +187,9 @@ export function RequisasTable() {
             onChange={e => { setSearch(e.target.value); setPage(1); }}
             placeholder="Buscar requisa, OT, vehiculo, linea o repuesto"
             aria-label="Buscar requisas"
-            className="w-full min-h-[44px] rounded-md border border-stone-300 bg-white pl-9 pr-9 text-content text-stone-800 transition-colors focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-300"
+            className="w-full min-h-[44px] rounded-md border border-stone-300 bg-surface pl-9 pr-9 text-content text-stone-800 transition-colors focus:border-orange-400 focus:outline-hidden focus:ring-2 focus:ring-orange-300"
           />
-          {/* <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-stone-200 bg-stone-50 px-1.5 text-content text-stone-400 sm:block">/</kbd> */}
+          {/* <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-sm border border-stone-200 bg-stone-50 px-1.5 text-content text-stone-400 sm:block">/</kbd> */}
         </div>
         <Field label="Estado" className="w-full sm:w-40">
           <Select
@@ -204,17 +204,17 @@ export function RequisasTable() {
 
       {filter !== 'todas' && (
         <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-stone-100 text-xs">
-          <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 py-0.5 pl-2.5 pr-1 font-medium text-blue-800">
+          <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 py-0.5 pl-2.5 pr-1 font-medium text-blue-800 dark:border-blue-500/30 dark:bg-blue-500/15 dark:text-blue-300">
             Estado: {filterLabels[filter]}
             <button
               onClick={() => { setFilter('todas'); setPage(1); }}
               aria-label={`Quitar filtro Estado: ${filterLabels[filter]}`}
-              className="relative rounded-full p-1 hover:bg-blue-100 before:absolute before:-inset-2.5 before:content-['']"
+              className="relative rounded-full p-1 hover:bg-blue-100 dark:hover:bg-blue-500/25 before:absolute before:-inset-2.5 before:content-['']"
             >
               <X size={12} />
             </button>
           </span>
-          <button onClick={clearFilters} className="inline-flex min-h-[44px] items-center font-medium text-orange-700 hover:underline [@media(pointer:fine)]:min-h-0">Limpiar filtros</button>
+          <button onClick={clearFilters} className="inline-flex min-h-[44px] items-center font-medium text-orange-700 hover:underline pointer-fine:min-h-0">Limpiar filtros</button>
         </div>
       )}
 
@@ -258,7 +258,7 @@ export function RequisasTable() {
                 const open = () => setSelected({ otId: ot.id });
                 const completeCount = lines.filter(l => requisitionStatus(l) === 'completa').length;
                 return (
-                  <tr key={ot.id} className="cursor-pointer bg-white" onClick={open}>
+                  <tr key={ot.id} className="cursor-pointer bg-surface" onClick={open}>
                     <td className="whitespace-nowrap">
                       <button onClick={open} className="block font-normal text-blue-700 hover:underline">
                         {code ?? <span className="text-stone-500">Sin solicitar</span>}
@@ -274,12 +274,12 @@ export function RequisasTable() {
                       </span>
                     </td>
                     <td className="whitespace-nowrap text-stone-700">{completeCount} / {lines.length} completas</td>
-                    <td className="sticky right-0 bg-white text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)]">
+                    <td className="sticky right-0 bg-surface text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)]">
                       <span className="inline-flex items-center justify-end gap-2">
                         <Button
                           size="sm"
                           variant="outline"
-                          className="min-h-[44px] [@media(pointer:fine)]:min-h-0"
+                          className="min-h-[44px] pointer-fine:min-h-0"
                           onClick={e => { e.stopPropagation(); setPreview({ otId: ot.id }); }}
                         >
                           <Eye size={12} /> Ver
@@ -287,13 +287,13 @@ export function RequisasTable() {
                         {mySteps.length > 0 ? (
                           <Button
                             size="sm"
-                            className="min-h-[44px] [@media(pointer:fine)]:min-h-0"
+                            className="min-h-[44px] pointer-fine:min-h-0"
                             onClick={e => { e.stopPropagation(); open(); }}
                           >
                             <PenBoxIcon size={12} /> Revisar
                           </Button>
                         ) : (
-                          <CircleChevronRight size={12} className="text-black" aria-hidden="true" />
+                          <CircleChevronRight size={12} className="text-stone-900" aria-hidden="true" />
                         )}
                       </span>
                     </td>
@@ -307,10 +307,10 @@ export function RequisasTable() {
 
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-stone-200 text-content text-stone-500">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>
+          <Button variant="outline" size="sm" className="min-h-[44px] pointer-fine:min-h-0" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>
             Anterior
           </Button>
-          <Button variant="outline" size="sm" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" disabled={currentPage >= pageCount} onClick={() => setPage(currentPage + 1)}>
+          <Button variant="outline" size="sm" className="min-h-[44px] pointer-fine:min-h-0" disabled={currentPage >= pageCount} onClick={() => setPage(currentPage + 1)}>
             Siguiente
           </Button>
         </div>
@@ -384,7 +384,7 @@ function OTRequisitionGroupModal({ otId, onClose }: { otId: string; onClose: () 
                   {(mySteps.length > 0 || canReviewDelivered) && (
                     <Button
                       size="sm"
-                      className="min-h-[44px] [@media(pointer:fine)]:min-h-0"
+                      className="min-h-[44px] pointer-fine:min-h-0"
                       onClick={() => setLineId(line.id)}
                     >
                       <PenTool size={12} /> {mySteps.length > 0 ? `${requisitionSignLabels[mySteps[0]]} Aprobar` : 'Ver repuestos'}
@@ -443,7 +443,7 @@ function RequisitionModal({ otId, lineId, onClose }: { otId: string; lineId: str
     if (!step) return;
     if (!(await confirm({ title: 'Firmar requisa', message: `¿Estas seguro de firmar?`, confirmLabel: 'Firmar' }))) return;
     const result = signRequisition(ot.id, line.id, step, dispatching ? Object.fromEntries(line.parts.map(p => [p.partId, toDeliver(p)])) : undefined);
-    if (result) setError(result);
+    if (result) { setError(result); toast({ message: result, variant: 'error' }); }
     else { toast('Firma registrada correctamente'); onClose(); }
   };
 
@@ -494,7 +494,7 @@ function RequisitionModal({ otId, lineId, onClose }: { otId: string; lineId: str
                 <div key={p.partId} className="border-t border-stone-100 px-2 py-2.5 sm:px-3">
                   <div className={`grid ${gridCols} items-center gap-x-1`}>
                     <div className="min-w-0">
-                      <p className="break-words text-content font-normal text-stone-800">{p.partDescription + " - UND"}</p>
+                      <p className="wrap-break-word text-content font-normal text-stone-800">{p.partDescription + " - UND"}</p>
                       <p className="break-all text-content font-normal text-stone-500">{p.partCode}</p>
                     </div>
                     <span className={`text-right text-content font-normal ${short && !delivered ? 'text-red-700' : 'text-stone-800'}`}>{stock}</span>
@@ -511,7 +511,7 @@ function RequisitionModal({ otId, lineId, onClose }: { otId: string; lineId: str
                           const n = Math.floor(Number(e.target.value));
                           setDelivery(prev => ({ ...prev, [p.partId]: Number.isFinite(n) ? Math.min(Math.max(n, 0), maxFor(p)) : 0 }));
                         }}
-                        className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-right text-content focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                        className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-right text-content focus:border-orange-400 focus:outline-hidden focus:ring-2 focus:ring-orange-300"
                       />
                     ) : (
                       <span className={`text-right text-content ${isPartial(line, p) ? 'font-bold text-orange-700' : 'font-normal text-stone-800'}`}>
@@ -539,15 +539,15 @@ function RequisitionModal({ otId, lineId, onClose }: { otId: string; lineId: str
         </section>
 
         {dispatching && shortages.length > 0 && (
-          <p className="flex items-start gap-2 rounded-md border border-orange-100 bg-orange-50 p-2.5 text-content text-orange-800">
-            <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+          <p className="flex items-start gap-2 rounded-md border border-orange-100 bg-orange-50 p-2.5 text-content text-orange-800 dark:border-orange-500/30 dark:bg-orange-500/15 dark:text-orange-300">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
             Algunos repuestos tienen menos stock que lo solicitado. Puedes entregar solo lo disponible: la requisa
             mostrara lo entregado contra lo solicitado (por ejemplo 2 / 5).
           </p>
         )}
         {dispatching && totalToDeliver === 0 && (
-          <p role="alert" className="flex items-start gap-2 rounded-md border border-red-100 bg-red-50 p-2.5 text-content text-red-700">
-            <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+          <p role="alert" className="flex items-start gap-2 rounded-md border border-red-100 bg-red-50 p-2.5 text-content text-red-700 dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-300">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
             No hay stock disponible de ninguno de los repuestos: no hay nada que entregar todavia.
           </p>
         )}
@@ -592,7 +592,7 @@ function SurplusAction({ ot, line, part, canAct }: { ot: WorkOrder; line: OTLine
 
   return (
     <>
-      <Button size="sm" variant="outline" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={() => setOpen(true)}>
+      <Button size="sm" variant="outline" className="min-h-[44px] pointer-fine:min-h-0" onClick={() => setOpen(true)}>
         <PackageMinus size={12} /> <span className="hidden sm:inline">Devolver</span>
       </Button>
       {open && <SurplusReturnModal ot={ot} line={line} part={part} onClose={() => setOpen(false)} />}
@@ -615,7 +615,7 @@ function SurplusReturnModal({ ot, line, part, onClose }: { ot: WorkOrder; line: 
       : `¿Estas seguro de que las ${max} unidad(es) entregadas de ${part.partDescription} se usaron por completo, sin sobrante?`;
     if (!(await confirm({ title: 'Devolver sobrante', message, confirmLabel: 'Confirmar' }))) return;
     const result = returnSurplusPart(ot.id, line.id, part.partId, qty);
-    if (result) { setError(result); return; }
+    if (result) { setError(result); toast({ message: result, variant: 'error' }); return; }
     toast(qty > 0 ? 'Sobrante registrado en Inventario Excedente' : `${part.partDescription}: marcado como totalmente utilizado`);
     onClose();
   };
@@ -638,13 +638,13 @@ function SurplusReturnModal({ ot, line, part, onClose }: { ot: WorkOrder; line: 
               const n = Math.floor(Number(e.target.value));
               setQty(Number.isFinite(n) ? Math.min(Math.max(n, 0), max) : 0);
             }}
-            className="w-full rounded-md border border-stone-300 px-3 py-2 text-right text-content focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-300"
+            className="w-full rounded-md border border-stone-300 px-3 py-2 text-right text-content focus:border-orange-400 focus:outline-hidden focus:ring-2 focus:ring-orange-300"
           />
         </Field>
         {error && <p role="alert" className="text-content text-red-700">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={onClose}>Cancelar</Button>
-          <Button className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={handleSave}>Guardar</Button>
+          <Button variant="outline" className="min-h-[44px] pointer-fine:min-h-0" onClick={onClose}>Cancelar</Button>
+          <Button className="min-h-[44px] pointer-fine:min-h-0" onClick={handleSave}>Guardar</Button>
         </div>
       </div>
     </Modal>

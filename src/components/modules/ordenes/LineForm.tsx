@@ -24,7 +24,7 @@ function QuantityInput({ value, onChange, label }: { value: number; onChange: (n
         if (Number.isFinite(n) && n > 0) onChange(n);
       }}
       onBlur={() => setText(String(value))}
-      className="min-h-[44px] w-20 bg-white px-2 py-1.5 text-right text-content text-stone-800 transition-colors focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-300 [@media(pointer:fine)]:min-h-0"
+      className="min-h-[44px] w-20 bg-surface px-2 py-1.5 text-right text-content text-stone-800 transition-colors focus:border-orange-400 focus:outline-hidden focus:ring-2 focus:ring-orange-300 pointer-fine:min-h-0"
     />
   );
 }
@@ -97,7 +97,7 @@ export function PartsEditor({ value, onChange }: { value: OTLinePart[]; onChange
       <div className="overflow-x-auto border">
         <table className="w-full border-collapse text-content">
           <thead>
-            <tr className="bg-white text-center text-black">
+            <tr className="bg-surface text-center text-stone-900">
               <th className={`${cell} whitespace-nowrap font-bold`}>Codigo</th>
               <th className={`${cell} font-bold`}>Repuesto</th>
               <th className={`${cell} whitespace-nowrap font-bold`}>Unidad</th>
@@ -149,14 +149,14 @@ export function PartsEditor({ value, onChange }: { value: OTLinePart[]; onChange
                       onChange={e => onChange(value.map(x => (x.partId === p.partId ? { ...x, notes: e.target.value } : x)))}
                       placeholder="Observaciones..."
                       aria-label={`Observaciones de ${p.partDescription}`}
-                      className="w-full min-w-[120px] bg-white px-2 py-1.5 text-content text-stone-800 transition-colors focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                      className="w-full min-w-[120px] bg-surface px-2 py-1.5 text-content text-stone-800 transition-colors focus:border-orange-400 focus:outline-hidden focus:ring-2 focus:ring-orange-300"
                     />
                   </td>
                   <td className={`${cell} text-right`}>
                     <button
                       type="button"
                       onClick={() => onChange(value.filter(x => x.partId !== p.partId))}
-                      className="flex min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center rounded-md text-stone-400 transition-colors hover:bg-red-50 hover:text-red-600 [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 sm:p-1.5"
+                      className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md text-stone-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/15 dark:hover:text-red-400 pointer-fine:min-h-0 pointer-fine:min-w-0 sm:p-1.5"
                       title="Quitar repuesto"
                       aria-label={`Quitar ${p.partDescription}`}
                     >
@@ -198,7 +198,7 @@ export function PartsEditor({ value, onChange }: { value: OTLinePart[]; onChange
       </div>
       {value.some(p => p.quantity > stockOf(p.partId)) && (
         <p className="flex items-start gap-1.5 text-content text-orange-700">
-          <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />
+          <AlertTriangle size={12} className="mt-0.5 shrink-0" />
           Los repuestos en rojo piden mas de lo que hay en stock: Control de Inventario entregara lo disponible.
         </p>
       )}

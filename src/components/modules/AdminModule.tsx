@@ -26,7 +26,7 @@ export function AdminModule() {
   return (
     <div className="p-4 sm:p-6 space-y-4">
 
-      <div className="bg-white rounded-lg shadow-card border border-stone-200">
+      <div className="bg-surface rounded-lg shadow-card border border-stone-200">
         <div className="flex overflow-x-auto border-b border-stone-200">
           <TabButton active={tab === 'usuarios'} onClick={() => setTab('usuarios')}>Usuarios y Roles</TabButton>
           <TabButton active={tab === 'tipos'} onClick={() => setTab('tipos')}>Tipos de Trabajo</TabButton>
@@ -49,7 +49,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
   return (
     <button
       onClick={onClick}
-      className={`inline-flex min-h-[44px] items-center px-5 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 [@media(pointer:fine)]:min-h-0 ${active ? 'border-orange-500 text-orange-600' : 'border-transparent text-stone-500 hover:text-stone-700'}`}
+      className={`inline-flex min-h-[44px] items-center px-5 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 pointer-fine:min-h-0 ${active ? 'border-orange-500 text-orange-600' : 'border-transparent text-stone-500 hover:text-stone-700'}`}
     >
       {children}
     </button>
@@ -106,14 +106,14 @@ function UsersTab() {
                     <Select
                       value={u.role}
                       onChange={e => updateUser(u.id, { role: e.target.value as UserRole })}
-                      className="min-w-[10rem] !py-1 !text-content"
+                      className="min-w-40 py-1! text-content!"
                     >
                       {roleOrder.map(r => <option key={r} value={r}>{roleLabels[r]}</option>)}
                     </Select>
                   </td>
                   <td>
                     <button
-                      className="inline-flex min-h-[44px] items-center [@media(pointer:fine)]:min-h-0"
+                      className="inline-flex min-h-[44px] items-center pointer-fine:min-h-0"
                       onClick={async () => {
                         const willActivate = !u.active;
                         if (await confirm({ title: willActivate ? 'Activar usuario' : 'Desactivar usuario', message: `¿Estas seguro de ${willActivate ? 'activar' : 'desactivar'} a ${u.name}?`, confirmLabel: willActivate ? 'Activar' : 'Desactivar' })) {
@@ -135,7 +135,7 @@ function UsersTab() {
                       }}
                       disabled={isSelf}
                       title={isSelf ? 'No puedes eliminar tu propio usuario' : 'Eliminar usuario'}
-                      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-stone-400 transition-colors hover:text-red-600 disabled:opacity-30 disabled:hover:text-stone-400 [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0"
+                      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-stone-400 transition-colors hover:text-red-600 disabled:opacity-30 disabled:hover:text-stone-400 pointer-fine:min-h-0 pointer-fine:min-w-0"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -160,9 +160,16 @@ function NewUserModal({ open, onClose, onCreate }: {
   const [form, setForm] = useState({ name: '', username: '', password: '', role: 'tecnico' as UserRole });
   const confirm = useConfirm();
   const toast = useToast();
+  const { users } = useAuth();
 
   const handleSubmit = async () => {
-    if (!form.name || !form.username || !form.password) return;
+    if (!form.name.trim()) { toast({ message: 'El nombre del usuario es obligatorio.', variant: 'error' }); return; }
+    if (!form.username.trim()) { toast({ message: 'El usuario (login) es obligatorio.', variant: 'error' }); return; }
+    if (users.some(u => u.username.toLowerCase() === form.username.trim().toLowerCase())) {
+      toast({ message: 'Ya existe un usuario con ese nombre de usuario.', variant: 'error' });
+      return;
+    }
+    if (form.password.length < 4) { toast({ message: 'La contrasena debe tener al menos 4 caracteres.', variant: 'error' }); return; }
     if (!(await confirm({ title: 'Crear usuario', message: '¿Estas seguro de crear este usuario?', confirmLabel: 'Crear usuario' }))) return;
     onCreate({ ...form, active: true });
     toast(`${form.name} creado correctamente`);
@@ -218,9 +225,14 @@ function WorkTypesTab() {
 
   const handleAdd = () => {
     const trimmed = name.trim();
-    if (!trimmed) return;
+    if (!trimmed) { toast({ message: 'Escribe el nombre del tipo de trabajo.', variant: 'error' }); return; }
+    if (workTypes.some(t => t.name.toLowerCase() === trimmed.toLowerCase())) {
+      toast({ message: 'Ya existe un tipo de trabajo con ese nombre.', variant: 'error' });
+      return;
+    }
     const code = slugifyWorkTypeCode(trimmed) || `tipo_${workTypes.length + 1}`;
     addWorkType({ code, name: trimmed, description: '', active: true });
+    toast(`${trimmed} creado correctamente`);
     setName('');
   };
 
@@ -238,10 +250,10 @@ function WorkTypesTab() {
               <TextInput
                 value={item.name}
                 onChange={e => updateWorkType(item.id, { name: e.target.value })}
-                className="flex-1 !py-1 !text-content"
+                className="flex-1 py-1! text-content!"
               />
               <button
-                className="inline-flex min-h-[44px] items-center [@media(pointer:fine)]:min-h-0"
+                className="inline-flex min-h-[44px] items-center pointer-fine:min-h-0"
                 onClick={async () => {
                   const willActivate = !item.active;
                   if (await confirm({ title: willActivate ? 'Activar tipo de trabajo' : 'Desactivar tipo de trabajo', message: `¿Estas seguro de ${willActivate ? 'activar' : 'desactivar'} "${item.name}"?`, confirmLabel: willActivate ? 'Activar' : 'Desactivar' })) {
@@ -259,7 +271,7 @@ function WorkTypesTab() {
                     toast({ message: `"${item.name}" eliminado`, variant: 'info' });
                   }
                 }}
-                className="flex min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center text-stone-400 transition-colors hover:text-red-600 [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0"
+                className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center text-stone-400 transition-colors hover:text-red-600 pointer-fine:min-h-0 pointer-fine:min-w-0"
                 title="Eliminar"
               >
                 <Trash2 size={13} />
@@ -271,7 +283,7 @@ function WorkTypesTab() {
 
         <div className="flex flex-wrap items-end gap-2 px-4 py-3 border-t border-stone-200 bg-stone-50/50">
           <Field label="Nombre" className="flex-1">
-            <TextInput value={name} onChange={e => setName(e.target.value)} placeholder="Nuevo tipo de trabajo" className="!py-1 !text-content" />
+            <TextInput value={name} onChange={e => setName(e.target.value)} placeholder="Nuevo tipo de trabajo" className="py-1! text-content!" />
           </Field>
           <Button size="sm" variant="outline" onClick={handleAdd}><Plus size={12} /> Agregar</Button>
         </div>
@@ -329,13 +341,13 @@ function PermissionsTab() {
                       return (
                         <td key={role} className="text-center">
                           {/* toda la celda (44px en telefono) es el area de toque, no solo la casilla */}
-                          <label className="inline-flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0">
+                          <label className="inline-flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center pointer-fine:min-h-0 pointer-fine:min-w-0">
                             <input
                               type="checkbox"
                               checked={checked}
                               disabled={locked}
                               onChange={e => setRolePermission(role, permission, e.target.checked)}
-                              className="h-5 w-5 rounded border-stone-300 text-orange-500 focus:ring-orange-300 disabled:opacity-40 sm:h-4 sm:w-4"
+                              className="h-5 w-5 rounded-sm border-stone-300 text-orange-500 focus:ring-orange-300 disabled:opacity-40 sm:h-4 sm:w-4"
                             />
                             {locked && <Lock size={10} className="ml-1 text-stone-400" />}
                           </label>

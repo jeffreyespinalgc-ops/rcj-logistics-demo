@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useApp } from '@/store/AppContext';
 import { useAuth } from '@/store/AuthContext';
 import type { ModuleKey } from '@/types';
 import { modulePermissions } from '@/lib/permissions';
 import { initialsOf, roleLabels } from '@/lib/roles';
 import { pendingRequisitionCount } from '@/lib/requisition';
+import { UserProfileModal } from '@/components/auth/UserProfileModal';
 import logo from '@/assets/images/RCJ-Logistics-Blanco.png';
 import {
   Truck,
@@ -45,6 +47,7 @@ const navItems: NavItem[] = [
 export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChange: (mode: SidebarMode) => void }) {
   const { activeModule, setActiveModule, notifications, hasPermission, currentRole, workOrders, currentUser } = useApp();
   const { session, logout } = useAuth();
+  const [showProfile, setShowProfile] = useState(false);
   const unreadCount = notifications.filter(n => !n.read).length;
   // cambios de estado, firmas y hallazgos de una OT avisan en el propio modulo de Ordenes de Trabajo,
   // no solo en Notificaciones (bajo_stock es de Repuestos e Inventario; la sincronizacion SAP no es de una OT)
@@ -70,10 +73,10 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
 
   return (
     <>
-      {mode === 'full' && <div className="animate-fade-in fixed inset-0 z-30 bg-stone-900/50 lg:hidden" onClick={() => onModeChange('hidden')} />}
+      {mode === 'full' && <div className="animate-fade-in fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => onModeChange('hidden')} />}
 
       <aside
-        className={`${mini ? 'w-14' : 'w-60'} ${mode === 'hidden' ? 'lg:w-0' : mini ? 'lg:w-14' : 'lg:w-60'} overflow-hidden bg-blue-900 text-blue-50 flex flex-col flex-shrink-0 fixed top-0 left-0 z-40 h-dvh transition-[transform,width] duration-200 motion-reduce:transition-none lg:sticky lg:z-auto lg:h-screen lg:translate-x-0 ${
+        className={`${mini ? 'w-14' : 'w-60'} ${mode === 'hidden' ? 'lg:w-0' : mini ? 'lg:w-14' : 'lg:w-60'} overflow-hidden bg-blue-900 text-blue-50 flex flex-col shrink-0 fixed top-0 left-0 z-40 h-dvh transition-[transform,width] duration-200 motion-reduce:transition-none lg:sticky lg:z-auto lg:h-screen lg:translate-x-0 ${
           mode === 'hidden' ? '-translate-x-full' : 'translate-x-0'
         }`}
       >
@@ -92,7 +95,7 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
 
         <div className={`relative px-5 py-8 border-b border-blue-800/50 justify-center items-center ${mini ? 'hidden' : 'flex'}`}>
           <div className="flex items-center justify-center w-full">
-            <div className="w-18 h-14 flex items-center justify-center flex-shrink-0">
+            <div className="w-18 h-14 flex items-center justify-center shrink-0">
               <img
                 src={logo}
                 alt="RCJ Logistics"
@@ -135,7 +138,7 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
                     : 'text-blue-200 hover:bg-blue-800/50 hover:text-white border-l-4 border-transparent'
                 }`}
               >
-                <Icon size={18} className="flex-shrink-0" />
+                <Icon size={18} className="shrink-0" />
                 <span className={`text-left flex-1 ${hideText}`}>{item.label}</span>
                 {showBadge && (
                   <span className={`bg-orange-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center ${hideText}`}>
@@ -154,9 +157,14 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
 
         <div className={`px-5 py-4 border-t border-blue-800/50 ${hideText}`}>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-blue-700 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
+            <button
+              onClick={() => setShowProfile(true)}
+              aria-label="Ver mi perfil"
+              title="Ver mi perfil"
+              className="w-9 h-9 bg-blue-700 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 transition-colors hover:bg-blue-600"
+            >
               {initialsOf(session?.name ?? '')}
-            </div>
+            </button>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-white truncate">{session?.name}</p>
               <p className="text-xs text-blue-300 truncate">{roleLabels[currentRole]}</p>
@@ -164,7 +172,7 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
             <button
               onClick={logout}
               title="Cerrar sesion"
-              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-md text-blue-300 transition-colors hover:bg-blue-800 hover:text-white"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-blue-300 transition-colors hover:bg-blue-800 hover:text-white"
             >
               <LogOut size={16} />
             </button>
@@ -173,12 +181,14 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
 
         {mini && (
           <div className="flex flex-col items-center gap-1 border-t border-blue-800/50 py-3">
-            <div
+            <button
+              onClick={() => setShowProfile(true)}
+              aria-label="Ver mi perfil"
               title={session?.name}
-              className="w-9 h-9 bg-blue-700 rounded-full flex items-center justify-center text-sm font-bold text-white"
+              className="w-9 h-9 bg-blue-700 rounded-full flex items-center justify-center text-sm font-bold text-white transition-colors hover:bg-blue-600"
             >
               {initialsOf(session?.name ?? '')}
-            </div>
+            </button>
             <button
               onClick={logout}
               aria-label="Cerrar sesion"
@@ -190,6 +200,8 @@ export function Sidebar({ mode, onModeChange }: { mode: SidebarMode; onModeChang
           </div>
         )}
       </aside>
+
+      {showProfile && <UserProfileModal onClose={() => setShowProfile(false)} />}
     </>
   );
 }

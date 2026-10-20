@@ -22,11 +22,11 @@ let toastSeq = 0;
 
 const icons = { success: CheckCircle, error: XCircle, info: Info };
 const styles = {
-  success: 'border-green-200 bg-green-50 text-green-800',
-  error: 'border-red-200 bg-red-50 text-red-800',
-  info: 'border-blue-200 bg-blue-50 text-blue-800',
+  success: 'border-green-200 bg-green-50 text-green-800 dark:border-green-500/30 dark:bg-green-500/15 dark:text-green-300',
+  error: 'border-red-200 bg-red-50 text-red-800 dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-300',
+  info: 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-500/30 dark:bg-blue-500/15 dark:text-blue-300',
 };
-const iconColors = { success: 'text-green-500', error: 'text-red-500', info: 'text-blue-500' };
+const iconColors = { success: 'text-green-500 dark:text-green-400', error: 'text-red-500 dark:text-red-400', info: 'text-blue-500 dark:text-blue-400' };
 
 /**
  * Aviso flotante arriba a la derecha para confirmar que una accion se completo ("OT creada correctamente"),
@@ -57,7 +57,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={toast}>
       {children}
-      <div className="pointer-events-none fixed right-4 top-4 z-[100] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-2 sm:right-6 sm:top-6">
+      <div className="pointer-events-none fixed right-4 top-4 z-100 flex w-[calc(100%-2rem)] max-w-sm flex-col gap-2 sm:right-6 sm:top-6">
         {toasts.map(t => {
           const Icon = icons[t.variant];
           return (
@@ -66,9 +66,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               role="status"
               className={`animate-toast-in pointer-events-auto flex items-start gap-2 rounded-md border px-3 py-2.5 shadow-card-hover ${styles[t.variant]}`}
             >
-              <Icon size={18} className={`mt-0.5 flex-shrink-0 ${iconColors[t.variant]}`} />
+              <Icon size={18} className={`mt-0.5 shrink-0 ${iconColors[t.variant]}`} />
               <p className="flex-1 text-content font-medium">{t.message}</p>
-              <button onClick={() => dismiss(t.id)} aria-label="Cerrar aviso" className="flex-shrink-0 text-stone-400 transition-colors hover:text-stone-600">
+              <button onClick={() => dismiss(t.id)} aria-label="Cerrar aviso" className="shrink-0 text-stone-400 transition-colors hover:text-stone-600">
                 <X size={14} />
               </button>
             </div>

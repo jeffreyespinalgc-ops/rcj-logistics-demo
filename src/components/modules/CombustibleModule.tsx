@@ -108,7 +108,7 @@ export function CombustibleModule() {
         <StatCard label="Mayor Consumo" value={topConsumer?.assetName.split(' ').slice(0, 2).join(' ') ?? 'N/A'} icon={<Fuel size={28} />} subtitle={topConsumer ? `${topConsumer.totalLiters.toLocaleString()} L` : ''} />
       </IndicatorCards>
 
-      <div className="bg-white rounded-lg shadow-card border border-stone-200">
+      <div className="bg-surface rounded-lg shadow-card border border-stone-200">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-stone-200">
           <h3 className="ui-title">Resumen de consumo por activo</h3>
           {canRegister && (
@@ -182,7 +182,7 @@ function AssetFuelHistory({ assetLabel, loads, onBack }: {
         <ArrowLeft size={16} /> Volver al resumen
       </button>
 
-      <div className="bg-white rounded-lg shadow-card border border-stone-200">
+      <div className="bg-surface rounded-lg shadow-card border border-stone-200">
         <div className="px-4 py-3 border-b border-stone-200">
           <h3 className="ui-title">Historial de cargas</h3>
         </div>
@@ -240,9 +240,16 @@ function FuelLoadModal({ open, onClose, assets, onCreate }: {
 
   const cost = liters * unitPrice;
 
+  const today = new Date().toISOString().slice(0, 10);
+
   const handleSubmit = async () => {
     const asset = assets.find(a => a.id === assetId);
-    if (!asset || liters <= 0) return;
+    if (!asset) { toast({ message: 'Selecciona el vehiculo de la carga.', variant: 'error' }); return; }
+    if (!date) { toast({ message: 'Selecciona la fecha de la carga.', variant: 'error' }); return; }
+    if (date > today) { toast({ message: 'La fecha no puede ser futura.', variant: 'error' }); return; }
+    if (liters <= 0) { toast({ message: 'Los litros deben ser mayores a cero.', variant: 'error' }); return; }
+    if (unitPrice <= 0) { toast({ message: 'El precio por litro debe ser mayor a cero.', variant: 'error' }); return; }
+    if (odometer < 0) { toast({ message: 'El odometro/horometro no puede ser negativo.', variant: 'error' }); return; }
     if (!(await confirm({ title: 'Registrar carga', message: '¿Estas seguro de registrar esta carga de combustible?', confirmLabel: 'Registrar carga' }))) return;
     onCreate({
       assetId: asset.id,
@@ -274,7 +281,7 @@ function FuelLoadModal({ open, onClose, assets, onCreate }: {
         </Field>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Fecha *">
-            <TextInput type="date" value={date} onChange={e => setDate(e.target.value)} />
+            <TextInput type="date" max={today} value={date} onChange={e => setDate(e.target.value)} />
           </Field>
           <Field label="Tipo de Combustible">
             <Select value={fuelType} onChange={e => setFuelType(e.target.value as 'diesel' | 'gasolina_87' | 'gasolina_91' | 'gasolina_95')}>
@@ -302,9 +309,9 @@ function FuelLoadModal({ open, onClose, assets, onCreate }: {
             </Select>
           </Field>
         </div>
-        <div className="p-3 bg-blue-50 rounded-md border border-blue-100 flex items-center justify-between">
-          <span className="text-sm text-blue-700 font-bold">Costo total de la carga:</span>
-          <span className="text-lg font-normal text-blue-800">{formatCLP(cost)}</span>
+        <div className="p-3 bg-blue-50 rounded-md border border-blue-100 flex items-center justify-between dark:border-blue-500/30 dark:bg-blue-500/15">
+          <span className="text-sm text-blue-700 font-bold dark:text-blue-300">Costo total de la carga:</span>
+          <span className="text-lg font-normal text-blue-800 dark:text-blue-200">{formatCLP(cost)}</span>
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose}>Cancelar</Button>

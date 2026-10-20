@@ -153,7 +153,7 @@ export function ActivosModule() {
         <StatCard label="Fuera de Servicio" value={stats.fueraServicio} icon={<Truck size={28} />} />
       </IndicatorCards>
 
-      <div className="bg-white rounded-lg shadow-card border border-stone-200">
+      <div className="bg-surface rounded-lg shadow-card border border-stone-200">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-stone-200">
           <div className="flex items-center gap-3">
             <h3 className="ui-title text-content">LISTADO DE VEHICULOS</h3>
@@ -162,7 +162,7 @@ export function ActivosModule() {
                 onClick={() => setViewMode('lista')}
                 aria-label="Ver en tabla"
                 title="Ver en tabla"
-                className={`flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 ${viewMode === 'lista' ? 'bg-white text-orange-700 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}
+                className={`flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-sm transition-colors pointer-fine:min-h-0 pointer-fine:min-w-0 ${viewMode === 'lista' ? 'bg-surface text-orange-700 shadow-xs' : 'text-stone-500 hover:text-stone-700'}`}
               >
                 <List size={14} />
               </button>
@@ -170,7 +170,7 @@ export function ActivosModule() {
                 onClick={() => setViewMode('cuadricula')}
                 aria-label="Ver en tarjetas"
                 title="Ver en tarjetas"
-                className={`flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:min-w-0 ${viewMode === 'cuadricula' ? 'bg-white text-orange-700 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}
+                className={`flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-sm transition-colors pointer-fine:min-h-0 pointer-fine:min-w-0 ${viewMode === 'cuadricula' ? 'bg-surface text-orange-700 shadow-xs' : 'text-stone-500 hover:text-stone-700'}`}
               >
                 <LayoutGrid size={14} />
               </button>
@@ -301,11 +301,11 @@ function AssetCard({ asset, onClick }: { asset: Asset; onClick: () => void }) {
   return (
     <div
       onClick={onClick}
-      className="group relative flex cursor-pointer flex-col overflow-hidden rounded-lg border border-stone-200 bg-white shadow-card transition-[box-shadow,border-color,transform] duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-500 hover:shadow-card-hover motion-reduce:hover:translate-y-0"
+      className="group relative flex cursor-pointer flex-col overflow-hidden rounded-lg border border-stone-200 bg-surface shadow-card transition-[box-shadow,border-color,transform] duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-500 hover:shadow-card-hover motion-reduce:hover:translate-y-0"
     >
       <span className={`absolute inset-y-0 left-0 z-10 w-[3px] ${statusStripeColors[asset.status]}`} />
 
-      <div className="relative h-40 w-full flex-shrink-0 bg-stone-100">
+      <div className="relative h-40 w-full shrink-0 bg-stone-100">
         {cover ? (
           <img src={cover.dataUrl} alt={asset.name} className="h-full w-full object-cover" />
         ) : (
@@ -320,7 +320,7 @@ function AssetCard({ asset, onClick }: { asset: Asset; onClick: () => void }) {
 
       <div className="flex flex-1 flex-col gap-1.5 p-3">
         {/* <span className="text-content font-bold text-blue-700">{asset.code}</span> */}
-        <p className="text-content font-normal text-black line-clamp-2">{asset.name}</p>
+        <p className="text-content font-normal text-stone-900 line-clamp-2">{asset.name}</p>
         {/* <p className="text-content text-stone-500">{typeLabels[asset.type]}</p> */}
         <div className="mt-auto grid grid-cols-2 gap-1.5 border-t border-stone-100 pt-2 text-content text-stone-600">
           <span className="truncate"><strong className="font-bold text-stone-600"></strong> {asset.plate || '--'}</span>
@@ -356,10 +356,10 @@ function AssetDetail({ asset, history, onBack, detailTab, setDetailTab, onSync, 
         <ArrowLeft size={16} /> Volver al listado
       </button>
 
-      <div className="bg-white rounded-lg shadow-card border border-stone-200">
+      <div className="bg-surface rounded-lg shadow-card border border-stone-200">
         <div className="px-4 sm:px-5 py-4 border-b border-stone-200 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-12 h-12 text-stone-900 flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 text-stone-900 flex items-center justify-center shrink-0">
               <Truck size={30} />
             </div>
             <div className="min-w-0">
@@ -448,7 +448,7 @@ function AssetDetail({ asset, history, onBack, detailTab, setDetailTab, onSync, 
                   const relatedOT = entry.type === 'ot' ? workOrders.find(ot => ot.code === entry.reference) : undefined;
                   return (
                     <div key={entry.id} className="relative">
-                      <div className="absolute -left-[22px] top-0.5 w-6 h-6 rounded-full flex items-center justify-center bg-white text-stone-900">
+                      <div className="absolute left-[-22px] top-0.5 w-6 h-6 rounded-full flex items-center justify-center bg-surface text-stone-900">
                         {icon}
                       </div>
                       <div className="bg-stone-50 rounded-lg p-3 border border-stone-100">
@@ -559,7 +559,16 @@ function CreateAssetModal({ open, onClose, onCreate, locations }: {
   const toast = useToast();
 
   const handleSubmit = async () => {
-    if (!form.code || !form.name) return;
+    if (!form.code.trim()) { toast({ message: 'El codigo del vehiculo es obligatorio.', variant: 'error' }); return; }
+    if (!form.name.trim()) { toast({ message: 'El nombre del vehiculo es obligatorio.', variant: 'error' }); return; }
+    if (!form.location) { toast({ message: 'Selecciona la ubicacion del vehiculo.', variant: 'error' }); return; }
+    const currentYear = new Date().getFullYear();
+    if (!Number.isInteger(form.year) || form.year < 1980 || form.year > currentYear + 1) {
+      toast({ message: `El año debe estar entre 1980 y ${currentYear + 1}.`, variant: 'error' });
+      return;
+    }
+    if (form.odometer < 0) { toast({ message: 'El kilometraje no puede ser negativo.', variant: 'error' }); return; }
+    if (form.acquisitionCost < 0) { toast({ message: 'El costo de adquisicion no puede ser negativo.', variant: 'error' }); return; }
     if (!(await confirm({ title: 'Crear activo', message: '¿Estas seguro de crear la ficha de este vehiculo?', confirmLabel: 'Crear ficha' }))) return;
     onCreate({
       ...form,
@@ -606,7 +615,7 @@ function CreateAssetModal({ open, onClose, onCreate, locations }: {
             <TextInput value={form.model} onChange={e => setForm({ ...form, model: e.target.value })} />
           </Field>
           <Field label="Año">
-            <TextInput type="number" value={form.year} onChange={e => setForm({ ...form, year: Number(e.target.value) })} />
+            <TextInput type="number" min={1980} max={new Date().getFullYear() + 1} value={form.year} onChange={e => setForm({ ...form, year: Number(e.target.value) })} />
           </Field>
           <Field label="Patente">
             <TextInput value={form.plate} onChange={e => setForm({ ...form, plate: e.target.value })} />
@@ -618,10 +627,10 @@ function CreateAssetModal({ open, onClose, onCreate, locations }: {
             <TextInput value={form.chassis} onChange={e => setForm({ ...form, chassis: e.target.value })} />
           </Field>
           <Field label="Kilometraje">
-            <TextInput type="number" value={form.odometer} onChange={e => setForm({ ...form, odometer: Number(e.target.value) })} />
+            <TextInput type="number" min={0} value={form.odometer} onChange={e => setForm({ ...form, odometer: Number(e.target.value) })} />
           </Field>
           <Field label="Costo de Adquisicion">
-            <TextInput type="number" value={form.acquisitionCost} onChange={e => setForm({ ...form, acquisitionCost: Number(e.target.value) })} />
+            <TextInput type="number" min={0} value={form.acquisitionCost} onChange={e => setForm({ ...form, acquisitionCost: Number(e.target.value) })} />
           </Field>
         </div>
         <div className="flex justify-end gap-2 pt-2">
