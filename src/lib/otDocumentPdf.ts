@@ -34,16 +34,23 @@ export function buildOTPdfData(ot: WorkOrder, users: AppUser[]): OTDocumentData 
   // firma guardada del usuario (la que hereda en todo lo que firma), buscada por nombre
   const sigOf = (name: string | null | undefined) => users.find(u => u.name === name)?.signature ?? null;
 
+  // un registro por actividad (no por linea): una linea con 2 actividades genera 2 filas en el documento.
+  // repuesto y comentario son de la linea completa, no de una actividad puntual, asi que solo se escriben
+  // en la primera fila de esa linea (las siguientes quedan en blanco en esas columnas).
   const rows: OTDocumentRow[] = ot.lines
     .filter((l): l is typeof l & { finishedAt: string } => Boolean(l.finishedAt))
     .sort((a, b) => a.finishedAt!.localeCompare(b.finishedAt!))
-    .map(l => ({
-      fecha: formatDate(l.finishedAt!),
-      hora: formatTime(l.finishedAt!),
-      actividad: (l.activities ?? []).map(a => a.name).join(', ') || l.work,
-      repuesto: l.parts.filter(p => usedQuantity(l, p) > 0).map(p => `${p.partCode} x${usedQuantity(l, p)}`).join(', '),
-      comentario: l.notes,
-    }));
+    .flatMap(l => {
+      const actividades = (l.activities ?? []).map(a => a.name);
+      const repuesto = l.parts.filter(p => usedQuantity(l, p) > 0).map(p => `${p.partCode} x${usedQuantity(l, p)}`).join(', ');
+      return (actividades.length > 0 ? actividades : [l.work]).map((actividad, i) => ({
+        fecha: formatDate(l.finishedAt!),
+        hora: formatTime(l.finishedAt!),
+        actividad,
+        repuesto: i === 0 ? repuesto : '',
+        comentario: i === 0 ? l.notes : '',
+      }));
+    });
 
   const finalizedEntry = ot.history.find(h => h.status === 'finalizada');
   const closedEntry = ot.history.find(h => h.status === 'cerrada');

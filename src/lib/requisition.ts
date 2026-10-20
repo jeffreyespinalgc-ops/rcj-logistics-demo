@@ -160,9 +160,13 @@ export const isDelivered = (line: OTLine): boolean => Boolean(line.requisition?.
 export const deliveredQuantity = (line: OTLine, part: OTLinePart): number =>
   isDelivered(line) ? (part.deliveredQuantity ?? part.quantity) : 0;
 
-/** Lo que realmente se uso: lo entregado si la requisa ya salio del inventario; en lineas sin requisa, lo registrado */
+/** Lo que realmente se uso: lo entregado menos lo que se devolvio como sobrante; en lineas sin requisa, lo registrado */
 export const usedQuantity = (line: OTLine, part: OTLinePart): number =>
-  isDelivered(line) ? deliveredQuantity(line, part) : part.quantity;
+  isDelivered(line) ? deliveredQuantity(line, part) - (part.returnedQuantity ?? 0) : part.quantity;
+
+/** Cuanto de lo entregado todavia se puede devolver como sobrante (Inventario Excedente); 0 si ya se resolvio */
+export const returnableQuantity = (line: OTLine, part: OTLinePart): number =>
+  part.surplusResolved ? 0 : Math.max(0, deliveredQuantity(line, part) - (part.returnedQuantity ?? 0));
 
 /** "2 / 5" una vez entregado; antes de la entrega solo la cantidad solicitada */
 export const quantityLabel = (line: OTLine, part: OTLinePart): string =>

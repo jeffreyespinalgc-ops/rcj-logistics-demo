@@ -7,14 +7,13 @@ type BadgeVariant = 'blue' | 'orange' | 'green' | 'red' | 'gray' | 'yellow' | 'p
 
 // "rechazada" queda fuera de otFlow a proposito: es una salida terminal del flujo normal, no un paso mas
 // (si estuviera en otFlow, la linea de tiempo de TODAS las OTs mostraria un paso "Rechazada" como pendiente).
-export const otFlow: OTStatus[] = ['creada', 'pendiente_aprobacion', 'aprobada', 'en_ejecucion', 'finalizada', 'cerrada'];
+export const otFlow: OTStatus[] = ['creada', 'aprobada', 'en_ejecucion', 'finalizada', 'cerrada'];
 
 /** Para selects/filtros que si deben poder elegir "Rechazada" ademas de los pasos del flujo normal */
 export const allOTStatuses: OTStatus[] = [...otFlow, 'rechazada'];
 
 export const statusLabels: Record<OTStatus, string> = {
   creada: 'Creada',
-  pendiente_aprobacion: 'Pendiente de aprobacion',
   aprobada: 'Aprobada',
   en_ejecucion: 'En ejecucion',
   finalizada: 'Finalizada',
@@ -25,7 +24,6 @@ export const statusLabels: Record<OTStatus, string> = {
 /** Etiqueta corta para tablas y cards */
 export const statusShortLabels: Record<OTStatus, string> = {
   creada: 'Creada',
-  pendiente_aprobacion: 'Pend. aprobacion',
   aprobada: 'Aprobada',
   en_ejecucion: 'En ejecucion',
   finalizada: 'Finalizada',
@@ -35,7 +33,6 @@ export const statusShortLabels: Record<OTStatus, string> = {
 
 export const statusVariants: Record<OTStatus, BadgeVariant> = {
   creada: 'gray',
-  pendiente_aprobacion: 'orange',
   aprobada: 'blue',
   en_ejecucion: 'yellow',
   finalizada: 'purple',
@@ -46,7 +43,6 @@ export const statusVariants: Record<OTStatus, BadgeVariant> = {
 /** Rol que debe actuar en cada etapa del flujo. No se usa para "rechazada" (fuera de otFlow), pero el tipo lo exige. */
 export const statusOwners: Record<OTStatus, UserRole> = {
   creada: 'jefe_taller',
-  pendiente_aprobacion: 'jefe_taller',
   aprobada: 'tecnico',
   en_ejecucion: 'tecnico',
   finalizada: 'jefe_taller',
@@ -56,7 +52,6 @@ export const statusOwners: Record<OTStatus, UserRole> = {
 
 export const statusOwnerLabels: Record<OTStatus, string> = {
   creada: 'Jefe de Taller',
-  pendiente_aprobacion: 'Jefe de Taller',
   aprobada: 'Tecnico asignado',
   en_ejecucion: 'Tecnico asignado',
   finalizada: 'Jefe de Taller',

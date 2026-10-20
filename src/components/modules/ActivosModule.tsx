@@ -50,7 +50,7 @@ const typeLabels: Record<AssetType, string> = {
 
 /** Franja de color a la izquierda de la card: el estado se reconoce de un vistazo, sin leer el badge */
 const statusStripeColors: Record<AssetStatus, string> = {
-  operativo: 'bg-green-500',
+  operativo: 'bg-blue-500',
   en_mantenimiento: 'bg-orange-500',
   fuera_de_servicio: 'bg-red-500',
   baja: 'bg-stone-400',
@@ -153,7 +153,7 @@ export function ActivosModule() {
       <div className="bg-white rounded-lg shadow-card border border-stone-200">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-stone-200">
           <div className="flex items-center gap-3">
-            <h3 className="ui-title text-content">LISTADO DE ACTIVOS</h3>
+            <h3 className="ui-title text-content">LISTADO DE VEHICULOS</h3>
             <div className="flex items-center gap-1 bg-stone-100 rounded-md p-0.5">
               <button
                 onClick={() => setViewMode('lista')}
@@ -295,7 +295,7 @@ function AssetCard({ asset, onClick }: { asset: Asset; onClick: () => void }) {
   return (
     <div
       onClick={onClick}
-      className="group relative flex cursor-pointer flex-col overflow-hidden rounded-lg border border-stone-200 bg-white shadow-card transition-[box-shadow,border-color,transform] duration-200 ease-out hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-card-hover motion-reduce:hover:translate-y-0"
+      className="group relative flex cursor-pointer flex-col overflow-hidden rounded-lg border border-stone-200 bg-white shadow-card transition-[box-shadow,border-color,transform] duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-500 hover:shadow-card-hover motion-reduce:hover:translate-y-0"
     >
       <span className={`absolute inset-y-0 left-0 z-10 w-[3px] ${statusStripeColors[asset.status]}`} />
 
@@ -341,6 +341,9 @@ function AssetDetail({ asset, history, onBack, detailTab, setDetailTab, onSync, 
   syncing: boolean;
   canSync: boolean;
 }) {
+  const { workOrders, hasPermission, openWorkOrder } = useApp();
+  const canOpenOT = hasPermission('modulo.ordenes');
+
   return (
     <div className="p-4 sm:p-6 space-y-4">
       <button onClick={onBack} className="flex items-center gap-2 text-sm text-stone-600 hover:text-orange-600 transition-colors">
@@ -434,6 +437,9 @@ function AssetDetail({ asset, history, onBack, detailTab, setDetailTab, onSync, 
               <div className="relative pl-8 space-y-4 before:content-[''] before:absolute before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-stone-200">
                 {history.map(entry => {
                   const icon = entry.type === 'ot' ? <Wrench size={16} /> : entry.type === 'movimiento' ? <Package size={16} /> : <Fuel size={16} />;
+                  // el historial de un activo solo guarda el codigo de la OT (entry.reference); hay que buscarla
+                  // por codigo para poder abrirla, y solo tiene sentido como enlace cuando la entrada es de tipo "ot"
+                  const relatedOT = entry.type === 'ot' ? workOrders.find(ot => ot.code === entry.reference) : undefined;
                   return (
                     <div key={entry.id} className="relative">
                       <div className="absolute -left-[22px] top-0.5 w-6 h-6 rounded-full flex items-center justify-center bg-white text-stone-900">
@@ -441,7 +447,18 @@ function AssetDetail({ asset, history, onBack, detailTab, setDetailTab, onSync, 
                       </div>
                       <div className="bg-stone-50 rounded-lg p-3 border border-stone-100">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-content font-bold text-stone-700">{entry.reference}</span>
+                          {relatedOT && canOpenOT ? (
+                            <button
+                              type="button"
+                              onClick={() => openWorkOrder(relatedOT.id)}
+                              title={`Abrir ${entry.reference}`}
+                              className="text-content font-bold text-blue-700 hover:underline"
+                            >
+                              {entry.reference}
+                            </button>
+                          ) : (
+                            <span className="text-content font-bold text-stone-700">{entry.reference}</span>
+                          )}
                           <span className="text-content text-stone-400">{entry.date}</span>
                         </div>
                         <p className="text-content text-stone-600">{entry.description}</p>

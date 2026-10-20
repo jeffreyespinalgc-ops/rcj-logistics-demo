@@ -5,7 +5,8 @@ import { formatDateTime, statusLabels, statusOwnerLabels } from './otMeta';
 
 /**
  * Etapas en orden estricto, con una sola activa a la vez:
- * Creada -> Pendiente de aprobacion -> Aprobada -> Revision de Inventario -> En ejecucion -> Finalizada -> Enviado a SAP.
+ * Creada -> Aprobada -> Revision de Inventario -> En ejecucion -> Finalizada -> Enviado a SAP.
+ * "Creada" ya implica que esta pendiente de la aprobacion del Jefe de Taller (no hay una etapa aparte para eso).
  * "Revision de Inventario" es la cadena de firmas de las requisas (tecnico, Jefe de Taller, Control de Inventario y
  * tecnico que recibe): mientras falte alguna firma, la OT espera en esa etapa. "Finalizada" tambien es una cadena de
  * dos firmas (tecnico finaliza, Jefe de Taller cierra): queda activa (naranja), no hecha, hasta que el Jefe de
@@ -13,10 +14,8 @@ import { formatDateTime, statusLabels, statusOwnerLabels } from './otMeta';
  */
 const phases: { key: string; status?: OTStatus; sourceStatus?: OTStatus; label: string; owner: string }[] = [
   { key: 'creada', status: 'creada', label: statusLabels.creada, owner: statusOwnerLabels.creada },
-  // "Pendiente de aprobacion" no es una transicion propia: arranca en el mismo instante que "Creada"
-  { key: 'pendiente_aprobacion', sourceStatus: 'creada', label: statusLabels.pendiente_aprobacion, owner: statusOwnerLabels.pendiente_aprobacion },
   { key: 'aprobada', status: 'aprobada', label: statusLabels.aprobada, owner: statusOwnerLabels.aprobada },
-  // "Revision de Inventario" tampoco es una transicion propia: arranca en el mismo instante que "Aprobada"
+  // "Revision de Inventario" no es una transicion propia: arranca en el mismo instante que "Aprobada"
   { key: 'revision_inventario', sourceStatus: 'aprobada', label: 'Revision de Inventario', owner: 'Tecnico / Jefe de Taller / Control de Inventario' },
   { key: 'en_ejecucion', status: 'en_ejecucion', label: statusLabels.en_ejecucion, owner: statusOwnerLabels.en_ejecucion },
   { key: 'finalizada', status: 'finalizada', label: statusLabels.finalizada, owner: statusOwnerLabels.finalizada },
@@ -27,23 +26,22 @@ const phases: { key: string; status?: OTStatus; sourceStatus?: OTStatus; label: 
 function currentPhaseIndex(ot: WorkOrder): number {
   switch (ot.status) {
     case 'creada':
-    case 'pendiente_aprobacion':
     case 'rechazada':
       return 1;
     case 'aprobada':
-      return requisitionRevisionPending(ot.lines) ? 3 : 2;
+      return requisitionRevisionPending(ot.lines) ? 2 : 1;
     case 'en_ejecucion':
-      return 4;
+      return 3;
     // el tecnico ya finalizo, pero la etapa "Finalizada" (la firma del Jefe de Taller que cierra la OT) sigue
     // activa hasta que el Jefe realmente firme (closeWorkOrder); recien ahi pasa a "cerrada"
     case 'finalizada':
-      return 5;
+      return 4;
     case 'cerrada':
-      return ot.sapSentAt ? 7 : 6;
+      return ot.sapSentAt ? 6 : 5;
   }
 }
 
-/** Arma las 7 etapas con su estado (hecha/activa/pendiente) y cuando ocurrieron; lo usan la linea de tiempo completa y la mini version de la tabla */
+/** Arma las 6 etapas con su estado (hecha/activa/pendiente) y cuando ocurrieron; lo usan la linea de tiempo completa y la mini version de la tabla */
 function buildOTSteps(ot: WorkOrder) {
   const current = currentPhaseIndex(ot);
   const entryOf = (status: OTStatus) => [...ot.history].reverse().find(h => h.status === status) ?? null;

@@ -199,15 +199,15 @@ function LineAccordion({ ot, line, expanded, onToggle, canEdit, canExecute, onOp
   const showActions = Boolean(signStep);
 
   return (
-    <div className={`overflow-hidden rounded-md border transition-colors ${expanded ? 'border-orange-500' : 'border-orange-500/60 hover:border-orange-500'}`}>
+    <div className={`overflow-hidden rounded-md border transition-colors ${expanded ? 'border-orange-50' : 'border-orange-50 hover:border-orange-50'}`}>
       {/* barra del titulo de la linea: naranja solido */}
       <button
         onClick={onToggle}
         aria-expanded={expanded}
-        className="flex w-full items-center gap-2 bg-orange-500 px-3 py-2.5 text-left text-white transition-colors hover:bg-orange-500"
+        className="flex w-full items-center gap-2 bg-orange-200 px-3 py-2.5 text-left text-white transition-colors hover:bg-orange-200"
       >
-        {expanded ? <ChevronDown size={16} className="flex-shrink-0" /> : <ChevronRight size={16} className="flex-shrink-0" />}
-        <span className={`min-w-0 flex-1 text-content font-bold ${expanded ? 'break-words' : 'truncate'}`}>{line.work}</span>
+        {expanded ? <ChevronDown size={16} className="flex-shrink-0 text-black" /> : <ChevronRight size={16} className="flex-shrink-0 text-black" />}
+        <span className={`min-w-0 flex-1 text-content font-normal text-black ${expanded ? 'break-words' : 'truncate'}`}>{line.work}</span>
       </button>
 
       {expanded && (

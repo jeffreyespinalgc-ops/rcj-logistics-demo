@@ -58,6 +58,12 @@ export interface Part {
   location: string;
   /** Unidad de medida (UND, KG, Toneladas, ...); hoy se ingresa a mano, mas adelante vendra de SAP */
   unit: string;
+  /**
+   * Repuestos entregados por SAP que sobraron sin usar en una OT (Control de Inventario los declara). Es un
+   * conteo aparte de `currentStock`: SAP ya los descarto de su inventario, asi que no vuelven ahi -- quedan
+   * disponibles solo como Inventario Excedente, con su propio historial en InventoryMovement (pool: 'excedente').
+   */
+  surplusStock?: number;
 }
 
 export type MovementType = 'entrada' | 'salida';
@@ -73,13 +79,14 @@ export interface InventoryMovement {
   reference: string;
   user: string;
   date: string;
+  /** De que inventario es este movimiento; ausente = 'sap' (todos los movimientos anteriores a Inventario Excedente) */
+  pool?: 'sap' | 'excedente';
 }
 
 // ===== Work Order Types =====
 
 export type OTStatus =
   | 'creada'
-  | 'pendiente_aprobacion'
   | 'aprobada'
   | 'en_ejecucion'
   | 'finalizada'
@@ -155,6 +162,11 @@ export interface OTLinePart {
   unitCost: number;
   /** Cantidad que Control de Inventario entrego (puede ser menor a la solicitada si no habia stock); ausente antes de la entrega */
   deliveredQuantity?: number;
+  /** Cuanto de lo entregado Control de Inventario declaro como sobrante (no se uso); pasa a Inventario Excedente */
+  returnedQuantity?: number;
+  /** true una vez que Control de Inventario declaro el sobrante de este repuesto (con sobrante o sin el); la
+   * accion "Devolver" es de una sola vez, asi que con esto en true el boton se oculta y no se puede repetir */
+  surplusResolved?: boolean;
   /** Observacion propia de este repuesto (distinta de las observaciones generales de la linea) */
   notes?: string;
 }
@@ -240,6 +252,8 @@ export interface WorkOrder {
   assignedToType: 'tecnico' | 'taller_externo' | null;
   /** Equipo de tecnicos asignados (el principal es `assignedTo`); vacio si la OT va a un taller externo */
   assignedTeam: string[];
+  /** Datos de contacto del taller externo (`assignedTo` ya trae el nombre); null si no aplica */
+  externalWorkshop?: { location: string; phone?: string; email?: string } | null;
   closedAt: string | null;
   approvedBy: string | null;
   signedBy: string | null;

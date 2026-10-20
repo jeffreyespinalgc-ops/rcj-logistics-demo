@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '@/store/AppContext';
 import { useConfirm } from '@/store/ConfirmContext';
 import { useToast } from '@/store/ToastContext';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Field, Select } from '@/components/ui/Field';
@@ -9,7 +10,7 @@ import { SortableTh } from '@/components/ui/SortableTh';
 import { useSort } from '@/lib/useSort';
 import { isOTAssignedTo } from '@/lib/otTeam';
 import type { OTLine, OTLinePart, RequisitionStep, WorkOrder } from '@/types';
-import { AlertTriangle, ChevronRight, CircleChevronRight, Eye, FileSignature, PenBoxIcon, PenTool, Search, SlidersHorizontal, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle, ChevronRight, CircleChevronRight, Eye, FileSignature, PackageMinus, PenBoxIcon, PenTool, Search, X } from 'lucide-react';
 import {
   isDelivered,
   isPartial,
@@ -22,6 +23,7 @@ import {
   requisitionStatus,
   requisitionStepLabels,
   requisitionStepRoles,
+  returnableQuantity,
   signableSteps,
   signatureFor,
   signaturesOf,
@@ -92,7 +94,6 @@ export function RequisasTable() {
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<StatusFilter>('todas');
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<{ otId: string } | null>(null);
   const [preview, setPreview] = useState<{ otId: string } | null>(null);
@@ -176,8 +177,8 @@ export function RequisasTable() {
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-stone-200 bg-stone-50/50">
-        <div className="relative flex-1 min-w-[220px]">
+      <div className="flex flex-wrap items-end gap-3 px-4 py-3 border-b border-stone-200 bg-stone-50/50">
+        <div className="relative min-w-[160px] max-w-full flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
           <input
             ref={searchRef}
@@ -190,30 +191,16 @@ export function RequisasTable() {
           />
           {/* <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-stone-200 bg-stone-50 px-1.5 text-content text-stone-400 sm:block">/</kbd> */}
         </div>
-        <Button
-          variant="outline"
-          className="min-h-[44px]"
-          aria-expanded={filtersOpen}
-          onClick={() => setFiltersOpen(v => !v)}
-        >
-          <SlidersHorizontal size={14} /> Filtros
-          {filter !== 'todas' && <span className="rounded-full bg-orange-500 px-1.5 text-content font-bold leading-4 text-white">1</span>}
-        </Button>
+        <Field label="Estado" className="w-full sm:w-40">
+          <Select
+            value={filter}
+            onChange={e => { setFilter(e.target.value as StatusFilter); setPage(1); }}
+            className="min-h-[44px]"
+          >
+            {filterOptions.map(f => <option key={f} value={f}>{filterLabels[f]}</option>)}
+          </Select>
+        </Field>
       </div>
-
-      {filtersOpen && (
-        <div className="flex flex-wrap items-end gap-3 px-4 py-3 border-b border-stone-100">
-          <Field label="Estado" className="w-full sm:w-56">
-            <Select
-              value={filter}
-              onChange={e => { setFilter(e.target.value as StatusFilter); setPage(1); }}
-              className="min-h-[44px]"
-            >
-              {filterOptions.map(f => <option key={f} value={f}>{filterLabels[f]}</option>)}
-            </Select>
-          </Field>
-        </div>
-      )}
 
       {filter !== 'todas' && (
         <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-stone-100 text-xs">
@@ -383,6 +370,9 @@ function OTRequisitionGroupModal({ otId, onClose }: { otId: string; onClose: () 
             const mySteps = otAcceptsSignatures(ot)
               ? signableSteps(line, { requester: false, autoriza: canAutorizar, despacha: canDespachar })
               : [];
+            // una requisa ya firmada del todo no tiene pasos pendientes, pero Control de Inventario todavia
+            // necesita poder entrar a declarar un sobrante de lo que ya se entrego
+            const canReviewDelivered = isDelivered(line) && canDespachar;
             return (
               <li key={line.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
                 <div className="min-w-0">
@@ -391,13 +381,13 @@ function OTRequisitionGroupModal({ otId, onClose }: { otId: string; onClose: () 
                 </div>
                 <span className="flex items-center gap-2">
                   <RequisitionDocumentButton ot={ot} line={line} />
-                  {mySteps.length > 0 && (
+                  {(mySteps.length > 0 || canReviewDelivered) && (
                     <Button
                       size="sm"
                       className="min-h-[44px] [@media(pointer:fine)]:min-h-0"
                       onClick={() => setLineId(line.id)}
                     >
-                      <PenTool size={12} /> {requisitionSignLabels[mySteps[0]]} Aprobar
+                      <PenTool size={12} /> {mySteps.length > 0 ? `${requisitionSignLabels[mySteps[0]]} Aprobar` : 'Ver repuestos'}
                     </Button>
                   )}
                 </span>
@@ -474,7 +464,7 @@ function RequisitionModal({ otId, lineId, onClose }: { otId: string; lineId: str
     );
   }
 
-  const gridCols = 'grid-cols-[minmax(0,1fr)_2.5rem_3.25rem_4.5rem] sm:grid-cols-[minmax(0,1fr)_6rem_6rem_7rem]';
+  const gridCols = 'grid-cols-[minmax(0,1fr)_2.5rem_3.25rem_4.5rem_6rem] sm:grid-cols-[minmax(0,1fr)_6rem_6rem_7rem_7rem]';
 
   return (
     <Modal open onClose={onClose} title={line.requisition?.code ?? 'Solicitud de repuestos'} size="lg">
@@ -495,6 +485,7 @@ function RequisitionModal({ otId, lineId, onClose }: { otId: string; lineId: str
               <span className="text-right">Stock</span>
               <span className="text-right"><span className="sm:hidden">Pedido</span><span className="hidden sm:inline">Solicitado</span></span>
               <span className="text-right">{dispatching ? 'Entregar' : delivered ? 'Entregado' : 'Entrega'}</span>
+              <span className="text-center">Acciones</span>
             </div>
             {line.parts.map(p => {
               const stock = stockOf(p.partId);
@@ -527,6 +518,9 @@ function RequisitionModal({ otId, lineId, onClose }: { otId: string; lineId: str
                         {delivered ? quantityLabel(line, p) : '--'}
                       </span>
                     )}
+                    <div className="flex justify-center">
+                      <SurplusAction ot={ot} line={line} part={p} canAct={delivered && hasPermission('requisa.despachar')} />
+                    </div>
                   </div>
                   {short && !delivered && (
                     <p className="mt-1 flex items-center gap-1 text-content text-red-700">
@@ -571,6 +565,86 @@ function RequisitionModal({ otId, lineId, onClose }: { otId: string; lineId: str
               </Button>
             )}
           </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * Celda "Acciones" de un repuesto ya entregado: mientras no se haya resuelto, un boton "Devolver" (una sola
+ * vez por repuesto) abre el modal para declarar el sobrante -- 0 si se uso todo. Una vez resuelto se reemplaza
+ * por una insignia fija (Sobrante: N, o "Todo usado" si no sobro nada) y el boton ya no vuelve a aparecer.
+ */
+function SurplusAction({ ot, line, part, canAct }: { ot: WorkOrder; line: OTLine; part: OTLinePart; canAct: boolean }) {
+  const [open, setOpen] = useState(false);
+  const resolved = Boolean(part.surplusResolved);
+  const already = part.returnedQuantity ?? 0;
+
+  if (resolved) {
+    return already > 0 ? (
+      <Badge variant="orange">Sobrante: {already}</Badge>
+    ) : (
+      <Badge variant="green"><CheckCircle size={10} className="mr-1 inline" />Todo usado</Badge>
+    );
+  }
+  if (!canAct) return null;
+
+  return (
+    <>
+      <Button size="sm" variant="outline" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={() => setOpen(true)}>
+        <PackageMinus size={12} /> <span className="hidden sm:inline">Devolver</span>
+      </Button>
+      {open && <SurplusReturnModal ot={ot} line={line} part={part} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function SurplusReturnModal({ ot, line, part, onClose }: { ot: WorkOrder; line: OTLine; part: OTLinePart; onClose: () => void }) {
+  const { returnSurplusPart } = useApp();
+  const confirm = useConfirm();
+  const toast = useToast();
+  // todavia no resuelto: lo devuelto es 0, asi que el tope es sencillamente todo lo entregado
+  const max = returnableQuantity(line, part);
+  const [qty, setQty] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    const message = qty > 0
+      ? `¿Estas seguro de declarar ${qty} unidad(es) de ${part.partDescription} como sobrante? Pasaran a Inventario Excedente.`
+      : `¿Estas seguro de que las ${max} unidad(es) entregadas de ${part.partDescription} se usaron por completo, sin sobrante?`;
+    if (!(await confirm({ title: 'Devolver sobrante', message, confirmLabel: 'Confirmar' }))) return;
+    const result = returnSurplusPart(ot.id, line.id, part.partId, qty);
+    if (result) { setError(result); return; }
+    toast(qty > 0 ? 'Sobrante registrado en Inventario Excedente' : `${part.partDescription}: marcado como totalmente utilizado`);
+    onClose();
+  };
+
+  return (
+    <Modal open onClose={onClose} title="Devolver sobrante" size="sm">
+      <div className="space-y-4">
+        <p className="text-content text-stone-600">
+          Se entregaron <strong>{max}</strong> {part.unit} de <strong>{part.partDescription}</strong>. Indica cuantas sobraron (0 si se usaron todas).
+        </p>
+        <Field label={`Cantidad sobrante (0 a ${max})`}>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={max}
+            value={qty}
+            aria-label="Cantidad sobrante"
+            onChange={e => {
+              const n = Math.floor(Number(e.target.value));
+              setQty(Number.isFinite(n) ? Math.min(Math.max(n, 0), max) : 0);
+            }}
+            className="w-full rounded-md border border-stone-300 px-3 py-2 text-right text-content focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-300"
+          />
+        </Field>
+        {error && <p role="alert" className="text-content text-red-700">{error}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={onClose}>Cancelar</Button>
+          <Button className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={handleSave}>Guardar</Button>
         </div>
       </div>
     </Modal>

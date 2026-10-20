@@ -3,7 +3,6 @@ import { useApp } from '@/store/AppContext';
 import { Modal } from '@/components/ui/Modal';
 import type { WorkOrder } from '@/types';
 import { History } from 'lucide-react';
-import { roleLabels } from '@/lib/roles';
 import { actionLabels, entityLabels } from '@/lib/otLog';
 import { formatDateTime } from './otMeta';
 
@@ -39,26 +38,24 @@ function OTHistoryModal({ ot, onClose }: { ot: WorkOrder; onClose: () => void })
         <div className="overflow-x-auto rounded-md border border-stone-200">
           <table className="data-table">
             <thead>
-              <tr className="">
-                <th className="w-10">#</th>
-                <th className="text-center">Fecha</th>
-                <th className="text-center">Usuario</th>
-                <th className="text-center">Rol</th>
-                <th className="text-center">Entidad</th>
-                <th className="text-center">Accion</th>
-                <th className="text-center">Detalle</th>
+              <tr>
+                <th className="w-10 !py-1.5">#</th>
+                <th className="whitespace-nowrap !py-1.5">Fecha</th>
+                <th className="!py-1.5">Usuario</th>
+                <th className="!py-1.5">Entidad</th>
+                <th className="!py-1.5">Accion</th>
+                <th className="!py-1.5">Detalle</th>
               </tr>
             </thead>
             <tbody>
               {entries.map((e, i) => (
                 <tr key={e.id}>
-                  <td className="text-left">{i + 1}</td>
-                  <td className="text-left whitespace-nowrap text-stone-500">{formatDateTime(e.at)}</td>
-                  <td className="font-normal text-stone-800">{e.by}</td>
-                  <td className="text-stone-600">{e.role === 'sistema' ? 'Sistema' : roleLabels[e.role]}</td>
-                  <td className="text-left">{entityLabels[e.entity]}</td>
-                  <td className="text-left">{actionLabels[e.action] ?? e.action}</td>
-                  <td className="font-normal text-left">{e.summary}{e.reason ? ` (${e.reason})` : ''}</td>
+                  <td className="!py-0.5 text-left">{i + 1}</td>
+                  <td className="!py-0.5 whitespace-nowrap text-stone-500">{formatDateTime(e.at)}</td>
+                  <td className="!py-0.5 font-normal text-stone-800">{e.by}</td>
+                  <td className="!py-0.5">{entityLabels[e.entity]}</td>
+                  <td className="!py-0.5">{actionLabels[e.action] ?? e.action}</td>
+                  <td className="!py-0.5 font-normal">{e.summary}{e.reason ? ` (${e.reason})` : ''}</td>
                 </tr>
               ))}
             </tbody>

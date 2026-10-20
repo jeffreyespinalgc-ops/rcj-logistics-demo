@@ -126,7 +126,7 @@ interface AppState {
   rejectWorkOrder: (id: string, reason: string) => void;
   /** Revision retroactiva de una OT de emergencia ya ejecutada */
   approveEmergencyRetro: (id: string, approver: string) => void;
-  assignWorkOrder: (id: string, team: string[], type: 'tecnico' | 'taller_externo') => void;
+  assignWorkOrder: (id: string, team: string[], type: 'tecnico' | 'taller_externo', externalWorkshop?: { location: string; phone?: string; email?: string }) => void;
   startExecution: (id: string, technician: string) => void;
   finalizeWorkOrder: (id: string, signer: string) => void;
   closeWorkOrder: (id: string) => void;
@@ -151,6 +151,13 @@ interface AppState {
    * y solo antes de que Control de Inventario los entregue. Las firmas que ya tiene la requisa se conservan.
    */
   setLineParts: (otId: string, lineId: string, parts: OTLinePart[]) => string | null;
+  /**
+   * Control de Inventario declara, una sola vez por repuesto de la linea, cuanto de lo ya entregado no se uso
+   * (0 si se uso todo): pasa a Inventario Excedente (Part.surplusStock), no de vuelta a SAP (Part.currentStock).
+   * Una vez declarado (part.surplusResolved) no se puede volver a llamar para ese mismo repuesto. Devuelve el
+   * motivo si no se pudo, o null.
+   */
+  returnSurplusPart: (otId: string, lineId: string, partId: string, quantity: number) => string | null;
   /**
    * Firma una etapa de la requisa de repuestos de la linea. Cuando Control de Inventario aprueba y entrega
    * (`delivered`: cantidad por repuesto, por defecto lo maximo posible) se descuentan del inventario solo las
@@ -488,6 +495,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setParts(prev => prev.map(p => (p.id === partId ? { ...p, currentStock: Math.max(0, p.currentStock + delta) } : p)));
   }, []);
 
+  /** Inventario Excedente: aparte de `currentStock` (SAP), nunca se descuenta de ahi al devolver un sobrante */
+  const adjustSurplusStock = useCallback((partId: string, delta: number) => {
+    setParts(prev => prev.map(p => (p.id === partId ? { ...p, surplusStock: Math.max(0, (p.surplusStock ?? 0) + delta) } : p)));
+  }, []);
+
   // ===== Catalogo de repuestos =====
 
   const addPart = useCallback((part: Omit<Part, 'id'>) => {
@@ -746,10 +758,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [currentRole, currentSignature, workOrders, pushNotification]);
 
   // el primer nombre del equipo queda como responsable principal (assignedTo); el taller externo no tiene equipo
-  const assignWorkOrder = useCallback((id: string, team: string[], type: 'tecnico' | 'taller_externo') => {
+  const assignWorkOrder = useCallback<AppState['assignWorkOrder']>((id, team, type, externalWorkshop) => {
     const assignedTo = team[0] ?? null;
     const assignedTeam = type === 'tecnico' ? team : [];
-    setWorkOrders(prev => prev.map(ot => (ot.id === id ? { ...ot, assignedTo, assignedTeam, assignedToType: type } : ot)));
+    setWorkOrders(prev => prev.map(ot => (
+      ot.id === id
+        ? { ...ot, assignedTo, assignedTeam, assignedToType: type, externalWorkshop: type === 'taller_externo' ? (externalWorkshop ?? null) : null }
+        : ot
+    )));
     const ot = workOrders.find(o => o.id === id);
     if (ot) {
       pushNotification({
@@ -884,10 +900,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWorkOrders(prev => prev.map(o =>
       o.id === otId ? { ...o, lines: o.lines.filter(l => l.id !== lineId) } : o
     ));
-    // devolver al inventario lo que Control de Inventario ya entrego (y se desconto); lo solicitado y no entregado nunca salio
+    // devolver al inventario lo que Control de Inventario ya entrego (y se desconto); lo solicitado y no entregado nunca salio.
+    // lo que ya se haya declarado como sobrante (Inventario Excedente) no se vuelve a devolver aqui: esa parte ya
+    // salio de la cuenta de la linea cuando se declaro, asi que no se le vuelve a sumar a SAP
     if (ot && line && isDelivered(line)) {
       line.parts.forEach(p => {
-        const back = deliveredQuantity(line, p);
+        const back = deliveredQuantity(line, p) - (p.returnedQuantity ?? 0);
         if (back <= 0) return;
         adjustStock(p.partId, back);
         pushMovement({
@@ -965,6 +983,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
     patchLine(otId, lineId, l => ({ ...l, parts: nextParts.map(p => ({ ...p, deliveredQuantity: undefined })), needsPart: nextParts.length > 0 }));
     return null;
   }, [hasPermission, workOrders, patchLine]);
+
+  // declarar el sobrante de un repuesto es de una sola vez por linea: una vez resuelto (con sobrante o sin
+  // el) el boton se oculta y esta funcion ya no vuelve a aceptar esa combinacion otId/lineId/partId
+  const returnSurplusPart = useCallback<AppState['returnSurplusPart']>((otId, lineId, partId, quantity) => {
+    if (!hasPermission('requisa.despachar')) return 'Tu rol no puede declarar sobrantes de inventario.';
+    const ot = workOrders.find(o => o.id === otId);
+    const line = ot?.lines.find(l => l.id === lineId);
+    const part = line?.parts.find(p => p.partId === partId);
+    if (!ot || !line || !part) return 'No se encontro el repuesto de la linea.';
+    if (ot.status === 'cerrada' || ot.status === 'rechazada') return 'Una OT cerrada o rechazada ya no se modifica.';
+    if (!isDelivered(line)) return 'Este repuesto todavia no fue entregado.';
+    if (part.surplusResolved) return 'Ya se declaro el sobrante de este repuesto.';
+    if (!Number.isInteger(quantity) || quantity < 0) return 'La cantidad debe ser un numero entero mayor o igual a cero.';
+    const maxReturnable = deliveredQuantity(line, part);
+    if (quantity > maxReturnable) return `Solo puedes devolver hasta ${maxReturnable} unidad(es).`;
+
+    patchLine(otId, lineId, l => ({
+      ...l,
+      parts: l.parts.map(p => (p.partId === partId ? { ...p, returnedQuantity: quantity, surplusResolved: true } : p)),
+    }));
+    if (quantity > 0) {
+      adjustSurplusStock(partId, quantity);
+      pushMovement({
+        partId: part.partId,
+        partCode: part.partCode,
+        partDescription: part.partDescription,
+        type: 'entrada',
+        pool: 'excedente',
+        quantity,
+        reason: `Sobrante no utilizado de ${ot.code} - ${line.work}`,
+        reference: ot.code,
+        user: currentUser,
+        date: today(),
+      });
+    }
+    return null;
+  }, [hasPermission, workOrders, patchLine, adjustSurplusStock, pushMovement, currentUser]);
 
   const signRequisition = useCallback<AppState['signRequisition']>((otId, lineId, step, delivered) => {
     const ot = workOrders.find(o => o.id === otId);
@@ -1177,7 +1232,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     rejectWorkOrder, approveEmergencyRetro, assignWorkOrder, startExecution, finalizeWorkOrder, closeWorkOrder,
     addOTPhoto, removeOTPhoto,
     addOTLine, updateOTLine, deleteOTLine, startLine, finishLine,
-    addLinePhoto, removeLinePhoto, setLineParts, signRequisition, reviewFinding,
+    addLinePhoto, removeLinePhoto, setLineParts, returnSurplusPart, signRequisition, reviewFinding,
     storageWarning, dismissStorageWarning,
     fuelLoads, addFuelLoad,
     notifications, markNotificationRead, markAllNotificationsRead, addNotification: pushNotification,
@@ -1191,7 +1246,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     approveWorkOrder, rejectWorkOrder, approveEmergencyRetro, assignWorkOrder, startExecution,
     finalizeWorkOrder, closeWorkOrder, addOTPhoto, removeOTPhoto,
     addOTLine, updateOTLine, deleteOTLine, startLine, finishLine,
-    addLinePhoto, removeLinePhoto, setLineParts, signRequisition, reviewFinding, storageWarning,
+    addLinePhoto, removeLinePhoto, setLineParts, returnSurplusPart, signRequisition, reviewFinding, storageWarning,
     dismissStorageWarning, fuelLoads, addFuelLoad, notifications, markNotificationRead,
     markAllNotificationsRead, pushNotification, workTypes, addWorkType, updateWorkType, removeWorkType,
     maintenancePlans, addMaintenanceNode, renameMaintenanceNode, removeMaintenanceNode, moveMaintenanceNode,

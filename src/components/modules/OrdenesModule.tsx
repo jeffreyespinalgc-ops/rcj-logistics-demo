@@ -102,7 +102,7 @@ export function OrdenesModule() {
 
   const stats = useMemo(() => ({
     total: visibleOrders.length,
-    porAprobar: visibleOrders.filter(o => o.status === 'creada' || o.status === 'pendiente_aprobacion').length,
+    porAprobar: visibleOrders.filter(o => o.status === 'creada').length,
     enEjecucion: visibleOrders.filter(o => o.status === 'en_ejecucion').length,
     cerradas: visibleOrders.filter(o => o.status === 'cerrada').length,
   }), [visibleOrders]);
@@ -270,8 +270,8 @@ export function OrdenesModule() {
           <AssignModal
             ot={selectedOT}
             onClose={() => setShowAssignModal(false)}
-            onAssign={(team, type) => {
-              assignWorkOrder(selectedOT.id, team, type);
+            onAssign={(team, type, externalWorkshop) => {
+              assignWorkOrder(selectedOT.id, team, type, externalWorkshop);
               setShowAssignModal(false);
               toast(`${selectedOT.code} asignada correctamente`);
             }}
@@ -556,8 +556,8 @@ function OTDetail({ ot, currentUser, onBack, onReopen, onApprove, onReject, onRe
   const canExecuteLines = hasPermission('ot.lineas.estado') && (isAssigned || canSeeAllOTs)
     && (ot.status === 'aprobada' || ot.status === 'en_ejecucion');
 
-  // una OT nace "creada" y espera la aprobacion del Jefe de Taller (la version anterior "pendiente_aprobacion" tambien cuenta)
-  const awaitingApproval = ot.status === 'creada' || ot.status === 'pendiente_aprobacion';
+  // una OT nace "creada" y espera la aprobacion del Jefe de Taller
+  const awaitingApproval = ot.status === 'creada';
   const canApprove = hasPermission('ot.aprobar') && awaitingApproval;
   const canReject = hasPermission('ot.rechazar') && awaitingApproval;
   const canRetro = hasPermission('ot.emergencia.aprobarRetro')
@@ -568,8 +568,8 @@ function OTDetail({ ot, currentUser, onBack, onReopen, onApprove, onReject, onRe
   const canClose = hasPermission('ot.cerrar') && ot.status === 'finalizada';
   // reabrir una OT rechazada: el Jefe de Taller (mismo permiso con el que la rechazo) o el tecnico que la creo
   const canReopen = ot.status === 'rechazada' && (hasPermission('ot.rechazar') || isCreator);
-  // Aprobar/Rechazar se muestran arriba, junto a "Editar" (no en esta barra)
-  const hasActions = canRetro || canClose || canReopen;
+  // Aprobar/Rechazar/Firmar y cerrar se muestran arriba, junto a "Editar" (no en esta barra)
+  const hasActions = canRetro || canReopen;
   const showActionBar = hasActions || (canFinalize && Boolean(blocked));
 
   return (
@@ -601,6 +601,18 @@ function OTDetail({ ot, currentUser, onBack, onReopen, onApprove, onReject, onRe
                   <XCircle size={14} /> Rechazar
                 </Button>
               )}
+              {canClose && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="min-h-[44px] [@media(pointer:fine)]:min-h-0"
+                  onClick={onClose}
+                  disabled={Boolean(blocked)}
+                  title={blocked ?? undefined}
+                >
+                  <Lock size={14} /> Firmar y cerrar OT
+                </Button>
+              )}
               {canEditLines && (
                 <Button variant="secondary" size="sm" className="min-h-[44px] [@media(pointer:fine)]:min-h-0" onClick={() => setEditingOT(true)}>
                   <Pencil size={14} /> Editar
@@ -626,6 +638,13 @@ function OTDetail({ ot, currentUser, onBack, onReopen, onApprove, onReject, onRe
                 <SapCell label="Aprobado por">{ot.approvedBy ?? 'Sin aprobar'}</SapCell>
                 <SapCell label="Prioridad">{priorityLabels[ot.priority]}</SapCell>
                 <SapCell label="Tiempo trabajado">{formatHours(otHours(ot))}</SapCell>
+                {ot.assignedToType === 'taller_externo' && ot.externalWorkshop && (
+                  <SapCell label="Contacto taller externo">
+                    {ot.externalWorkshop.location}
+                    {ot.externalWorkshop.phone ? ` · Tel: ${ot.externalWorkshop.phone}` : ''}
+                    {ot.externalWorkshop.email ? ` · ${ot.externalWorkshop.email}` : ''}
+                  </SapCell>
+                )}
               </dl>
             </div>
           </div>
@@ -690,11 +709,6 @@ function OTDetail({ ot, currentUser, onBack, onReopen, onApprove, onReject, onRe
             {canRetro && (
               <Button variant="secondary" onClick={onRetroApprove}><ShieldAlert size={16} /> Aprobar retroactivamente</Button>
             )}
-            {canClose && (
-              <Button variant="primary" onClick={onClose} disabled={Boolean(blocked)} title={blocked ?? undefined}>
-                <Lock size={16} /> Firmar y cerrar OT
-              </Button>
-            )}
             {canFinalize && blocked && (
               <span className="flex items-center gap-1.5 text-content text-orange-700">
                 <AlertCircle size={13} /> {blocked}
@@ -731,12 +745,15 @@ function SapCell({ label, children }: { label: string; children: React.ReactNode
 function AssignModal({ ot, onClose, onAssign }: {
   ot: WorkOrder;
   onClose: () => void;
-  onAssign: (team: string[], type: 'tecnico' | 'taller_externo') => void;
+  onAssign: (team: string[], type: 'tecnico' | 'taller_externo', externalWorkshop?: { location: string; phone?: string; email?: string }) => void;
 }) {
   const { users } = useAuth();
   const confirm = useConfirm();
   const [type, setType] = useState<'tecnico' | 'taller_externo'>('tecnico');
   const [externalShop, setExternalShop] = useState('');
+  const [externalLocation, setExternalLocation] = useState('');
+  const [externalPhone, setExternalPhone] = useState('');
+  const [externalEmail, setExternalEmail] = useState('');
   const technicians = users.filter(u => u.role === 'tecnico' && u.active);
   const [team, setTeam] = useState<string[]>(() => (technicians.some(u => u.name === ot.createdBy) ? [ot.createdBy] : []));
 
@@ -744,13 +761,19 @@ function AssignModal({ ot, onClose, onAssign }: {
     setTeam(prev => (prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]));
   };
 
-  const canSubmit = type === 'tecnico' ? team.length > 0 : externalShop.trim() !== '';
+  const canSubmit = type === 'tecnico'
+    ? team.length > 0
+    : externalShop.trim() !== '' && externalLocation.trim() !== '';
 
   const handleSubmit = async () => {
     const who = type === 'tecnico' ? team : [externalShop.trim()];
     if (!canSubmit) return;
     if (!(await confirm({ title: 'Asignar OT', message: `¿Estas seguro de asignar esta OT a ${who.join(', ')}?`, confirmLabel: 'Asignar' }))) return;
-    onAssign(who, type);
+    onAssign(who, type, type === 'taller_externo' ? {
+      location: externalLocation.trim(),
+      phone: externalPhone.trim() || undefined,
+      email: externalEmail.trim() || undefined,
+    } : undefined);
   };
 
   return (
@@ -797,9 +820,22 @@ function AssignModal({ ot, onClose, onAssign }: {
             )}
           </Field>
         ) : (
-          <Field label="Taller externo *">
-            <TextInput value={externalShop} onChange={e => setExternalShop(e.target.value)} placeholder="Ej: Taller Diesel Norte" />
-          </Field>
+          <div className="space-y-3">
+            <Field label="Taller externo *">
+              <TextInput value={externalShop} onChange={e => setExternalShop(e.target.value)} placeholder="Ej: Taller Diesel Norte" />
+            </Field>
+            <Field label="Ubicacion *">
+              <TextInput value={externalLocation} onChange={e => setExternalLocation(e.target.value)} placeholder="Ej: Blvd. Morazan, Tegucigalpa" />
+            </Field>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Telefono">
+                <TextInput type="tel" value={externalPhone} onChange={e => setExternalPhone(e.target.value)} placeholder="Ej: 9999-9999" />
+              </Field>
+              <Field label="Correo">
+                <TextInput type="email" value={externalEmail} onChange={e => setExternalEmail(e.target.value)} placeholder="Ej: contacto@taller.com" />
+              </Field>
+            </div>
+          </div>
         )}
 
         <div className="flex justify-end gap-2 pt-2">

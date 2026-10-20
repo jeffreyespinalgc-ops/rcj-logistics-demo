@@ -16,6 +16,7 @@ import {
   ArrowUpCircle,
   ArrowDownCircle,
   History,
+  PackageMinus,
   Search,
   Plus,
   Trash2,
@@ -49,20 +50,23 @@ export function InventarioModule() {
   // El stock se ajusta automaticamente al consumir repuestos en lineas de OT.
   // El alta manual de repuestos (permiso 'inventario.catalogo.editar') es solo
   // para la demo: el catalogo vendra automaticamente del inventario de SAP.
-  const { parts, movements, workOrders, currentUser, hasPermission, addPart, updatePart, removePart } = useApp();
+  const { parts, movements, workOrders, currentUser, hasPermission, addPart, removePart } = useApp();
   const confirm = useConfirm();
   const toast = useToast();
   const canEditCatalog = hasPermission('inventario.catalogo.editar');
   const canSeeRequisas = hasPermission('modulo.requisas');
   const canSeeAllOT = hasPermission('ot.ver.todas');
   const pendingRequisitions = canSeeRequisas ? pendingRequisitionCount(workOrders, { canSeeAll: canSeeAllOT, currentUser }) : 0;
-  const [view, setView] = useState<'stock' | 'historial' | 'requisas'>('stock');
+  const [view, setView] = useState<'stock' | 'historial' | 'excedente' | 'requisas'>('stock');
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const categories = useMemo(() => [...new Set(parts.map(p => p.category))], [parts]);
+  // Inventario Excedente: repuestos sobrantes que Control de Inventario devolvio desde una OT (no volvieron a SAP)
+  const excedenteParts = useMemo(() => parts.filter(p => (p.surplusStock ?? 0) > 0), [parts]);
+  const excedenteMovements = useMemo(() => movements.filter(m => m.pool === 'excedente'), [movements]);
 
   const filteredParts = useMemo(() => {
     return parts.filter(p => {
@@ -86,23 +90,12 @@ export function InventarioModule() {
         <StatCard label="Alertas Bajo Stock" value={lowStockParts.length} icon={<AlertTriangle size={28} />} subtitle="" />
         <StatCard label="Valor Inventario" value={formatCLP(totalValue)} icon={<Package size={28} />} />
         <StatCard label="Movimientos Recientes" value={movements.length} icon={<History size={28} />} />
+        <StatCard label="Repuestos en Excedente" value={excedenteParts.length} icon={<PackageMinus size={28} />} />
       </IndicatorCards>
 
       <div className="bg-white rounded-lg shadow-card border border-stone-200">
         <div className="flex items-center justify-between px-4 py-3 border-b border-stone-200 flex-wrap gap-2">
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => setView('stock')}
-              className={`min-h-[44px] px-3 py-1.5 text-sm rounded-md transition-colors [@media(pointer:fine)]:min-h-0 ${view === 'stock' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
-            >
-              Inventario
-            </button>
-            <button
-              onClick={() => setView('historial')}
-              className={`min-h-[44px] px-3 py-1.5 text-sm rounded-md transition-colors [@media(pointer:fine)]:min-h-0 ${view === 'historial' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
-            >
-              Historial de Movimientos
-            </button>
             {canSeeRequisas && (
               <button
                 onClick={() => setView('requisas')}
@@ -116,6 +109,24 @@ export function InventarioModule() {
                 )}
               </button>
             )}
+            <button
+              onClick={() => setView('stock')}
+              className={`min-h-[44px] px-3 py-1.5 text-sm rounded-md transition-colors [@media(pointer:fine)]:min-h-0 ${view === 'stock' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
+            >
+              Inventario
+            </button>
+            <button
+              onClick={() => setView('excedente')}
+              className={`min-h-[44px] px-3 py-1.5 text-sm rounded-md transition-colors [@media(pointer:fine)]:min-h-0 ${view === 'excedente' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
+            >
+              Inventario Excedente
+            </button>
+            <button
+              onClick={() => setView('historial')}
+              className={`min-h-[44px] px-3 py-1.5 text-sm rounded-md transition-colors [@media(pointer:fine)]:min-h-0 ${view === 'historial' ? 'bg-orange-50 text-orange-700' : 'text-stone-500 hover:bg-stone-100'}`}
+            >
+              Historial
+            </button>
           </div>
           {canEditCatalog && view === 'stock' && (
             <Button size="sm" onClick={() => setShowCreateModal(true)}>
@@ -173,28 +184,9 @@ export function InventarioModule() {
                         <td className="text-stone-600 font-normal">{part.code}</td>
                         <td className="font-normal text-stone-800">{part.description}</td>
                         <td className="hidden text-stone-600 md:table-cell">{part.category}</td>
-                        <td className={`text-right font-normal ${isLow ? 'text-orange-700' : 'text-stone-800'}`}>
-                          {canEditCatalog ? (
-                            <TextInput
-                              type="number"
-                              min={0}
-                              value={part.currentStock}
-                              onChange={e => updatePart(part.id, { currentStock: Number(e.target.value) })}
-                              className="w-20 !py-1 !text-content text-right ml-auto"
-                            />
-                          ) : part.currentStock}
-                        </td>
-                        <td className="text-right text-stone-600">
-                          {canEditCatalog ? (
-                            <TextInput
-                              type="number"
-                              min={0}
-                              value={part.unitCost}
-                              onChange={e => updatePart(part.id, { unitCost: Number(e.target.value) })}
-                              className="w-24 !py-1 !text-content text-right ml-auto"
-                            />
-                          ) : formatCLP(part.unitCost)}
-                        </td>
+                        {/* Stock Actual y Costo vienen de SAP: de solo lectura para todos los roles, nadie los edita aqui */}
+                        <td className={`text-right font-normal ${isLow ? 'text-orange-700' : 'text-stone-800'}`}>{part.currentStock}</td>
+                        <td className="text-right text-stone-600">{formatCLP(part.unitCost)}</td>
                         <td>
                           {isCritical ? (
                             <Badge variant="red"><AlertTriangle size={10} className="mr-1 inline" /> Critico</Badge>
@@ -236,8 +228,8 @@ export function InventarioModule() {
               <thead>
                 <tr>
                   <SortableTh label="Fecha" sortKey="date" sort={movementSort} onSort={toggleMovementSort} />
-                  <SortableTh label="Codigo" sortKey="code" sort={movementSort} onSort={toggleMovementSort} />
-                  <SortableTh label="Descripcion" sortKey="description" sort={movementSort} onSort={toggleMovementSort} />
+                  <SortableTh label="Código" sortKey="code" sort={movementSort} onSort={toggleMovementSort} />
+                  <SortableTh label="Descripción" sortKey="description" sort={movementSort} onSort={toggleMovementSort} />
                   <SortableTh label="Tipo" sortKey="type" sort={movementSort} onSort={toggleMovementSort} />
                   <SortableTh label="Cantidad" sortKey="quantity" sort={movementSort} onSort={toggleMovementSort} className="text-right" />
                   <SortableTh label="Referencia" sortKey="reference" sort={movementSort} onSort={toggleMovementSort} />
@@ -266,6 +258,41 @@ export function InventarioModule() {
                 ))}
               </tbody>
             </table>
+          </div>
+        ) : view === 'excedente' ? (
+          <div className="p-4">
+            {excedenteMovements.length === 0 ? (
+              <p className="rounded-md border border-dashed border-stone-200 py-6 text-center text-content text-stone-500">
+                Sin excedente registrado todavia.
+              </p>
+            ) : (
+              <div className="overflow-x-auto rounded-md border border-stone-200">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Código</th>
+                      <th>Descripción</th>
+                      <th>Cantidad</th>
+                      <th>Referencia</th>
+                      <th>Usuario</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {excedenteMovements.map(m => (
+                      <tr key={m.id}>
+                        <td className="text-stone-500">{m.date}</td>
+                        <td className="font-normal text-blue-700">{m.partCode}</td>
+                        <td className="font-normal text-stone-800">{m.partDescription}</td>
+                        <td className="font-normal text-green-700">+{m.quantity}</td>
+                        <td className="font-normal text-stone-500">{m.reference}</td>
+                        <td className="text-stone-600">{m.user}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         ) : (
           <RequisasTable />

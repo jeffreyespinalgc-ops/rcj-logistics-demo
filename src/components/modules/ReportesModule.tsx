@@ -15,14 +15,18 @@ export function ReportesModule() {
         <div className="px-4 py-3 border-b border-stone-200">
           <h3 className="ui-title">Reportes</h3>
         </div>
-        <ul className="divide-y divide-stone-100">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 p-4">
           {reportList.map(name => (
-            <li key={name} className="flex items-center gap-3 px-4 py-3 hover:bg-stone-50 transition-colors">
-              <FileText size={18} className="text-stone-400 flex-shrink-0" />
+            <button
+              key={name}
+              type="button"
+              className="flex flex-col items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-5 text-center shadow-sm hover:border-orange-300 hover:bg-stone-50 hover:shadow-card transition-colors min-h-[44px]"
+            >
+              <FileText size={22} className="text-stone-400 flex-shrink-0" />
               <span className="text-content font-medium text-stone-800">{name}</span>
-            </li>
+            </button>
           ))}
-        </ul>
+        </div>
       </div>
     </div>
   );

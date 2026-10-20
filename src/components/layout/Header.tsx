@@ -4,11 +4,11 @@ import { Bell, Menu, PenLine } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const moduleTitles: Record<ModuleKey, { title: string; subtitle: string }> = {
-  activos: { title: 'Activos', subtitle: '' },
+  activos: { title: 'Vehiculos', subtitle: '' },
   inventario: { title: 'Repuestos e Inventario', subtitle: '' },
   ordenes: { title: 'Ordenes de Trabajo', subtitle: '' },
   combustible: { title: 'Combustible', subtitle: '' },
-  reportes: { title: 'Reportes TCO', subtitle: '' },
+  reportes: { title: 'Reportes', subtitle: '' },
   notificaciones: { title: 'Notificaciones', subtitle: '' },
   requisas: { title: 'Requisas de Repuestos', subtitle: '' },
   administracion: { title: 'Administracion', subtitle: '' },

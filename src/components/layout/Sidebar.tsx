@@ -37,7 +37,7 @@ const navItems: NavItem[] = [
   { key: 'ordenes', label: 'Ordenes de Trabajo', icon: ClipboardList },
   { key: 'inventario', label: 'Repuestos e Inventario', icon: Package },
   // { key: 'combustible', label: 'Combustible', icon: Fuel },
-  { key: 'reportes', label: 'Reportes TCO', icon: BarChart3 },
+  { key: 'reportes', label: 'Reportes', icon: BarChart3 },
   // { key: 'notificaciones', label: 'Notificaciones', icon: Bell },
   { key: 'administracion', label: 'Administracion', icon: Settings },
 ];
